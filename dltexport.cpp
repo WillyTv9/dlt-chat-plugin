@@ -1,19 +1,9 @@
-/*
- * This Source Code Form is subject to the terms of the Mozilla Public License,
- * v. 2.0. If a copy of the MPL was not distributed with this file, You can
- * obtain one at http://mozilla.org/MPL/2.0/.
- *
- * SPDX-License-Identifier: MPL-2.0
- */
-
 #include "dltexport.h"
 
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
 #include <QTextStream>
-
-
 
 QString DltExport::generateCsvRow(const QStringList &fields)
 {
@@ -24,9 +14,7 @@ QString DltExport::generateCsvRow(const QStringList &fields)
         QString value = field;
         value.replace("\"", "\"\"");
         if (value.contains(',') || value.contains('"') || value.contains('\n') || value.contains('\r'))
-        {
             value = QString("\"%1\"").arg(value);
-        }
         escaped.append(value);
     }
     return escaped.join(',');
@@ -37,27 +25,22 @@ QStringList DltExport::sanitizeFields(const QStringList &fields)
     QStringList sanitized;
     sanitized.reserve(fields.size());
     for (const QString &field : fields)
-    {
         sanitized.append(field.trimmed());
-    }
     return sanitized;
 }
 
 bool DltExport::exportToCsv(const QString &filePath,
-                          const QList<int> &indices,
-                          const QStringList &snippets,
-                          const QString &query)
+                            const QList<int> &indices,
+                            const QStringList &snippets,
+                            const QString &query,
+                            const QVector<DltAnalyzerInterface::LogEntry> &entries)
 {
     if (indices.isEmpty())
-    {
         return false;
-    }
 
     QFile file(filePath);
     if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
-    {
         return false;
-    }
 
     QTextStream out(&file);
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
@@ -66,25 +49,28 @@ bool DltExport::exportToCsv(const QString &filePath,
     out.setCodec("UTF-8");
 #endif
 
-    // Write header with all relevant fields
     out << generateCsvRow({"#", "Index", "Time", "Timestamp", "Level", "ECU", "APID", "CTID", "Payload", "Source Query"}) << "\n";
+
+    QHash<int, DltAnalyzerInterface::LogEntry> entryMap;
+    for (const auto &e : entries)
+        entryMap.insert(e.index, e);
 
     const int count = qMin(indices.size(), snippets.size());
     for (int i = 0; i < count; ++i)
     {
-        // Note: We only have index and snippet from the result
-        // Full entry data would require reference to entries vector
+        int idx = indices[i];
+        auto it = entryMap.constFind(idx);
         QStringList fields = {
-            QString::number(i + 1),           // Row number
-            QString::number(indices[i]),      // Index
-            QString(),                        // Time (not available in export)
-            QString(),                        // Timestamp (not available)
-            QString(),                        // Level (not available)
-            QString(),                        // ECU (not available)
-            QString(),                        // APID (not available)
-            QString(),                        // CTID (not available)
-            snippets[i],                      // Payload
-            query                             // Source query
+            QString::number(i + 1),
+            QString::number(idx),
+            it != entryMap.constEnd() ? it->time : QString(),
+            it != entryMap.constEnd() ? it->timestamp : QString(),
+            it != entryMap.constEnd() ? it->level : QString(),
+            it != entryMap.constEnd() ? it->ecu : QString(),
+            it != entryMap.constEnd() ? it->apid : QString(),
+            it != entryMap.constEnd() ? it->ctid : QString(),
+            snippets[i],
+            query
         };
         out << generateCsvRow(sanitizeFields(fields)) << "\n";
     }
@@ -94,18 +80,14 @@ bool DltExport::exportToCsv(const QString &filePath,
 }
 
 bool DltExport::exportAllEntries(const QString &filePath,
-                                const QVector<DltAnalyzerInterface::LogEntry> &entries)
+                                 const QVector<DltAnalyzerInterface::LogEntry> &entries)
 {
     if (entries.isEmpty())
-    {
         return false;
-    }
 
     QFile file(filePath);
     if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
-    {
         return false;
-    }
 
     QTextStream out(&file);
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
@@ -118,7 +100,7 @@ bool DltExport::exportAllEntries(const QString &filePath,
 
     for (const DltAnalyzerInterface::LogEntry &entry : entries)
     {
-        QStringList fields = {
+        out << generateCsvRow(sanitizeFields({
             QString::number(entry.index),
             entry.time,
             entry.timestamp,
@@ -127,8 +109,7 @@ bool DltExport::exportAllEntries(const QString &filePath,
             entry.apid,
             entry.ctid,
             entry.payload
-        };
-        out << generateCsvRow(sanitizeFields(fields)) << "\n";
+        })) << "\n";
     }
 
     file.close();

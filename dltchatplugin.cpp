@@ -1,29 +1,38 @@
-/*
- * This Source Code Form is subject to the terms of the Mozilla Public License,
- * v. 2.0. If a copy of the MPL was not distributed with this file, You can
- * obtain one at http://mozilla.org/MPL/2.0/.
- *
- * SPDX-License-Identifier: MPL-2.0
- */
-
 #include "dltchatplugin.h"
 
 #include <QAbstractItemView>
+#include <QDateTime>
+#include <QRegularExpression>
 #include <QItemSelectionModel>
 #include <QMutexLocker>
 #include <QSettings>
+#include <QThread>
+#include <QNetworkAccessManager>
+#include <QNetworkReply>
+#include <QNetworkRequest>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
+
+static const char *STOPWORDS[] = {
+    "the", "and", "this", "that", "what", "which", "with", "from", "have", "been",
+    "show", "mostra", "elenca", "tutti", "tutte", "all", "why", "perche", "causa",
+    "motivo", "summary", "summarize", "riassumi", "sintesi", "log", "logs",
+    "messaggi", "messaggio", "indice", "index", "riga", "line", "timestamp", "time",
+    "tempo", "error", "errors", "errore", "errori", "fatal", "fatale", "warn",
+    "warning", "avviso", "info", "debug", "verbose", "context", "before", "after",
+    "can", "not", "are", "was", "for", "will", "has", "had", "but", "its", "also"
+};
 
 DltChatPlugin::DltChatPlugin()
-    : form(nullptr)
-    , dltFile(nullptr)
-    , mainTableView(nullptr)
-    , messageDecoder(nullptr)
+    : form(nullptr), dltFile(nullptr), mainTableView(nullptr), messageDecoder(nullptr)
     , highlightColor(255, 230, 128)
-    , m_analyzer(nullptr)
-    , m_ruleBasedAnalyzer(nullptr)
-    , m_llmAnalyzer(nullptr)
+    , m_analyzer(nullptr), m_ruleBasedAnalyzer(nullptr), m_llmAnalyzer(nullptr)
     , m_currentAnalyzerType("rule-based")
 {
+    indexStopwords.reserve(70);
+    for (const char *w : STOPWORDS)
+        indexStopwords.insert(QString::fromLatin1(w));
     setupDefaultAnalyzer();
 }
 
@@ -38,109 +47,138 @@ void DltChatPlugin::setupDefaultAnalyzer()
     m_ruleBasedAnalyzer = new DltRuleBasedAnalyzer();
     m_analyzer = m_ruleBasedAnalyzer;
 
-    // Try to create Ollama analyzer with configurable defaults
-    // These can be overridden by loadConfig()
-    QString endpoint = "http://localhost:11434";
-    QString model = "qwen3.5:4b";
-    
     m_llmAnalyzer = DltLlmAnalyzerFactory::createOllamaAnalyzer(
-        endpoint,
-        model,
-        this);
+        "http://localhost:11434", "qwen3.5:4b", this);
 
-    if (m_llmAnalyzer && m_llmAnalyzer->isAvailable())
-    {
-        qDebug() << "DLT Chat Plugin: Ollama LLM initialized with" << model;
+    connect(m_llmAnalyzer, &DltLlmAnalyzerInterface::queryResultReady,
+            this, &DltChatPlugin::onLlmResultReady);
+
+    checkAiAvailabilityAsync();
+}
+
+static QStringList buildLevels(const QHash<int,int> &idxMap,
+                                const QVector<DltAnalyzerInterface::LogEntry> &ents,
+                                const QList<int> &indices)
+{
+    QStringList l; l.reserve(indices.size());
+    for (int idx : indices) {
+        int p = idxMap.value(idx, -1);
+        l.append(p >= 0 && p < ents.size() ? ents[p].level : QString());
     }
-    else
+    return l;
+}
+
+void DltChatPlugin::checkAiAvailabilityAsync()
+{
+    if (!m_llmAnalyzer || !m_llmAnalyzer->validateConfiguration())
     {
-        qDebug() << "DLT Chat Plugin: Ollama LLM not available at" << endpoint
-                 << "(this is OK - will use rule-based analyzer by default)";
+        setAiState(AiUnconfigured);
+        return;
     }
+
+    QNetworkAccessManager *mgr = new QNetworkAccessManager(this);
+    QString tagsUrl = m_llmAnalyzer->apiEndpoint();
+    tagsUrl.replace("/api/generate", "/api/tags");
+
+    QNetworkReply *reply = mgr->get(QNetworkRequest(QUrl(tagsUrl)));
+    connect(reply, &QNetworkReply::finished, this, [this, reply, mgr]() {
+        reply->deleteLater();
+        mgr->deleteLater();
+
+        if (reply->error() == QNetworkReply::NoError)
+        {
+            QJsonDocument doc = QJsonDocument::fromJson(reply->readAll());
+            if (doc.isObject())
+            {
+                QJsonArray models = doc.object()["models"].toArray();
+                for (const auto &m : models)
+                {
+                    QString name = m.toObject()["name"].toString();
+                    if (name.startsWith(m_llmAnalyzer->modelName()))
+                    {
+                        setAiState(AiConnected, m_llmAnalyzer->modelName());
+                        return;
+                    }
+                }
+            }
+            setAiState(AiConfiguredOffline, m_llmAnalyzer->modelName());
+        }
+        else
+        {
+            setAiState(AiConfiguredOffline, m_llmAnalyzer->modelName());
+        }
+    });
 }
 
-QString DltChatPlugin::name()
+void DltChatPlugin::setAiState(int state, const QString &modelName)
 {
-    return QString("DLT Log Assistant");
+    m_aiState = state;
+    if (state == AiConnected) m_aiModelName = modelName;
+    else if (state == AiConfiguredOffline) m_aiModelName = modelName.isEmpty() ? m_llmAnalyzer->modelName() : modelName;
+    else m_aiModelName.clear();
+    m_aiAvailabilityTimer.start();
+    emit onAiAvailabilityChanged(state, m_aiModelName);
 }
 
-QString DltChatPlugin::pluginVersion()
-{
-    return DLT_CHAT_PLUGIN_VERSION;
-}
-
-QString DltChatPlugin::pluginInterfaceVersion()
-{
-    return PLUGIN_INTERFACE_VERSION;
-}
-
+QString DltChatPlugin::name() { return QString("Chat Log Assistant"); }
+QString DltChatPlugin::pluginVersion() { return DLT_CHAT_PLUGIN_VERSION; }
+QString DltChatPlugin::pluginInterfaceVersion() { return PLUGIN_INTERFACE_VERSION; }
 QString DltChatPlugin::description()
 {
-    return QString("Chat-based log analysis for DLT Viewer with Rule-Based and LLM support");
+    return QString("Chat-based log analysis for DLT Viewer with rule-based and AI support");
 }
-
-QString DltChatPlugin::error()
-{
-    return errorText;
-}
+QString DltChatPlugin::error() { return errorText; }
 
 bool DltChatPlugin::loadConfig(QString filename)
 {
+    errorText.clear();
     if (filename.isEmpty())
     {
-        return false;
+        applyConfigToForm();
+        return true;
     }
-
     QSettings settings(filename, QSettings::IniFormat);
-
     settings.beginGroup("Analyzer");
-    QString analyzerType = settings.value("type", "rule-based").toString();
-    setAnalyzerType(analyzerType);
-
-    QString endpoint = settings.value("llmEndpoint", "").toString();
-    QString apiKey = settings.value("llmApiKey", "").toString();
+    QString t = settings.value("type", "rule-based").toString();
+    setAnalyzerType(t);
+    QString ep = settings.value("llmEndpoint", "").toString();
+    QString key = settings.value("llmApiKey", "").toString();
     QString model = settings.value("llmModel", "qwen3.5:4b").toString();
-
-    if (!endpoint.isEmpty())
-    {
-        configureLlmAnalyzer(endpoint, apiKey, model);
-    }
+    if (!ep.isEmpty()) configureLlmAnalyzer(ep, key, model);
     settings.endGroup();
-
+    settings.beginGroup("Behavior");
+    if (settings.contains("highlightColor"))
+        highlightColor = QColor(settings.value("highlightColor").toString());
+    settings.endGroup();
+    applyConfigToForm();
     return true;
 }
 
 bool DltChatPlugin::saveConfig(QString filename)
 {
-    if (filename.isEmpty())
-    {
-        return false;
-    }
-
-    QSettings settings(filename, QSettings::IniFormat);
-
-    settings.beginGroup("Analyzer");
-    settings.setValue("type", m_currentAnalyzerType);
+    if (filename.isEmpty()) return false;
+    QSettings s(filename, QSettings::IniFormat);
+    s.beginGroup("Analyzer");
+    s.setValue("type", m_currentAnalyzerType);
     if (m_llmAnalyzer)
     {
-        settings.setValue("llmEndpoint", m_llmAnalyzer->apiEndpoint());
-        settings.setValue("llmApiKey", m_llmAnalyzer->apiKey());
-        settings.setValue("llmModel", m_llmAnalyzer->modelName());
+        s.setValue("llmEndpoint", m_llmAnalyzer->apiEndpoint());
+        s.setValue("llmApiKey", m_llmAnalyzer->apiKey());
+        s.setValue("llmModel", m_llmAnalyzer->modelName());
     }
-    settings.endGroup();
-
-    settings.sync();
-    return settings.status() == QSettings::NoError;
+    s.endGroup();
+    s.beginGroup("Behavior");
+    s.setValue("highlightColor", highlightColor.name());
+    s.endGroup();
+    s.sync();
+    return s.status() == QSettings::NoError;
 }
 
 QStringList DltChatPlugin::infoConfig()
 {
     QStringList info;
     info << QString("Analyzer: %1").arg(m_currentAnalyzerType);
-    if (m_analyzer)
-    {
-        info << m_analyzer->configurationInfo();
-    }
+    if (m_analyzer) info << m_analyzer->configurationInfo();
     return info;
 }
 
@@ -148,118 +186,70 @@ QWidget* DltChatPlugin::initViewer()
 {
     form = new DltChat::Form();
     connect(form, &DltChat::Form::querySubmitted, this, &DltChatPlugin::onQuerySubmitted);
+    connect(form, &DltChat::Form::aiQuerySubmitted, this, &DltChatPlugin::onAiQuerySubmitted);
+    connect(form, &DltChat::Form::configureAiClicked, this, &DltChatPlugin::onConfigureAiClicked);
     connect(form, &DltChat::Form::indexActivated, this, &DltChatPlugin::onIndexActivated);
     connect(form, &DltChat::Form::clearHighlightsRequested, this, &DltChatPlugin::onClearHighlightsRequested);
     connect(form, &DltChat::Form::exportRequested, this, &DltChatPlugin::onExportRequested);
     connect(form, &DltChat::Form::exportAllRequested, this, &DltChatPlugin::onExportAllRequested);
     connect(this, &DltChatPlugin::statusChanged, form, &DltChat::Form::setStatusText, Qt::QueuedConnection);
+    connect(this, &DltChatPlugin::onAiAvailabilityChanged, form, &DltChat::Form::setAiStatus, Qt::QueuedConnection);
 
+    applyConfigToForm();
     return form;
+}
+
+void DltChatPlugin::applyConfigToForm()
+{
+    if (!form) return;
+    emit onAiAvailabilityChanged(m_aiState, m_aiModelName);
 }
 
 void DltChatPlugin::initFileStart(QDltFile *file)
 {
     dltFile = file;
     clearData();
+    filterRowMapDirty = true;
     updateStatus("Caricamento log in corso...");
 }
 
 void DltChatPlugin::initFileFinish()
 {
+    rebuildFilterRowMap();
     int count = 0;
-    {
-        QMutexLocker locker(&entriesMutex);
-        count = entries.size();
-    }
-    updateStatus(QString("Log caricato: %1 messaggi. [Analyzer: %2]")
-        .arg(count)
-        .arg(m_currentAnalyzerType));
+    { QMutexLocker l(&entriesMutex); count = entries.size(); }
+    updateStatus(QString("Log caricato: %1 messaggi. [%2]").arg(count).arg(m_currentAnalyzerType));
 }
 
-void DltChatPlugin::initMsg(int index, QDltMsg &msg)
-{
-    ingestMessage(index, msg);
-}
-
-void DltChatPlugin::initMsgDecoded(int index, QDltMsg &msg)
-{
-    ingestMessage(index, msg);
-}
-
-void DltChatPlugin::updateFileStart()
-{
-}
-
-void DltChatPlugin::updateMsg(int index, QDltMsg &msg)
-{
-    ingestMessage(index, msg);
-}
-
-void DltChatPlugin::updateMsgDecoded(int index, QDltMsg &msg)
-{
-    ingestMessage(index, msg);
-}
+void DltChatPlugin::initMsg(int idx, QDltMsg &msg) { ingestMessage(idx, msg); }
+void DltChatPlugin::initMsgDecoded(int idx, QDltMsg &msg) { ingestMessage(idx, msg); }
+void DltChatPlugin::updateFileStart() {}
+void DltChatPlugin::updateMsg(int idx, QDltMsg &msg) { ingestMessage(idx, msg); }
+void DltChatPlugin::updateMsgDecoded(int idx, QDltMsg &msg) { ingestMessage(idx, msg); }
 
 void DltChatPlugin::updateFileFinish()
 {
-    int count = 0;
-    {
-        QMutexLocker locker(&entriesMutex);
-        count = entries.size();
-    }
-    updateStatus(QString("Log aggiornato: %1 messaggi.").arg(count));
+    rebuildFilterRowMap();
+    int c = 0;
+    { QMutexLocker l(&entriesMutex); c = entries.size(); }
+    updateStatus(QString("Log aggiornato: %1 messaggi.").arg(c));
 }
 
-void DltChatPlugin::selectedIdxMsg(int /*index*/, QDltMsg &/*msg*/)
-{
-}
+void DltChatPlugin::selectedIdxMsg(int, QDltMsg &) {}
+void DltChatPlugin::selectedIdxMsgDecoded(int, QDltMsg &) {}
 
-void DltChatPlugin::selectedIdxMsgDecoded(int /*index*/, QDltMsg &/*msg*/)
-{
-}
-
-bool DltChatPlugin::initControl(QDltControl * /*control*/)
-{
-    return true;
-}
-
-bool DltChatPlugin::initConnections(QStringList /*list*/)
-{
-    return true;
-}
-
-bool DltChatPlugin::controlMsg(int /*index*/, QDltMsg &/*msg*/)
-{
-    return true;
-}
-
-bool DltChatPlugin::stateChanged(int /*index*/, QDltConnection::QDltConnectionState /*connectionState*/, QString /*hostname*/)
-{
-    return true;
-}
-
-bool DltChatPlugin::autoscrollStateChanged(bool /*enabled*/)
-{
-    return true;
-}
-
-void DltChatPlugin::initMessageDecoder(QDltMessageDecoder* pMessageDecoder)
-{
-    messageDecoder = pMessageDecoder;
-}
-
-void DltChatPlugin::initMainTableView(QTableView* pTableView)
-{
-    mainTableView = pTableView;
-}
-
-void DltChatPlugin::configurationChanged()
-{
-}
+bool DltChatPlugin::initControl(QDltControl *) { return true; }
+bool DltChatPlugin::initConnections(QStringList) { return true; }
+bool DltChatPlugin::controlMsg(int, QDltMsg &) { return true; }
+bool DltChatPlugin::stateChanged(int, QDltConnection::QDltConnectionState, QString) { return true; }
+bool DltChatPlugin::autoscrollStateChanged(bool) { return true; }
+void DltChatPlugin::initMessageDecoder(QDltMessageDecoder *p) { messageDecoder = p; }
+void DltChatPlugin::initMainTableView(QTableView *p) { mainTableView = p; }
+void DltChatPlugin::configurationChanged() {}
 
 void DltChatPlugin::setAnalyzerType(const QString &type)
 {
-    if (type == "llm" && m_llmAnalyzer && m_llmAnalyzer->isAvailable())
+    if (type == "llm" && m_llmAnalyzer && m_aiState == AiConnected)
     {
         m_analyzer = m_llmAnalyzer;
         m_currentAnalyzerType = "llm";
@@ -271,272 +261,342 @@ void DltChatPlugin::setAnalyzerType(const QString &type)
     }
 }
 
-QString DltChatPlugin::currentAnalyzerType() const
+QString DltChatPlugin::currentAnalyzerType() const { return m_currentAnalyzerType; }
+
+void DltChatPlugin::configureLlmAnalyzer(const QString &ep, const QString &key, const QString &model)
 {
-    return m_currentAnalyzerType;
+    if (!m_llmAnalyzer) m_llmAnalyzer = new DltLlmAnalyzerInterface(this);
+    m_llmAnalyzer->setApiEndpoint(ep);
+    m_llmAnalyzer->setApiKey(key);
+    m_llmAnalyzer->setModelName(model);
+    checkAiAvailabilityAsync();
+    applyConfigToForm();
 }
 
-void DltChatPlugin::configureLlmAnalyzer(const QString &endpoint, const QString &apiKey, const QString &model)
+QStringList DltChatPlugin::extractKeywords(const QString &text) const
 {
-    if (!m_llmAnalyzer)
+    QStringList tokens = text.toLower().split(QRegularExpression("\\W+"), Qt::SkipEmptyParts);
+    QStringList kw;
+    kw.reserve(tokens.size());
+    for (const QString &t : tokens)
     {
-        m_llmAnalyzer = new DltLlmAnalyzerInterface(this);
+        if (t.size() < 3) continue;
+        if (indexStopwords.contains(t)) continue;
+        if (t.at(0).isDigit()) continue;
+        kw.append(t);
     }
-
-    m_llmAnalyzer->setApiEndpoint(endpoint);
-    m_llmAnalyzer->setApiKey(apiKey);
-    m_llmAnalyzer->setModelName(model);
+    kw.removeDuplicates();
+    return kw;
 }
 
 void DltChatPlugin::onQuerySubmitted(const QString &query)
 {
-    if (!form)
+    if (!form) return;
+    form->appendMessage("Tu", query.toHtmlEscaped());
+
+    QVector<DltAnalyzerInterface::LogEntry> snapshot;
+    { QMutexLocker l(&entriesMutex); snapshot = entries; }
+
+    QElapsedTimer timer;
+    timer.start();
+
+    QStringList keywords = extractKeywords(query);
+    QSet<int> matched;
+    if (!keywords.isEmpty())
     {
+        auto it = invertedIndex.constFind(keywords[0]);
+        if (it != invertedIndex.constEnd())
+            matched = it.value();
+        for (int k = 1; k < keywords.size() && !matched.isEmpty(); ++k)
+            matched.intersect(invertedIndex.value(keywords[k]));
+    }
+
+    QStringList matchedKw;
+    if (query.contains("error") || query.contains("errore")) matchedKw << "error";
+    if (query.contains("fatal") || query.contains("fatale")) matchedKw << "fatal";
+    if (query.contains("warn")) matchedKw << "warn";
+    if (query.contains("info")) matchedKw << "info";
+    if (query.contains("debug")) matchedKw << "debug";
+    if (query.contains("verbose")) matchedKw << "verbose";
+
+    QVector<DltAnalyzerInterface::LogEntry> filtered;
+    if (!matchedKw.isEmpty() || !keywords.isEmpty())
+    {
+        filtered.reserve(snapshot.size());
+        for (const auto &entry : snapshot)
+        {
+            if (!matchedKw.isEmpty() && !matchedKw.contains(entry.level)) continue;
+            if (!matched.isEmpty() && !matched.contains(entry.index)) continue;
+            filtered.append(entry);
+            if (filtered.size() >= 200) break;
+        }
+    }
+    else filtered = snapshot;
+
+    DltAnalyzerInterface::QueryResult result;
+    if (filtered.isEmpty())
+    {
+        result.responseHtml = query.contains("summary") || query.contains("riassumi")
+            ? m_ruleBasedAnalyzer->analyzeQuery(query, snapshot).responseHtml
+            : "Nessun risultato. Prova altre parole chiave o 'riassumi'.";
+        result.success = !result.responseHtml.isEmpty();
+    }
+    else
+    {
+        result = m_ruleBasedAnalyzer->analyzeQuery(query, filtered);
+    }
+
+    result.processingTimeMs = timer.elapsed();
+    QString html = result.responseHtml;
+    if (result.processingTimeMs > 0)
+        html += QString("<br><small>%1ms</small>").arg(result.processingTimeMs);
+
+    form->appendMessage("Chat Assistant", html);
+    {
+        QMutexLocker lk(&entriesMutex);
+        QStringList lvls = buildLevels(indexToPos, entries, result.indices);
+        form->setResults(result.indices, result.snippets, lvls);
+    }
+    highlightIndices(result.indices);
+}
+
+void DltChatPlugin::onAiQuerySubmitted(const QString &query)
+{
+    if (!form) return;
+    form->appendMessage("Tu (AI)", query.toHtmlEscaped());
+    form->setProcessingProgress(true);
+
+    QVector<DltAnalyzerInterface::LogEntry> snapshot;
+    { QMutexLocker l(&entriesMutex); snapshot = entries; }
+
+    if (m_aiState != AiConnected || !m_llmAnalyzer)
+    {
+        form->setProcessingProgress(false);
+        QElapsedTimer timer; timer.start();
+        QStringList keywords = extractKeywords(query);
+        QVector<DltAnalyzerInterface::LogEntry> pre;
+        if (!keywords.isEmpty())
+        {
+            QSet<int> s = invertedIndex.value(keywords[0]);
+            for (int k = 1; k < keywords.size() && !s.isEmpty(); ++k)
+                s.intersect(invertedIndex.value(keywords[k]));
+            for (const auto &e : snapshot)
+                if (s.contains(e.index)) pre.append(e);
+        }
+        else { pre = snapshot; }
+        if (pre.size() > 100) pre.resize(100);
+
+        auto result = m_ruleBasedAnalyzer->analyzeQuery(query, pre.isEmpty() ? snapshot : pre);
+        result.processingTimeMs = timer.elapsed();
+        form->appendMessage("AI Assistant (fallback)", result.responseHtml
+            + "<br><em>AI non disponibile, analisi locale.</em>");
+        form->setResults(result.indices, result.snippets,
+            buildLevels(indexToPos, entries, result.indices));
+        highlightIndices(result.indices);
         return;
     }
 
-    form->appendMessage("Tu", query.toHtmlEscaped());
-
-    DltAnalyzerInterface::QueryResult result = analyzeQueryInternal(query);
-
-    QString responseHtml = result.responseHtml;
-    if (result.processingTimeMs > 0)
+    QStringList keywords = extractKeywords(query);
+    QVector<DltAnalyzerInterface::LogEntry> prefiltered;
+    if (!keywords.isEmpty())
     {
-        responseHtml += QString("<br><small>Tempo: %1ms</small>").arg(result.processingTimeMs);
+        QSet<int> s = invertedIndex.value(keywords[0]);
+        for (int k = 1; k < keywords.size() && !s.isEmpty(); ++k)
+            s.intersect(invertedIndex.value(keywords[k]));
+
+        for (const auto &e : snapshot)
+        {
+            if (s.contains(e.index) || keywords.isEmpty())
+                prefiltered.append(e);
+            if (prefiltered.size() >= 200) break;
+        }
     }
 
-    form->appendMessage("DLT Assistant", responseHtml);
-    form->setResults(result.indices, result.snippets);
+    if (prefiltered.isEmpty()) prefiltered = snapshot;
+    if (prefiltered.size() > 100) prefiltered.resize(100);
+
+    m_pendingAiQuery = query;
+    m_llmAnalyzer->analyzeQueryAsync(query, prefiltered);
+}
+
+void DltChatPlugin::onLlmResultReady(const DltAnalyzerInterface::QueryResult &result, const QString &originalQuery)
+{
+    if (!form) return;
+    form->setProcessingProgress(false);
+
+    QString html = result.responseHtml;
+    if (!result.success)
+    {
+        html += "<br><em>Fallback a analisi locale.</em>";
+        QVector<DltAnalyzerInterface::LogEntry> snapshot;
+        { QMutexLocker l(&entriesMutex); snapshot = entries; }
+        auto fb = m_ruleBasedAnalyzer->analyzeQuery(originalQuery, snapshot);
+        html = fb.responseHtml + "<br><em>AI non disponibile. Risultato locale.</em>";
+        if (fb.processingTimeMs > 0)
+            html += QString("<br><small>%1ms</small>").arg(fb.processingTimeMs);
+        form->appendMessage("AI Assistant", html);
+        form->setResults(fb.indices, fb.snippets,
+            buildLevels(indexToPos, entries, fb.indices));
+        highlightIndices(fb.indices);
+        return;
+    }
+
+    form->appendMessage("AI Assistant", html);
+    form->setResults(result.indices, result.snippets,
+        buildLevels(indexToPos, entries, result.indices));
     highlightIndices(result.indices);
+}
+
+void DltChatPlugin::onConfigureAiClicked()
+{
+    if (!m_llmAnalyzer || !form) return;
+    DltAiOptionsDialog dlg(form);
+    dlg.setWindowTitle(tr("Configurazione AI"));
+    dlg.setEndpoint(m_llmAnalyzer->apiEndpoint());
+    dlg.setApiKey(m_llmAnalyzer->apiKey());
+    dlg.setModel(m_llmAnalyzer->modelName());
+    dlg.setMaxTokens(m_llmAnalyzer->maxTokens());
+    dlg.setTemperature(m_llmAnalyzer->temperature());
+    dlg.setTimeoutMs(m_llmAnalyzer->timeout());
+
+    if (dlg.exec() == QDialog::Accepted)
+    {
+        m_llmAnalyzer->setApiEndpoint(dlg.endpoint());
+        m_llmAnalyzer->setApiKey(dlg.apiKey());
+        m_llmAnalyzer->setModelName(dlg.model());
+        m_llmAnalyzer->setMaxTokens(dlg.maxTokens());
+        m_llmAnalyzer->setTemperature(dlg.temperature());
+        m_llmAnalyzer->setTimeout(dlg.timeoutMs());
+        checkAiAvailabilityAsync();
+    }
 }
 
 void DltChatPlugin::onIndexActivated(int index)
 {
     if (!mainTableView || !dltFile)
     {
-        if (form)
-        {
-            form->appendMessage("DLT Assistant", "Navigazione non disponibile: vista principale non trovata.");
-        }
+        if (form) form->appendMessage("Chat Assistant", "Navigazione non disponibile.");
         return;
     }
-
     int row = findRowForIndex(index);
     if (row < 0)
     {
-        if (form)
-        {
-            form->appendMessage("DLT Assistant", "Indice non trovato nella vista corrente (filtri attivi?).");
-        }
+        if (form) form->appendMessage("Chat Assistant", "Indice non trovato (filtri?).");
         return;
     }
-
-    QModelIndex targetIndex = mainTableView->model()->index(row, 0);
-    if (!targetIndex.isValid())
-    {
-        return;
-    }
-
+    QModelIndex ti = mainTableView->model()->index(row, 0);
+    if (!ti.isValid()) return;
     if (mainTableView->selectionModel())
-    {
-        mainTableView->selectionModel()->setCurrentIndex(
-            targetIndex,
-            QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
-    }
-
-    mainTableView->scrollTo(targetIndex, QAbstractItemView::PositionAtCenter);
+        mainTableView->selectionModel()->setCurrentIndex(ti, QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
+    mainTableView->scrollTo(ti, QAbstractItemView::PositionAtCenter);
 }
 
 void DltChatPlugin::onClearHighlightsRequested()
 {
     highlightIndices(QList<int>());
-    if (form)
-    {
-        form->setResults(QList<int>(), QStringList());
-    }
+    if (form) form->setResults(QList<int>(), QStringList(), QStringList());
 }
 
-void DltChatPlugin::onExportRequested(const QString &filePath, const QList<int> &indices, const QStringList &snippets, const QString &query)
+void DltChatPlugin::onExportRequested(const QString &filePath, const QList<int> &indices,
+                                       const QStringList &snippets, const QString &query)
 {
-    Q_UNUSED(query);
-
-    QVector<DltAnalyzerInterface::LogEntry> snapshot;
-    {
-        QMutexLocker locker(&entriesMutex);
-        snapshot = entries;
-    }
-
-    bool success = DltExport::exportToCsv(filePath, indices, snippets, query);
-
-    if (form)
-    {
-        if (success)
-        {
-            form->appendMessage("DLT Assistant", QString("Risultati esportati in: %1").arg(filePath));
-        }
-        else
-        {
-            form->appendMessage("DLT Assistant", "Errore durante l'esportazione CSV.");
-        }
-    }
+    QVector<DltAnalyzerInterface::LogEntry> snap;
+    { QMutexLocker l(&entriesMutex); snap = entries; }
+    bool ok = DltExport::exportToCsv(filePath, indices, snippets, query, snap);
+    if (form) form->appendMessage("Chat Assistant",
+        ok ? QString("Esportati: %1").arg(filePath) : "Errore esportazione.");
 }
 
 void DltChatPlugin::onExportAllRequested(const QString &filePath)
 {
-    QVector<DltAnalyzerInterface::LogEntry> snapshot;
-    {
-        QMutexLocker locker(&entriesMutex);
-        snapshot = entries;
-    }
-
-    bool success = DltExport::exportAllEntries(filePath, snapshot);
-
-    if (form)
-    {
-        if (success)
-        {
-            form->appendMessage("DLT Assistant", QString("Tutti i log esportati in: %1 (%2 entries)")
-                .arg(filePath)
-                .arg(snapshot.size()));
-        }
-        else
-        {
-            form->appendMessage("DLT Assistant", "Errore durante l'esportazione CSV.");
-        }
-    }
+    QVector<DltAnalyzerInterface::LogEntry> snap;
+    { QMutexLocker l(&entriesMutex); snap = entries; }
+    bool ok = DltExport::exportAllEntries(filePath, snap);
+    if (form) form->appendMessage("Chat Assistant",
+        ok ? QString("Tutti esportati: %1 (%2)").arg(filePath).arg(snap.size()) : "Errore esportazione.");
 }
 
 void DltChatPlugin::clearData()
 {
-    QMutexLocker locker(&entriesMutex);
+    QMutexLocker l(&entriesMutex);
     entries.clear();
     indexToPos.clear();
+    invertedIndex.clear();
 }
 
 void DltChatPlugin::ingestMessage(int index, QDltMsg &msg)
 {
-    if (!dltFile)
-    {
-        return;
-    }
+    if (!dltFile) return;
+    QMutexLocker l(&entriesMutex);
+    if (indexToPos.contains(index)) return;
 
-    QMutexLocker locker(&entriesMutex);
-    if (indexToPos.contains(index))
-    {
-        return;
-    }
+    QDltMsg m = msg;
+    if (messageDecoder) messageDecoder->decodeMsg(m, 0);
 
-    QDltMsg localMsg = msg;
-    if (messageDecoder)
-    {
-        messageDecoder->decodeMsg(localMsg, 0);
-    }
-
-    DltAnalyzerInterface::LogEntry entry;
-    entry.index = index;
-    entry.time = QString("%1.%2")
-        .arg(localMsg.getTimeString())
-        .arg(localMsg.getMicroseconds(), 6, 10, QLatin1Char('0'));
-    entry.timestamp = QString("%1.%2")
-        .arg(localMsg.getTimestamp() / 10000)
-        .arg(localMsg.getTimestamp() % 10000, 4, 10, QLatin1Char('0'));
-    entry.ecu = localMsg.getEcuid();
-    entry.apid = localMsg.getApid();
-    entry.ctid = localMsg.getCtid();
-    entry.level = localMsg.getSubtypeString().toLower();
-    entry.payload = DltRuleBasedAnalyzer::simplifyPayload(localMsg.toStringPayload());
+    DltAnalyzerInterface::LogEntry e;
+    e.index = index;
+    e.time = QString("%1.%2").arg(m.getTimeString()).arg(m.getMicroseconds(), 6, 10, QLatin1Char('0'));
+    e.timestamp = QString("%1.%2").arg(m.getTimestamp() / 10000).arg(m.getTimestamp() % 10000, 4, 10, QLatin1Char('0'));
+    e.ecu = m.getEcuid();
+    e.apid = m.getApid();
+    e.ctid = m.getCtid();
+    e.level = m.getSubtypeString().toLower();
+    e.payload = DltRuleBasedAnalyzer::simplifyPayload(m.toStringPayload());
 
     indexToPos.insert(index, entries.size());
-    entries.append(entry);
+    entries.append(e);
+
+    QStringList kw = extractKeywords(e.payload);
+    kw.append(e.level);
+    kw.append(e.apid.toLower());
+    kw.append(e.ctid.toLower());
+    kw.removeDuplicates();
+    for (const QString &k : kw)
+        invertedIndex[k].insert(index);
 }
 
-DltAnalyzerInterface::QueryResult DltChatPlugin::analyzeQueryInternal(const QString &query)
+void DltChatPlugin::rebuildFilterRowMap()
 {
-    if (!m_analyzer)
-    {
-        DltAnalyzerInterface::QueryResult fallback;
-        fallback.responseHtml = "Nessun analyzer disponibile.";
-        fallback.success = false;
-        return fallback;
-    }
-
-    QVector<DltAnalyzerInterface::LogEntry> snapshot;
-    {
-        QMutexLocker locker(&entriesMutex);
-        snapshot = entries;
-    }
-
-    QVector<DltAnalyzerInterface::LogEntry> interfaceEntries;
-    interfaceEntries.reserve(snapshot.size());
-    for (const auto &entry : snapshot)
-    {
-        DltAnalyzerInterface::LogEntry ifaceEntry;
-        ifaceEntry.index = entry.index;
-        ifaceEntry.time = entry.time;
-        ifaceEntry.timestamp = entry.timestamp;
-        ifaceEntry.ecu = entry.ecu;
-        ifaceEntry.apid = entry.apid;
-        ifaceEntry.ctid = entry.ctid;
-        ifaceEntry.level = entry.level;
-        ifaceEntry.payload = entry.payload;
-        interfaceEntries.append(ifaceEntry);
-    }
-
-    return m_analyzer->analyzeQuery(query, interfaceEntries);
-}
-
-void DltChatPlugin::highlightIndices(const QList<int> &indices)
-{
-    if (!dltFile)
-    {
-        return;
-    }
-
-    QList<unsigned long int> markerRows;
-    markerRows.reserve(indices.size());
-    for (int idx : indices)
-    {
-        if (idx >= 0)
-        {
-            markerRows.append(static_cast<unsigned long int>(idx));
-        }
-    }
-
-    dltFile->setManualMarkerIndices(markerRows);
-
-    if (mainTableView)
-    {
-        mainTableView->viewport()->update();
-    }
+    if (!dltFile) return;
+    filterRowMap.clear();
+    int rows = dltFile->sizeFilter();
+    filterRowMap.reserve(rows);
+    for (int r = 0; r < rows; ++r)
+        filterRowMap.insert(dltFile->getMsgFilterPos(r), r);
+    filterRowMapDirty = false;
 }
 
 int DltChatPlugin::findRowForIndex(int index) const
 {
-    if (!dltFile)
-    {
-        return -1;
-    }
+    if (!dltFile) return -1;
+    if (filterRowMapDirty)
+        const_cast<DltChatPlugin*>(this)->rebuildFilterRowMap();
+    return filterRowMap.value(index, -1);
+}
 
-    const int rows = dltFile->sizeFilter();
-    if (rows <= 0)
-    {
-        return -1;
-    }
-
-    for (int row = 0; row < rows; ++row)
-    {
-        if (dltFile->getMsgFilterPos(row) == index)
-        {
-            return row;
-        }
-    }
-
-    return -1;
+void DltChatPlugin::highlightIndices(const QList<int> &indices)
+{
+    if (!dltFile) return;
+    QList<unsigned long int> m;
+    m.reserve(indices.size());
+    for (int i : indices) if (i >= 0) m.append(static_cast<unsigned long>(i));
+    dltFile->setManualMarkerIndices(m);
+    if (mainTableView) mainTableView->viewport()->update();
 }
 
 void DltChatPlugin::updateStatus(const QString &text)
 {
     emit statusChanged(text);
+}
+
+void DltChatPlugin::onAiAvailabilityChanged(int state, const QString &modelName)
+{
+    Q_UNUSED(state); Q_UNUSED(modelName);
+}
+
+bool DltChatPlugin::isDarkMode(const QWidget *w)
+{
+    return w && w->palette().color(QPalette::Window).lightness() < 128;
 }
 
 #if QT_VERSION < QT_VERSION_CHECK(5, 0, 0)
