@@ -3,6 +3,8 @@
 #include <QDateTime>
 #include <QElapsedTimer>
 #include <QEventLoop>
+
+static constexpr int kLlmMaxEntries = 100;
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
@@ -186,7 +188,7 @@ void DltLlmAnalyzerInterface::analyzeQueryAsync(const QString &query,
         return;
     }
 
-    int maxEntries = qMin(entries.size(), 100);
+    int maxEntries = qMin(entries.size(), kLlmMaxEntries);
     QString prompt = buildPrompt(query, entries, maxEntries);
 
     QUrl url(m_apiEndpoint);

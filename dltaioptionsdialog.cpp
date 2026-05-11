@@ -1,3 +1,11 @@
+/*
+ * This Source Code Form is subject to the terms of the Mozilla Public License,
+ * v. 2.0. If a copy of the MPL was not distributed with this file, You can
+ * obtain one at http://mozilla.org/MPL/2.0/.
+ *
+ * SPDX-License-Identifier: MPL-2.0
+ */
+
 #include "dltaioptionsdialog.h"
 
 #include <QCoreApplication>
@@ -17,19 +25,19 @@
 DltAiOptionsDialog::DltAiOptionsDialog(QWidget *parent)
     : QDialog(parent)
 {
-    setWindowTitle(tr("Configurazione AI"));
+    setWindowTitle(tr("AI Configuration"));                   // Italian: Configurazione AI
     setMinimumWidth(450);
 
     m_provider = new QComboBox(this);
     m_provider->addItem("Ollama",        "http://localhost:11434");
     m_provider->addItem("OpenAI",        "https://api.openai.com/v1/chat/completions");
     m_provider->addItem("LocalAI",       "http://localhost:8080");
-    m_provider->addItem("Personalizzato","");
+    m_provider->addItem(tr("Custom"),    "");                  // Italian: Personalizzato
 
     m_endpoint = new QLineEdit("http://localhost:11434/api/generate", this);
     m_apiKey = new QLineEdit(this);
     m_apiKey->setEchoMode(QLineEdit::Password);
-    m_apiKey->setPlaceholderText(tr("Non richiesta (Ollama/LocalAI)"));
+    m_apiKey->setPlaceholderText(tr("Not required (Ollama/LocalAI)")); // Italian: Non richiesta (Ollama/LocalAI)
     m_model = new QLineEdit("qwen3.5:4b", this);
     m_maxTokens = new QSpinBox(this);
     m_maxTokens->setRange(64, 8192);
@@ -44,7 +52,7 @@ DltAiOptionsDialog::DltAiOptionsDialog(QWidget *parent)
     m_timeout->setValue(30000);
     m_timeout->setSuffix(" ms");
 
-    m_testBtn = new QPushButton(tr("Test Connessione"), this);
+    m_testBtn = new QPushButton(tr("Test Connection"), this);  // Italian: Test Connessione
     m_statusLabel = new QLabel(this);
     m_statusLabel->setStyleSheet("font-size: 11px;");
 
@@ -52,9 +60,9 @@ DltAiOptionsDialog::DltAiOptionsDialog(QWidget *parent)
     form->addRow(tr("Provider:"), m_provider);
     form->addRow(tr("Endpoint:"), m_endpoint);
     form->addRow(tr("API Key:"), m_apiKey);
-    form->addRow(tr("Modello:"), m_model);
+    form->addRow(tr("Model:"), m_model);                      // Italian: Modello
     form->addRow(tr("Max Tokens:"), m_maxTokens);
-    form->addRow(tr("Temperature:"), m_temperature);
+    form->addRow(tr("Temperature:"), m_temperature);          // Italian: Temperatura
     form->addRow(tr("Timeout:"), m_timeout);
 
     QHBoxLayout *testLayout = new QHBoxLayout();
@@ -89,7 +97,7 @@ void DltAiOptionsDialog::onProviderChanged(int idx)
 
 void DltAiOptionsDialog::onTestConnection()
 {
-    m_statusLabel->setText(tr("Test in corso..."));
+    m_statusLabel->setText(tr("Testing..."));                  // Italian: Test in corso...
     m_statusLabel->setStyleSheet("color: #999; font-size: 11px;");
     m_testBtn->setEnabled(false);
     QCoreApplication::processEvents();
@@ -132,7 +140,7 @@ void DltAiOptionsDialog::onTestConnection()
     }
     else
     {
-        m_statusLabel->setText(tr("\u2714 Connessione riuscita"));
+        m_statusLabel->setText(tr("\u2714 Connection OK"));    // Italian: Connessione riuscita
         m_statusLabel->setStyleSheet("color: #2e7d32; font-size: 11px;");
     }
     reply->deleteLater();

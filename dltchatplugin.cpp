@@ -14,6 +14,12 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 
+static constexpr int kMaxFilterResults = 200;
+static constexpr int kAIPreFilterMax = 100;
+static constexpr int kSnippetLength = 120;
+static constexpr int kPayloadTruncateAt = 500;
+static constexpr int kPreviewCount = 20;
+
 static const char *STOPWORDS[] = {
     "the", "and", "this", "that", "what", "which", "with", "from", "have", "been",
     "show", "mostra", "elenca", "tutti", "tutte", "all", "why", "perche", "causa",
@@ -72,7 +78,7 @@ void DltChatPlugin::checkAiAvailabilityAsync()
 {
     if (!m_llmAnalyzer || !m_llmAnalyzer->validateConfiguration())
     {
-        setAiState(AiUnconfigured);
+        setAiState(0);
         return;
     }
 
@@ -96,16 +102,16 @@ void DltChatPlugin::checkAiAvailabilityAsync()
                     QString name = m.toObject()["name"].toString();
                     if (name.startsWith(m_llmAnalyzer->modelName()))
                     {
-                        setAiState(AiConnected, m_llmAnalyzer->modelName());
+                        setAiState(2, m_llmAnalyzer->modelName());
                         return;
                     }
                 }
             }
-            setAiState(AiConfiguredOffline, m_llmAnalyzer->modelName());
+            setAiState(1, m_llmAnalyzer->modelName());
         }
         else
         {
-            setAiState(AiConfiguredOffline, m_llmAnalyzer->modelName());
+            setAiState(1, m_llmAnalyzer->modelName());
         }
     });
 }
@@ -113,8 +119,8 @@ void DltChatPlugin::checkAiAvailabilityAsync()
 void DltChatPlugin::setAiState(int state, const QString &modelName)
 {
     m_aiState = state;
-    if (state == AiConnected) m_aiModelName = modelName;
-    else if (state == AiConfiguredOffline) m_aiModelName = modelName.isEmpty() ? m_llmAnalyzer->modelName() : modelName;
+    if (state == 2) m_aiModelName = modelName;
+    else if (state == 1) m_aiModelName = modelName.isEmpty() ? m_llmAnalyzer->modelName() : modelName;
     else m_aiModelName.clear();
     m_aiAvailabilityTimer.start();
     emit onAiAvailabilityChanged(state, m_aiModelName);
@@ -210,7 +216,7 @@ void DltChatPlugin::initFileStart(QDltFile *file)
     dltFile = file;
     clearData();
     filterRowMapDirty = true;
-    updateStatus("Caricamento log in corso...");
+    updateStatus("Loading log file...");
 }
 
 void DltChatPlugin::initFileFinish()
@@ -218,7 +224,7 @@ void DltChatPlugin::initFileFinish()
     rebuildFilterRowMap();
     int count = 0;
     { QMutexLocker l(&entriesMutex); count = entries.size(); }
-    updateStatus(QString("Log caricato: %1 messaggi. [%2]").arg(count).arg(m_currentAnalyzerType));
+    updateStatus(QString("Loaded %1 messages. [%2]").arg(count).arg(m_currentAnalyzerType));
 }
 
 void DltChatPlugin::initMsg(int idx, QDltMsg &msg) { ingestMessage(idx, msg); }
@@ -232,7 +238,7 @@ void DltChatPlugin::updateFileFinish()
     rebuildFilterRowMap();
     int c = 0;
     { QMutexLocker l(&entriesMutex); c = entries.size(); }
-    updateStatus(QString("Log aggiornato: %1 messaggi.").arg(c));
+    updateStatus(QString("Updated: %1 messages.").arg(c));
 }
 
 void DltChatPlugin::selectedIdxMsg(int, QDltMsg &) {}
@@ -249,7 +255,7 @@ void DltChatPlugin::configurationChanged() {}
 
 void DltChatPlugin::setAnalyzerType(const QString &type)
 {
-    if (type == "llm" && m_llmAnalyzer && m_aiState == AiConnected)
+    if (type == "llm" && m_llmAnalyzer && m_aiState == 2)
     {
         m_analyzer = m_llmAnalyzer;
         m_currentAnalyzerType = "llm";
@@ -328,7 +334,7 @@ void DltChatPlugin::onQuerySubmitted(const QString &query)
             if (!matchedKw.isEmpty() && !matchedKw.contains(entry.level)) continue;
             if (!matched.isEmpty() && !matched.contains(entry.index)) continue;
             filtered.append(entry);
-            if (filtered.size() >= 200) break;
+            if (filtered.size() >= kMaxFilterResults) break;
         }
     }
     else filtered = snapshot;
@@ -369,7 +375,7 @@ void DltChatPlugin::onAiQuerySubmitted(const QString &query)
     QVector<DltAnalyzerInterface::LogEntry> snapshot;
     { QMutexLocker l(&entriesMutex); snapshot = entries; }
 
-    if (m_aiState != AiConnected || !m_llmAnalyzer)
+    if (m_aiState != 2 || !m_llmAnalyzer)
     {
         form->setProcessingProgress(false);
         QElapsedTimer timer; timer.start();
@@ -384,7 +390,7 @@ void DltChatPlugin::onAiQuerySubmitted(const QString &query)
                 if (s.contains(e.index)) pre.append(e);
         }
         else { pre = snapshot; }
-        if (pre.size() > 100) pre.resize(100);
+        if (pre.size() > kAIPreFilterMax) pre.resize(kAIPreFilterMax);
 
         auto result = m_ruleBasedAnalyzer->analyzeQuery(query, pre.isEmpty() ? snapshot : pre);
         result.processingTimeMs = timer.elapsed();
@@ -408,14 +414,13 @@ void DltChatPlugin::onAiQuerySubmitted(const QString &query)
         {
             if (s.contains(e.index) || keywords.isEmpty())
                 prefiltered.append(e);
-            if (prefiltered.size() >= 200) break;
+            if (prefiltered.size() >= kMaxFilterResults) break;
         }
     }
 
     if (prefiltered.isEmpty()) prefiltered = snapshot;
-    if (prefiltered.size() > 100) prefiltered.resize(100);
+    if (prefiltered.size() > kAIPreFilterMax) prefiltered.resize(kAIPreFilterMax);
 
-    m_pendingAiQuery = query;
     m_llmAnalyzer->analyzeQueryAsync(query, prefiltered);
 }
 
@@ -451,7 +456,7 @@ void DltChatPlugin::onConfigureAiClicked()
 {
     if (!m_llmAnalyzer || !form) return;
     DltAiOptionsDialog dlg(form);
-    dlg.setWindowTitle(tr("Configurazione AI"));
+    dlg.setWindowTitle(tr("AI Configuration"));               // Italian: Configurazione AI
     dlg.setEndpoint(m_llmAnalyzer->apiEndpoint());
     dlg.setApiKey(m_llmAnalyzer->apiKey());
     dlg.setModel(m_llmAnalyzer->modelName());
@@ -574,6 +579,7 @@ int DltChatPlugin::findRowForIndex(int index) const
     return filterRowMap.value(index, -1);
 }
 
+
 void DltChatPlugin::highlightIndices(const QList<int> &indices)
 {
     if (!dltFile) return;
@@ -592,11 +598,6 @@ void DltChatPlugin::updateStatus(const QString &text)
 void DltChatPlugin::onAiAvailabilityChanged(int state, const QString &modelName)
 {
     Q_UNUSED(state); Q_UNUSED(modelName);
-}
-
-bool DltChatPlugin::isDarkMode(const QWidget *w)
-{
-    return w && w->palette().color(QPalette::Window).lightness() < 128;
 }
 
 #if QT_VERSION < QT_VERSION_CHECK(5, 0, 0)

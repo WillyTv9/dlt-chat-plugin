@@ -69,8 +69,6 @@ public:
     QString currentAnalyzerType() const;
     void configureLlmAnalyzer(const QString &endpoint, const QString &apiKey, const QString &model);
 
-    enum AiState { AiUnconfigured = 0, AiConfiguredOffline = 1, AiConnected = 2 };
-
 signals:
     void statusChanged(const QString &text);
 
@@ -88,7 +86,6 @@ private slots:
 private:
     void clearData();
     void ingestMessage(int index, QDltMsg &msg);
-    void analyzeQueryFast(const QString &query, bool preferAi);
     void rebuildFilterRowMap();
     void highlightIndices(const QList<int> &indices);
     int findRowForIndex(int index) const;
@@ -98,7 +95,6 @@ private:
     void checkAiAvailabilityAsync();
     QStringList extractKeywords(const QString &text) const;
     void setAiState(int state, const QString &modelName = QString());
-    static bool isDarkMode(const QWidget *w);
 
     QString errorText;
     DltChat::Form *form;
@@ -115,7 +111,7 @@ private:
     QSet<QString> indexStopwords;
 
     QHash<int, int> filterRowMap;
-    bool filterRowMapDirty = false;
+    mutable bool filterRowMapDirty = false;
 
     DltAnalyzerInterface *m_analyzer;
     DltRuleBasedAnalyzer *m_ruleBasedAnalyzer;
@@ -129,7 +125,6 @@ private:
 
     mutable QMutex m_llmMutex;
     bool m_llmRequestInProgress = false;
-    QString m_pendingAiQuery;
 };
 
 #endif

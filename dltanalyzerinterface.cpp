@@ -5,6 +5,15 @@
 #include <QSet>
 #include <algorithm>
 
+static constexpr int kMaxTimeline = 200;
+static constexpr int kMaxResults = 200;
+static constexpr int kSnippetLength = 120;
+static constexpr int kPayloadTruncateAt = 500;
+static constexpr int kPreviewCount = 20;
+static constexpr int kDupPreviewLines = 20;
+static constexpr int kContextFrames = 5;
+static constexpr int kContextNeighbors = 2;
+
 DltRuleBasedAnalyzer::DltRuleBasedAnalyzer()
 {
     supportedLanguagesList << "en" << "it" << "de" << "es" << "fr";
@@ -58,15 +67,15 @@ DltAnalyzerInterface::QueryResult DltRuleBasedAnalyzer::analyzeInternal(
     if (lq == "timeline" || lq == "cronologia")
     {
         QStringList lines;
-        lines.reserve(qMin(entries.size(), 200));
-        for (int i = 0; i < entries.size() && i < 200; ++i)
+        lines.reserve(qMin(entries.size(), kMaxTimeline));
+        for (int i = 0; i < entries.size() && i < kMaxTimeline; ++i)
         {
             const auto &e = entries[i];
             lines.append(formatEntryLine(e));
             r.indices.append(e.index);
-            r.snippets.append(e.payload.left(120));
+            r.snippets.append(e.payload.left(kSnippetLength));
         }
-        if (entries.size() > 200)
+        if (entries.size() > kMaxTimeline)
             r.responseHtml = QString("Prime 200 entry su %1:<br><pre>%2</pre>")
                 .arg(entries.size()).arg(lines.join("\n").toHtmlEscaped());
         else
@@ -108,16 +117,16 @@ DltAnalyzerInterface::QueryResult DltRuleBasedAnalyzer::analyzeInternal(
             if (it.value().size() > 1)
             {
                 dupCount++;
-                if (dupLines.size() < 20)
+                if (dupLines.size() < kDupPreviewLines)
                 {
-                    QString payload = it.key();
-                    if (payload.size() > 80) payload = payload.left(80) + "...";
-                    dupLines.append(QString("%1 (%2 volte): %3")
-                        .arg(it.value().first()).arg(it.value().size()).arg(payload));
+                    QString p = it.key();
+                    if (p.size() > 80) p = p.left(80) + "...";
+                    dupLines.append(QString("%1 (%2x): %3")
+                        .arg(it.value().first()).arg(it.value().size()).arg(p));
                     for (int idx : it.value())
                     {
                         r.indices.append(idx);
-                        r.snippets.append(it.key().left(120));
+                        r.snippets.append(it.key().left(kSnippetLength));
                     }
                 }
             }
@@ -197,8 +206,8 @@ DltAnalyzerInterface::QueryResult DltRuleBasedAnalyzer::analyzeInternal(
         if (isSimpleLevel)
         {
             matchedSet.insert(e.index);
-            matchedSnip.append(e.payload.left(120));
-            if (matchedSet.size() >= 200) break;
+            matchedSnip.append(e.payload.left(kSnippetLength));
+            if (matchedSet.size() >= kMaxResults) break;
             continue;
         }
 
@@ -216,8 +225,8 @@ DltAnalyzerInterface::QueryResult DltRuleBasedAnalyzer::analyzeInternal(
         }
 
         matchedSet.insert(e.index);
-        matchedSnip.append(e.payload.left(120));
-        if (matchedSet.size() >= 200) break;
+        matchedSnip.append(e.payload.left(kSnippetLength));
+        if (matchedSet.size() >= kMaxResults) break;
     }
 
     r.indices = QList<int>(matchedSet.begin(), matchedSet.end());
@@ -258,7 +267,7 @@ DltAnalyzerInterface::QueryResult DltRuleBasedAnalyzer::analyzeInternal(
         resp = QString("Trovati <b>%1</b> messaggi su %2.").arg(r.indices.size()).arg(entries.size());
 
     QStringList preview;
-    for (int i = 0; i < qMin(20, r.indices.size()); ++i)
+    for (int i = 0; i < qMin(kPreviewCount, r.indices.size()); ++i)
         preview.append(QString::number(r.indices[i]));
     if (!preview.isEmpty())
     {
@@ -293,10 +302,10 @@ QString DltRuleBasedAnalyzer::buildSummaryHtml(const QVector<LogEntry> &entries)
         .arg(lc.value("error")+lc.value("fatal")).arg(lc.value("warn")).arg(lc.value("info"))
         .arg(lc.value("debug")).arg(lc.value("verbose"));
 
-    QStringList tc = top(cc, 5);
+    QStringList tc = top(cc, kContextFrames);
     if (!tc.isEmpty()) r += QString("<b>Contesti piu attivi:</b> %1<br>").arg(tc.join(", "));
 
-    QStringList tp = top(pc, 5);
+    QStringList tp = top(pc, kContextFrames);
     if (!tp.isEmpty()) r += QString("<b>Messaggi ripetuti:</b> %1").arg(tp.join("; "));
 
     return r;
@@ -316,7 +325,7 @@ QString DltRuleBasedAnalyzer::simplifyPayload(const QString &payload)
     t = t.simplified();
     t.replace(QRegularExpression("(PASSWORD\\s*[:=]\\s*)(\\S+)",
         QRegularExpression::CaseInsensitiveOption), "\\1***");
-    if (t.size() > 500) t = t.left(500) + "...";
+    if (t.size() > kPayloadTruncateAt) t = t.left(kPayloadTruncateAt) + "...";
     return t;
 }
 
@@ -333,6 +342,6 @@ QVariantMap DltRuleBasedAnalyzer::currentConfiguration() const
 {
     QVariantMap c;
     c["type"] = "rule-based"; c["version"] = version();
-    c["supportedLanguages"] = supportedLanguagesList; c["maxResults"] = 200;
+    c["supportedLanguages"] = supportedLanguagesList; c["maxResults"] = kMaxResults;
     return c;
 }

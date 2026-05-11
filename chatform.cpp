@@ -50,11 +50,11 @@ Form::Form(QWidget *parent)
     , history(new QTextBrowser(this))
     , resultsList(new QListWidget(this))
     , input(new QLineEdit(this))
-    , sendButton(new QPushButton(tr("Invia"), this))
+    , sendButton(new QPushButton(tr("Send"), this))          // Italian: Invia
     , aiInput(new QLineEdit(this))
-    , aiSendButton(new QPushButton(tr("Chiedi"), this))
+    , aiSendButton(new QPushButton(tr("Ask AI"), this))      // Italian: Chiedi
     , aiProgress(new QProgressBar(this))
-    , clearButton(new QPushButton(tr("Pulisci"), this))
+    , clearButton(new QPushButton(tr("Clear"), this))        // Italian: Pulisci
     , exportCsvButton(new QPushButton(tr("CSV"), this))
     , exportAllButton(new QPushButton(tr("CSV All"), this))
 {
@@ -72,14 +72,14 @@ Form::Form(QWidget *parent)
 
     statusLabel->setWordWrap(true);
     statusLabel->setStyleSheet(QString("font-size:11px;color:%1;padding:0;margin:0;").arg(fgS));
-    statusLabel->setText(tr("Nessun log caricato."));
+    statusLabel->setText(tr("No log loaded."));              // Italian: Nessun log caricato.
 
-    configButton->setToolTip(tr("Configura AI"));
+    configButton->setToolTip(tr("Configure AI"));            // Italian: Configura AI
     configButton->setFixedSize(28, 24);
     configButton->setStyleSheet(QString("QPushButton{border:none;font-size:14px;color:%1;} QPushButton:hover{color:%2;}").arg(fgS).arg(hlS));
 
     aiStatusLabel->setStyleSheet(QString("font-size:11px;color:%1;padding:0;").arg(dark?"#9e9e9e":"#757575"));
-    aiStatusLabel->setText(tr("AI: \u2716"));
+    aiStatusLabel->setText(tr("AI: -"));
 
     history->setReadOnly(true);
     history->setStyleSheet(QString("QTextBrowser{background:%1;color:%2;border:1px solid %3;border-radius:4px;}").arg(bgS).arg(fgS).arg(midS));
@@ -92,37 +92,44 @@ Form::Form(QWidget *parent)
     ).arg(bgS).arg(fgS).arg(midS).arg(hlS).arg(palette().color(QPalette::HighlightedText).name()));
     resultsList->setMaximumHeight(180);
 
-    input->setPlaceholderText(tr("Fai una domanda sui log..."));
+    input->setPlaceholderText(tr("Ask about logs..."));      // Italian: Fai una domanda sui log...
     input->setStyleSheet(QString("QLineEdit{padding:4px;border:1px solid %1;border-radius:4px;background:%2;color:%3;}").arg(midS).arg(bgS).arg(fgS));
-    aiInput->setPlaceholderText(tr("Fai una domanda all'AI..."));
+    aiInput->setPlaceholderText(tr("Ask the AI..."));        // Italian: Fai una domanda all'AI...
     aiInput->setStyleSheet(input->styleSheet());
 
     aiProgress->setRange(0, 0);
     aiProgress->setFixedHeight(4);
     aiProgress->hide();
 
-    // Quick buttons - 2x7 grid
-    QGroupBox *quickBox = new QGroupBox(tr("Azioni Rapide"), this);
+    // Quick actions - 2x7 grid
+    QGroupBox *quickBox = new QGroupBox(tr("Quick Actions"), this);  // Italian: Azioni Rapide
     QGridLayout *ql = new QGridLayout();
     ql->setSpacing(3);
-    struct { QString t; QString tip; } bd[] = {
-        {tr("Errori"),tr("Errori/fatali")},{tr("Warnings"),tr("Warning")},
-        {tr("Info"),tr("Informativi")},{tr("Debug"),tr("Debug")},
-        {tr("CAN"),tr("CAN bus")},{tr("Security"),tr("Sicurezza")},
-        {tr("Memoria"),tr("Memoria")},{tr("Performance"),tr("Performance")},
-        {tr("Diagnostic"),tr("Diagnostica DTC")},{tr("Pattern"),tr("Ripetizioni")},
-        {tr("Summary"),tr("Statistiche")},{tr("Timeline"),tr("Sequenza")},
-        {tr("GPS"),tr("Navigazione")},{tr("Help"),tr("Aiuto")},
+    struct { const char *text; const char *tip; } bd[] = {
+        {QT_TRANSLATE_NOOP("DltChat","Errors"),    QT_TRANSLATE_NOOP("DltChat","Errors and fatals")},
+        {QT_TRANSLATE_NOOP("DltChat","Warnings"),  QT_TRANSLATE_NOOP("DltChat","Warning messages")},
+        {QT_TRANSLATE_NOOP("DltChat","Info"),      QT_TRANSLATE_NOOP("DltChat","Informational messages")},
+        {QT_TRANSLATE_NOOP("DltChat","Debug"),     QT_TRANSLATE_NOOP("DltChat","Debug messages")},
+        {QT_TRANSLATE_NOOP("DltChat","CAN"),       QT_TRANSLATE_NOOP("DltChat","CAN bus messages")},
+        {QT_TRANSLATE_NOOP("DltChat","Security"),  QT_TRANSLATE_NOOP("DltChat","Auth and security")},
+        {QT_TRANSLATE_NOOP("DltChat","Memory"),    QT_TRANSLATE_NOOP("DltChat","Memory issues")},
+        {QT_TRANSLATE_NOOP("DltChat","Performance"),QT_TRANSLATE_NOOP("DltChat","Timeouts and delays")},
+        {QT_TRANSLATE_NOOP("DltChat","Diagnostic"), QT_TRANSLATE_NOOP("DltChat","DTC diagnostics")},
+        {QT_TRANSLATE_NOOP("DltChat","Pattern"),   QT_TRANSLATE_NOOP("DltChat","Repeated messages")},
+        {QT_TRANSLATE_NOOP("DltChat","Summary"),   QT_TRANSLATE_NOOP("DltChat","Log statistics")},
+        {QT_TRANSLATE_NOOP("DltChat","Timeline"),  QT_TRANSLATE_NOOP("DltChat","Chronological order")},
+        {QT_TRANSLATE_NOOP("DltChat","GPS"),       QT_TRANSLATE_NOOP("DltChat","Navigation and GPS")},
+        {QT_TRANSLATE_NOOP("DltChat","Help"),      QT_TRANSLATE_NOOP("DltChat","Show available commands")},
     };
     for (int i = 0; i < 14; ++i)
     {
-        auto *b = makeBtn(bd[i].t, bd[i].tip, this);
+        auto *b = makeBtn(tr(bd[i].text), tr(bd[i].tip), this);
         connect(b, &QPushButton::clicked, this, &Form::onQuickActionClicked);
         ql->addWidget(b, i / 7, i % 7);
     }
     quickBox->setLayout(ql);
 
-    // Header: title + AI status + config
+    // Header: title + AI status + config button
     QHBoxLayout *hh = new QHBoxLayout();
     hh->setContentsMargins(0,0,0,0);
     hh->addWidget(title, 1);
@@ -218,17 +225,17 @@ void Form::setAiStatus(int state, const QString &modelName)
         aiStatusLabel->setText(QString("AI: %1").arg(modelName));
         aiStatusLabel->setStyleSheet(QString("font-size:11px;color:%1;padding:0;").arg(dk?"#66bb6a":"#2e7d32"));
         aiSendButton->setEnabled(true);
-        aiInput->setPlaceholderText(tr("Chiedi all'AI..."));
+        aiInput->setPlaceholderText(tr("Ask the AI..."));        // Italian: Chiedi all'AI...
     } else if (state == 1) {
         aiStatusLabel->setText(tr("AI: offline"));
         aiStatusLabel->setStyleSheet(QString("font-size:11px;color:%1;padding:0;").arg(dk?"#ffa726":"#e65100"));
         aiSendButton->setEnabled(false);
-        aiInput->setPlaceholderText(tr("AI offline. Clicca \u2699 per configurare."));
+        aiInput->setPlaceholderText(tr("AI offline. Click \u2699 to configure."));  // Italian: AI offline. Clicca \u2699 per configurare.
     } else {
         aiStatusLabel->setText(tr("AI: -"));
         aiStatusLabel->setStyleSheet(QString("font-size:11px;color:%1;padding:0;").arg(dk?"#9e9e9e":"#757575"));
         aiSendButton->setEnabled(false);
-        aiInput->setPlaceholderText(tr("Configura AI (\u2699)"));
+        aiInput->setPlaceholderText(tr("Configure AI (\u2699)"));  // Italian: Configura AI (\u2699)
     }
 }
 
@@ -262,8 +269,10 @@ void Form::onResultActivated(QListWidgetItem *item) {
 void Form::onClearClicked() { emit clearHighlightsRequested(); }
 
 void Form::exportResultsToCsv(const QString &def) {
-    QString fp = QFileDialog::getSaveFileName(this, tr("Esporta CSV"),
-        def.isEmpty() ? "dlt_results.csv" : def, tr("CSV (*.csv);;All (*)"));
+    QString fp = QFileDialog::getSaveFileName(this,
+        tr("Export Results CSV"),                              // Italian: Esporta Risultati CSV
+        def.isEmpty() ? "dlt_results.csv" : def,
+        tr("CSV Files (*.csv);;All Files (*)"));
     if (fp.isEmpty()) return;
     QList<int> idx; QStringList snip;
     for (int i = 0; i < resultsList->count(); ++i) {
@@ -276,8 +285,10 @@ void Form::exportResultsToCsv(const QString &def) {
 }
 
 void Form::exportAllToCsv(const QString &def) {
-    QString fp = QFileDialog::getSaveFileName(this, tr("Esporta Tutto"),
-        def.isEmpty() ? "dlt_all.csv" : def, tr("CSV (*.csv);;All (*)"));
+    QString fp = QFileDialog::getSaveFileName(this,
+        tr("Export All CSV"),                                  // Italian: Esporta Tutto CSV
+        def.isEmpty() ? "dlt_all.csv" : def,
+        tr("CSV Files (*.csv);;All Files (*)"));
     if (!fp.isEmpty()) emit exportAllRequested(fp);
 }
 
@@ -290,8 +301,8 @@ void Form::onQuickActionClicked()
     if (!btn) return;
 
     static const QMap<QString, QString> map = {
-        {tr("Errori"),"error"},{tr("Warnings"),"warn"},{tr("Info"),"info"},{tr("Debug"),"debug"},
-        {tr("CAN"),"can"},{tr("Security"),"security"},{tr("Memoria"),"memory"},
+        {tr("Errors"),"error"},{tr("Warnings"),"warn"},{tr("Info"),"info"},{tr("Debug"),"debug"},
+        {tr("CAN"),"can"},{tr("Security"),"security"},{tr("Memory"),"memory"},
         {tr("Performance"),"performance"},{tr("Diagnostic"),"diagnostic"},{tr("Pattern"),"pattern"},
         {tr("Summary"),"summary"},{tr("Timeline"),"timeline"},{tr("GPS"),"gps"},{tr("Help"),"help"},
     };

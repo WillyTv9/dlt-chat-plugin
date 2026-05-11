@@ -1,8 +1,13 @@
 cmake_minimum_required(VERSION 3.16)
-project(dltchatplugin)
+project(dltchatplugin
+    VERSION 0.3.0
+    DESCRIPTION "Chat Log Assistant plugin for DLT Viewer"
+    LANGUAGES CXX
+)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
@@ -38,6 +43,11 @@ target_link_libraries(dltchatplugin
     ${QT_PREFIX}::Gui
     ${QT_PREFIX}::Widgets
     ${QT_PREFIX}::Network
+)
+
+set_target_properties(dltchatplugin PROPERTIES
+    VERSION ${PROJECT_VERSION}
+    SOVERSION ${PROJECT_VERSION_MAJOR}
 )
 
 if(COMMAND add_plugin)

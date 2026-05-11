@@ -49,8 +49,6 @@ private slots:
     void onQuickActionClicked();
 
 private:
-
-
     QLabel *title;
     QLabel *statusLabel;
     QLabel *aiStatusLabel;

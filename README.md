@@ -1,4 +1,4 @@
-# Chat Log Assistant Plugin
+# Chat Log Assistant Plugin / Plugin Assistente Log Chat
 
 [![License: MPL 2.0](https://img.shields.io/badge/License-MPL_2.0-blue.svg)](LICENSE)
 [![Qt Version](https://img.shields.io/badge/Qt-5.15+%2F6.x-green.svg)](https://www.qt.io/)
@@ -7,71 +7,178 @@
 
 A chat-based log analysis plugin for COVESA DLT Viewer with rule-based analysis and optional AI (LLM) integration.
 
-## Installation
+Plugin per l'analisi dei log DLT con interfaccia chat, analisi rule-based e supporto AI opzionale.
 
-Copy `dltchatplugin.dll` (or `libdltchatplugin.so`) to the DLT Viewer plugins folder:
+---
 
-- **Windows:** `%LOCALAPPDATA%\Programs\dlt-viewer\plugins\`
-- **Linux:** `~/.local/share/dlt-viewer/plugins/`
+## Build Guide / Guida alla compilazione
+
+### English
+
+#### Building within DLT Viewer (recommended)
+
+1. **Clone DLT Viewer:**
+   ```bash
+   git clone https://github.com/COVESA/dlt-viewer.git
+   cd dlt-viewer
+   ```
+
+2. **Copy the plugin** under the plugins directory:
+   ```bash
+   cp -r /path/to/dlt-chat-plugin plugin/dlt-chat-plugin
+   ```
+
+3. **Configure with CMake:**
+   ```bash
+   mkdir build && cd build
+   cmake .. -DCMAKE_BUILD_TYPE=Release
+   ```
+   On Windows with MinGW (MSYS2):
+   ```bash
+   cmake -G Ninja -DCMAKE_BUILD_TYPE=Release ..
+   ```
+   On Windows with MSVC:
+   ```cmd
+   cmake -G "Visual Studio 17 2022" -A x64 ..
+   ```
+
+4. **Build the plugin:**
+   ```bash
+   cmake --build . --target dltchatplugin --parallel
+   ```
+   Or build everything:
+   ```bash
+   cmake --build . --parallel
+   ```
+
+5. **Output:**
+   - Linux:   `build/bin/plugins/libdltchatplugin.so`
+   - Windows: `build/bin/plugins/libdltchatplugin.dll` (MinGW)
+   - Windows: `build/bin/plugins/Release/dltchatplugin.dll` (MSVC)
+
+6. **Install to DLT Viewer plugins folder:**
+   - Linux:   `cp build/bin/plugins/libdltchatplugin.so ~/.local/share/dlt-viewer/plugins/`
+   - Windows: copy the DLL to `%LOCALAPPDATA%\Programs\dlt-viewer\plugins\`
+
+#### Building standalone
+
+```bash
+cd plugin/dlt-chat-plugin
+mkdir build && cd build
+cmake .. -DCMAKE_BUILD_TYPE=Release
+cmake --build . --parallel
+```
+
+Or on Windows, double-click `build_plugin.bat` from a Visual Studio Developer Prompt.
+
+---
+
+### Italiano
+
+#### Compilazione all'interno di DLT Viewer (consigliata)
+
+1. **Clona DLT Viewer:**
+   ```bash
+   git clone https://github.com/COVESA/dlt-viewer.git
+   cd dlt-viewer
+   ```
+
+2. **Copia il plugin** nella directory dei plugin:
+   ```bash
+   cp -r /path/to/dlt-chat-plugin plugin/dlt-chat-plugin
+   ```
+
+3. **Configura con CMake:**
+   ```bash
+   mkdir build && cd build
+   cmake .. -DCMAKE_BUILD_TYPE=Release
+   ```
+   Su Windows con MinGW (MSYS2):
+   ```bash
+   cmake -G Ninja -DCMAKE_BUILD_TYPE=Release ..
+   ```
+   Su Windows con MSVC:
+   ```cmd
+   cmake -G "Visual Studio 17 2022" -A x64 ..
+   ```
+
+4. **Compila il plugin:**
+   ```bash
+   cmake --build . --target dltchatplugin --parallel
+   ```
+   Oppure compila tutto:
+   ```bash
+   cmake --build . --parallel
+   ```
+
+5. **Output:**
+   - Linux:   `build/bin/plugins/libdltchatplugin.so`
+   - Windows: `build/bin/plugins/libdltchatplugin.dll` (MinGW)
+   - Windows: `build/bin/plugins/Release/dltchatplugin.dll` (MSVC)
+
+6. **Installa** nella cartella plugins di DLT Viewer:
+   - Linux:   `cp build/bin/plugins/libdltchatplugin.so ~/.local/share/dlt-viewer/plugins/`
+   - Windows: copia la DLL in `%LOCALAPPDATA%\Programs\dlt-viewer\plugins\`
+
+#### Compilazione autonoma
+
+```bash
+cd plugin/dlt-chat-plugin
+mkdir build && cd build
+cmake .. -DCMAKE_BUILD_TYPE=Release
+cmake --build . --parallel
+```
+
+Oppure su Windows, esegui `build_plugin.bat` da un Developer Command Prompt for VS 2022.
+
+---
+
+## Installation / Installazione
+
+- **Windows:** Copy `libdltchatplugin.dll` / `dltchatplugin.dll` to `%LOCALAPPDATA%\Programs\dlt-viewer\plugins\`
+- **Linux:** Copy `libdltchatplugin.so` to `~/.local/share/dlt-viewer/plugins/`
 
 Launch DLT Viewer, enable the plugin via **Settings > Plugin Settings > Chat Log Assistant**, then enable the panel via **View > Panels > Chat Log Assistant**.
 
-## Usage
+## Usage / Utilizzo
 
-### Quick Action Buttons
+### Quick Action Buttons / Bottoni Rapidi (14)
 
-14 pre-configured buttons for common log analysis tasks:
-
-| Button | Description |
-|--------|-------------|
-| Errori | Find errors and fatal messages |
-| Warnings | Find warning messages |
-| Info | Find informational messages |
-| Debug | Find debug messages |
-| CAN | Find CAN bus messages |
-| Security | Find auth/security issues |
-| Memory | Find memory-related problems |
-| Performance | Find timeout and delay issues |
-| Diagnostic | Find diagnostic trouble codes |
-| Patterns | Find repetitive message patterns |
-| Summary | Show log statistics |
-| Timeline | Show chronological view |
-| Navigation | Find GPS/navigation messages |
-| Help | Show available commands |
-
-### Rule-Based Query
-
-Type any query in the input field and press Enter or click "Invia":
-- `error` — shows all error-level messages
-- `warn can` — shows warnings containing "can"
-- `riassumi` / `summary` — log statistics
-- `indice 42` — context around index 42
-- `perche` — shows context around matches
-
-Results appear in the list; click any result to navigate to that log entry.
+| English | Italiano | Description |
+|---------|----------|-------------|
+| Errors | Errori | Find error and fatal messages |
+| Warnings | Warnings | Find warning messages |
+| Info | Info | Find informational messages |
+| Debug | Debug | Find debug messages |
+| CAN | CAN | Find CAN bus messages |
+| Security | Security | Find auth/security issues |
+| Memory | Memoria | Find memory-related problems |
+| Performance | Performance | Find timeout and delay issues |
+| Diagnostic | Diagnostic | Find diagnostic trouble codes |
+| Pattern | Pattern | Find repeated message patterns |
+| Summary | Summary | Show log statistics |
+| Timeline | Timeline | Show chronological entry list |
+| GPS | GPS | Find GPS/navigation messages |
+| Help | Help | Show available commands |
 
 ### AI Query
 
-Powered by Ollama, OpenAI, or any OpenAI-compatible endpoint:
+1. Click the gear icon (⚙) to open configuration
+2. Select provider (Ollama, OpenAI, LocalAI, Custom)
+3. Enter endpoint, API key (if needed), model name
+4. Click **Test Connection** to verify
+5. Save - green indicator confirms AI is ready
 
-1. Click the gear icon (⚙) to open the AI configuration dialog
-2. Select provider (Ollama, OpenAI, LocalAI, or Custom)
-3. Enter endpoint, API key (if needed), and model name
-4. Click **Test Connessione** to verify
-5. Save — the AI status indicator turns green
-
-Then type questions in the **Analisi AI** section:
-- *"What caused the engine timeout?"*
-- *"Show me the sequence of errors before the system crash"*
+Type questions in the **AI** section:
+- *"What caused the timeout?"*
+- *"Show me the sequence of errors before the crash"*
 - *"Quali sono i pattern di errore piu frequenti?"*
 
-The AI returns analysis with clickable `[index:N]` references. If the AI is unavailable, the plugin automatically falls back to the rule-based analyzer.
+If AI is unavailable, falls back to rule-based analysis automatically.
 
-## Configuration
+## Configuration / Configurazione
 
-The plugin reads/writes settings via the DLT Viewer INI file. You can also place `dlt_chat_plugin.ini` next to the plugin DLL.
-
-Example configuration:
+Example `dlt_chat_plugin.ini`:
 
 ```ini
 [Analyzer]
@@ -86,33 +193,6 @@ llmTimeout=30000
 highlightColor=#FFE680
 ```
 
-## CSV Export
-
-Two export modes:
-- **Esporta CSV** — exports the current query results with full metadata (Time, Level, ECU, APID, CTID)
-- **Esporta Tutto** — exports all loaded log entries
-
-## Build
-
-### Prerequisites
-- CMake 3.16+, C++17 compiler
-- Qt 5.15+ or Qt 6.x (Core, Gui, Widgets, Network)
-- DLT Viewer SDK (qdlt library)
-
-### Windows (MSVC/MinGW)
-```cmd
-build_plugin.bat
-```
-
-### Linux
-```bash
-mkdir build && cd build
-cmake .. -DCMAKE_BUILD_TYPE=Release
-make -j$(nproc)
-```
-
-The plugin is also built automatically when included in the DLT Viewer CMake project under `plugin/dlt-chat-plugin/`.
-
-## License
+## License / Licenza
 
 Mozilla Public License 2.0 (MPL-2.0). See [LICENSE](LICENSE).

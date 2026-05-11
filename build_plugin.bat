@@ -1,17 +1,19 @@
 @echo off
 setlocal
 
-:: Build script for DLT Chat Log Assistant Plugin
-:: Supports MSVC (Visual Studio 2022) and MinGW (MSYS2 ucrt64)
-
 echo ************************************
 echo ***  Chat Log Assistant Plugin   ***
 echo ************************************
 
 if not exist build mkdir build
+if not exist build (
+    echo [ERROR] Failed to create build directory
+    pause
+    exit /b 1
+)
+
 cd build
 
-:: Detect available generators
 where ninja >nul 2>nul
 if %errorlevel% equ 0 (
     echo [BUILD] Using Ninja generator
@@ -42,9 +44,10 @@ if %errorlevel% neq 0 (
 
 echo.
 echo [SUCCESS] Plugin compiled successfully!
-echo Output: build\dltchatplugin.dll (MSVC) / build\libdltchatplugin.dll (MinGW)
+echo Output: build\Release\dltchatplugin.dll ^(MSVC^) / build\libdltchatplugin.dll ^(MinGW^)
 echo.
 echo Copy to DLT Viewer plugins folder:
 echo   %%LOCALAPPDATA%%\Programs\dlt-viewer\plugins\
 echo.
 pause
+exit /b 0
