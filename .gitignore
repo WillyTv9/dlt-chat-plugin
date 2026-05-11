@@ -3,7 +3,6 @@ build/
 build-*/
 cmake-build-*/
 out/
-*.build/
 
 # Compiled files
 *.o
@@ -36,12 +35,7 @@ CMakeCache.txt
 CMakeFiles/
 cmake_install.cmake
 install_manifest.txt
-CTestTestfile.cmake
 Makefile
-
-# Documentation builds
-docs/html/
-docs/latex/
 
 # Test outputs
 Testing/
@@ -57,15 +51,6 @@ test_results/
 # Package files
 *.tar.gz
 *.zip
-
-# Environment files
-.env
-.env.local
-
-# Plugin specific - exclude build outputs
-bin/
-lib/
-plugins/
 
 # OS specific
 Thumbs.db

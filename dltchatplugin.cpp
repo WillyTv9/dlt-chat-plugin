@@ -27,6 +27,16 @@ void DltChatPlugin::setupDefaultAnalyzer()
 {
     m_ruleBasedAnalyzer = new DltRuleBasedAnalyzer();
     m_analyzer = m_ruleBasedAnalyzer;
+
+    m_llmAnalyzer = DltLlmAnalyzerFactory::createOllamaAnalyzer(
+        "http://localhost:11434",
+        "phi4-mini",
+        this);
+
+    if (m_llmAnalyzer && m_llmAnalyzer->isAvailable())
+    {
+        qDebug() << "DLT Chat Plugin: Ollama LLM initialized with phi4-mini";
+    }
 }
 
 QString DltChatPlugin::name()

@@ -36,7 +36,17 @@ DltLlmAnalyzerInterface::~DltLlmAnalyzerInterface()
 
 bool DltLlmAnalyzerInterface::isAvailable() const
 {
-    return !m_apiEndpoint.isEmpty() && !m_apiKey.isEmpty();
+    if (m_apiEndpoint.isEmpty())
+        return false;
+
+    bool isLocalEndpoint = m_apiEndpoint.contains("localhost") ||
+                           m_apiEndpoint.contains("127.0.0.1") ||
+                           m_apiEndpoint.startsWith("http://");
+
+    if (isLocalEndpoint)
+        return true;
+
+    return !m_apiKey.isEmpty();
 }
 
 bool DltLlmAnalyzerInterface::validateConfiguration() const
@@ -167,7 +177,10 @@ DltAnalyzerInterface::QueryResult DltLlmAnalyzerInterface::analyzeQuery(
     QUrl url(m_apiEndpoint);
     QNetworkRequest request(url);
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
-    request.setRawHeader("Authorization", QString("Bearer %1").arg(m_apiKey).toUtf8());
+    if (!m_apiKey.isEmpty())
+    {
+        request.setRawHeader("Authorization", QString("Bearer %1").arg(m_apiKey).toUtf8());
+    }
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
     request.setTransferTimeout(m_timeout);
 #endif
