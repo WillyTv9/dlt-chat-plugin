@@ -1,0 +1,71 @@
+# Build directories
+build/
+build-*/
+cmake-build-*/
+out/
+*.build/
+
+# Compiled files
+*.o
+*.obj
+*.exe
+*.dll
+*.so
+*.dylib
+*.a
+*.lib
+
+# Qt build files
+moc_*.cpp
+qrc_*.cpp
+ui_*.h
+*.moc
+*.qmlc
+*.qmljsc
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+install_manifest.txt
+CTestTestfile.cmake
+Makefile
+
+# Documentation builds
+docs/html/
+docs/latex/
+
+# Test outputs
+Testing/
+*.log
+test_results/
+
+# Temporary files
+*.tmp
+*.bak
+*.orig
+*.rej
+
+# Package files
+*.tar.gz
+*.zip
+
+# Environment files
+.env
+.env.local
+
+# Plugin specific - exclude build outputs
+bin/
+lib/
+plugins/
+
+# OS specific
+Thumbs.db

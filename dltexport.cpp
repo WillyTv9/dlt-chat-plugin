@@ -1,0 +1,128 @@
+#include "dltexport.h"
+
+#include <QDir>
+#include <QFile>
+#include <QFileInfo>
+#include <QTextStream>
+
+#if __has_include(<DltChatAnalyzer>)
+#include <DltChatAnalyzer>
+#else
+#include "dltchatanalyzer.h"
+#endif
+
+QString DltExport::generateCsvRow(const QStringList &fields)
+{
+    QStringList escaped;
+    escaped.reserve(fields.size());
+    for (const QString &field : fields)
+    {
+        QString value = field;
+        value.replace("\"", "\"\"");
+        if (value.contains(',') || value.contains('"') || value.contains('\n') || value.contains('\r'))
+        {
+            value = QString("\"%1\"").arg(value);
+        }
+        escaped.append(value);
+    }
+    return escaped.join(',');
+}
+
+QStringList DltExport::sanitizeFields(const QStringList &fields)
+{
+    QStringList sanitized;
+    sanitized.reserve(fields.size());
+    for (const QString &field : fields)
+    {
+        sanitized.append(field.trimmed());
+    }
+    return sanitized;
+}
+
+bool DltExport::exportToCsv(const QString &filePath,
+                          const QList<int> &indices,
+                          const QStringList &snippets,
+                          const QString &query)
+{
+    if (indices.isEmpty())
+    {
+        return false;
+    }
+
+    QFile file(filePath);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
+    {
+        return false;
+    }
+
+    QTextStream out(&file);
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    out.setEncoding(QStringConverter::Encoding::System);
+#else
+    out.setCodec("UTF-8");
+#endif
+
+    out << generateCsvRow({"#", "Index", "Timestamp", "Level", "ECU", "APID", "CTID", "Payload", "Source"}) << "\n";
+
+    const int count = qMin(indices.size(), snippets.size());
+    for (int i = 0; i < count; ++i)
+    {
+        QStringList fields = {
+            QString::number(i + 1),
+            QString::number(indices[i]),
+            QString(),
+            QString(),
+            QString(),
+            QString(),
+            QString(),
+            snippets[i],
+            query
+        };
+        out << generateCsvRow(sanitizeFields(fields)) << "\n";
+    }
+
+    file.close();
+    return true;
+}
+
+bool DltExport::exportAllEntries(const QString &filePath,
+                                const QVector<DltChatAnalyzer::LogEntry> &entries)
+{
+    if (entries.isEmpty())
+    {
+        return false;
+    }
+
+    QFile file(filePath);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
+    {
+        return false;
+    }
+
+    QTextStream out(&file);
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    out.setEncoding(QStringConverter::Encoding::System);
+#else
+    out.setCodec("UTF-8");
+#endif
+
+    out << generateCsvRow({"Index", "Time", "Timestamp", "Level", "ECU", "APID", "CTID", "Payload"}) << "\n";
+
+    for (const DltChatAnalyzer::LogEntry &entry : entries)
+    {
+        QStringList fields = {
+            QString::number(entry.index),
+            entry.time,
+            entry.timestamp,
+            entry.level,
+            entry.ecu,
+            entry.apid,
+            entry.ctid,
+            entry.payload
+        };
+        out << generateCsvRow(sanitizeFields(fields)) << "\n";
+    }
+
+    file.close();
+    return true;
+}

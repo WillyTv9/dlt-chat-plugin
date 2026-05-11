@@ -1,0 +1,246 @@
+Mozilla Public License Version 2.0
+=======================================
+
+1. Definitions
+--------------
+
+1.1. "Contributor"
+    means each individual or legal entity that creates, contributes to
+    the creation of, or owns Covered Software.
+
+1.2. "Contributor Version"
+    means the combination of the Contributions of all Contributors
+    together with the Covered Software to which such Contributions
+    relate.
+
+1.3. "Covered Software"
+    means Source Code Form to which the initial Contributor has attached
+    the notice in Exhibit A, the Executable Form of such Source Code
+    Form, and Modifications of such Source Code Form, in each case
+    including portions thereof.
+
+1.4. "Executable Form"
+    means any form of the work other than Source Code Form.
+
+1.5. "Larger Work"
+    means a work that combines Covered Software with other software or
+    devices other than the Larger Work. A Larger Work is not a Covered
+    Software.
+
+1.6. "License"
+    means this document.
+
+1.7. "Licensable"
+    means having the right to grant, to the maximum extent possible,
+    whether at the time of the initial grant or subsequently, any and
+    all of the rights conveyed by this License.
+
+1.8. "Modifications"
+    means any of the following: (a) any file in Source Code Form that
+    results from an addition to, deletion from, or modification of the
+    contents of Covered Software; or (b) any new file in Source Code
+    Form that contains any part of the Covered Software.
+
+1.9. "Patent Claims"
+    means any patent claim(s), now owned or hereafter acquired, in any
+    patent that is presently owned or in the future acquired by a
+    Contributor, that would be infringed (directly, indirectly, or
+    otherwise) by some or all of the Contributor Version, but do not
+    include a claim that would be infringed only as a consequence of
+    further modification of the Contributor Version.
+
+1.10. "Source Code Form"
+    means the form of a work preferred for making modifications,
+    including (a) its source code, (b) the components that compose the
+    work, and (c) the identification of the initial source code file
+    to which the modifications are made.
+
+1.11. "You"
+    (or "Your") means an individual or a legal entity exercising rights
+    under this License.
+
+2. Grant of Rights
+------------------
+
+2.1. Grant
+
+    Subject to the terms of this License, each Contributor hereby grants
+    to You a perpetual, worldwide, non-exclusive, no-charge, royalty-free,
+    irrevocable (except as stated in this section) patent license to
+    make, have made, use, offer to sell, sell, import, and otherwise
+    transfer the Covered Software, where such license applies only to
+    those patent claims licensable by such Contributor that are necessarily
+    infringed by their Contribution(s) alone or by combination of their
+    Contribution(s) with the Covered Software to which such Contribution(s)
+    was submitted.
+
+2.2. Effect of Patent License
+
+    Subject to the terms and conditions of this License, each Contributor
+    hereby grants to You a perpetual, worldwide, non-exclusive, no-charge,
+    royalty-free, irrevocable (except as stated in this section) patent
+    license to make, have made, use, offer to sell, sell, import, and
+    otherwise transfer the Covered Software.
+
+3. Requirements
+---------------
+
+A Contributor may choose to distribute the Covered Software in
+object code form under its own license agreement, provided that:
+
+(a) it complies with the terms and conditions of this License; and
+
+(b) its license agreement:
+    (i) effectively disclaims on behalf of all Contributors all warranties
+        and conditions, express and implied, including warranties or
+        conditions of title and non-infringement, and implied warranties
+        or conditions of merchantability and fitness for a particular
+        purpose;
+    (ii) effectively excludes on behalf of all Contributors all liability
+        for damages, including direct, indirect, special, incidental and
+        consequential damages, such as lost profits;
+    (iii) does not attempt to limit or alter the recipients' liability
+        in any way that is prohibited by this License; and
+    (iv) requires any subsequent distribution of the Covered Software by
+        a Contributor to be made subject to an additional license that
+        covers the patent license granted in Section 2.1.
+
+You may not impose a further restriction on the exercise of the rights
+granted or affirmed under this License. For example, You may not impose
+a license fee, royalty, or other charge for exercise of rights granted
+under this License, and You may not initiate litigation (including a
+cross-claim or counterclaim in a lawsuit) alleging that any patent claim
+is infringed by making, using, selling, offering for sale, or importing
+the Covered Software or any portion thereof.
+
+4. No Warranty
+-------------
+
+Covered Software is provided under this License on an "as is" basis,
+without warranty of any kind, either express, implied, or statutory,
+including, without limitation, warranties that the Covered Software is
+free of defects, merchantable, fit for a particular purpose or non-
+infringing. The entire risk as to the quality and performance of the
+Covered Software is with You. Should any Covered Software prove defective
+in any respect, You (not any Contributor) assume the cost of any
+necessary servicing, repair, or correction. This disclaimer of warranty
+constitutes an essential part of this License. No use of any Covered
+Software is authorized under this License except under this disclaimer.
+
+5. Limitation of Liability
+-------------------------
+
+Under no circumstances and under no legal theory, whether tort
+(including negligence), contract, or otherwise, shall any Contributor,
+or anyone who distributes Covered Software as permitted above, be
+liable to You for any direct, indirect, special, incidental, or
+consequential damages of any character including, without limitation,
+damages for loss of goodwill, work stoppage, computer failure or
+malfunction, or any and all other commercial damages or losses, even
+if such party shall have been informed of the possibility of such
+damages. This limitation of liability shall not apply to liability for
+death or personal injury resulting from such party's negligence to the
+extent applicable law prohibits such limitation. Some jurisdictions do
+not allow the exclusion or limitation of incidental or consequential
+damages, so this exclusion and limitation may not apply to You.
+
+6. Litigation
+-------------
+
+Any litigation relating to this License shall be subject to the
+jurisdiction of the courts of the jurisdiction in which the Plaintiff
+resides (or if Plaintiff is a corporation, the courts of the jurisdiction
+where it has its principal place of business), and shall be governed by
+the laws of that jurisdiction, without regard to conflict of law
+provisions. Nothing in this Section shall prevent a party's ability
+to bring cross-claims or counter-claims.
+
+7. Miscellaneous
+-----------------
+
+This License represents the complete agreement concerning the subject
+matter hereof. If any provision of this License is held to be
+unenforceable, such provision shall be reformed only to the extent
+necessary to make it enforceable. Any laws or regulations that may
+apply to the Covered Software in a jurisdiction where a Contributor
+resides may also apply to the Covered Software, but only as to claims
+asserted in that jurisdiction. No other rights are granted by this
+License beyond what is expressly stated herein.
+
+8. Responsibility for Claims
+-----------------------------
+
+Except as expressly stated otherwise, no Contributor shall have any
+responsibility or liability for the conduct of any Contributor, nor
+does any Contributor assume responsibility for any of the contributions
+or modifications made by any other Contributor. All Contributors are
+responsible for any claims or damages arising from their contribution
+to the Covered Software.
+
+9. Term
+-------
+
+This License is perpetual unless the rights granted hereunder terminate
+as provided in Section 10.1 below.
+
+10. Distribution
+----------------
+
+10.1. General
+
+    When You distribute the Covered Software in Executable Form, You
+    must make available the source code of the Covered Software for a
+    period of at least three (3) years from the date of distribution.
+    This requirement does not apply to code that You add to the Covered
+    Software under Section 2.1.
+
+10.2. Larger Works
+
+    You may create a Larger Work by combining Covered Software with other
+    code not governed by the terms of this License and distribute the
+    Larger Work as a single product. In such a case, You must make sure
+    the requirements of this License are fulfilled for the Covered
+    Software.
+
+10.3. Attribution Notices
+
+    You may not remove or alter attribution notices that appear in the
+    Covered Software. You may add Your own attribution notice within
+    Covered Software that You distribute, alongside or as an addendum
+    to the notice from the initial Contributor, stating that Your
+    Modification is Yours.
+
+    You may add Your name to the Contributors list in each file You add
+    to the Covered Software. You must also include a statement that the
+    Modification is Yours, and that You license the Modification under
+    this License to each recipient of the Covered Software.
+
+10.4. Disclaimer of Warranty
+
+    Covered Software is provided under this License on an "as is" basis,
+    without warranty of any kind. This DISCLAIMER OF WARRANTY constitutes
+    an essential part of this License. Any coverage or liability for the
+    Covered Software is excluded by this statement. Should the Covered
+    Software prove defective in any respect, You (not any Contributor)
+    assume the cost of any necessary servicing, repair or correction.
+    This disclaimer of warranty is an essential part of this License.
+    No use of the Covered Software is authorized under this License
+    except under this disclaimer.
+
+10.5. Limitation of Liability
+
+    In no event shall any Contributor be liable to You for any damage
+    arising out of the use or inability to use the Covered Software, or
+    for any direct, indirect, incidental, special, exemplary, or
+    consequential damages, including lost profits, even if such
+    Contributor has been advised of the possibility of such damages.
+    This limitation of liability shall not apply to the extent
+    applicable law prohibits such limitation.
+
+10.6. Acceptance
+
+    By downloading, copying, or otherwise exercising any rights in the
+    Covered Software, You indicate that You have read, understood, and
+    agree to be bound by the terms and conditions of this License. If
+    You do not agree to abide by these terms, You are not authorized
+    to use the Covered Software.

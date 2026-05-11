@@ -1,0 +1,543 @@
+#include "dltllmanalyzerinterface.h"
+
+#include <QCoreApplication>
+#include <QElapsedTimer>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonArray>
+#include <QNetworkReply>
+#include <QNetworkRequest>
+#include <QThread>
+#include <QUrl>
+#include <QUrlQuery>
+
+#include "dltanalyzerinterface.h"
+
+DltLlmAnalyzerInterface::DltLlmAnalyzerInterface(QObject *parent)
+    : QObject(parent)
+    , m_maxTokens(1000)
+    , m_temperature(0.3)
+    , m_timeout(30000)
+    , m_networkManager(new QNetworkAccessManager(this))
+    , m_currentReply(nullptr)
+    , m_requestInProgress(false)
+{
+    Q_UNUSED(parent);
+}
+
+DltLlmAnalyzerInterface::~DltLlmAnalyzerInterface()
+{
+    if (m_currentReply)
+    {
+        m_currentReply->abort();
+        m_currentReply->deleteLater();
+    }
+}
+
+bool DltLlmAnalyzerInterface::isAvailable() const
+{
+    return !m_apiEndpoint.isEmpty() && !m_apiKey.isEmpty();
+}
+
+bool DltLlmAnalyzerInterface::validateConfiguration() const
+{
+    if (m_apiEndpoint.isEmpty())
+    {
+        return false;
+    }
+    if (m_apiKey.isEmpty())
+    {
+        return false;
+    }
+    if (m_modelName.isEmpty())
+    {
+        return false;
+    }
+    return true;
+}
+
+QString DltLlmAnalyzerInterface::buildPrompt(const QString &query,
+                                            const QVector<LogEntry> &entries,
+                                            int maxEntries) const
+{
+    QStringList contextLines;
+    const int count = qMin(entries.size(), maxEntries);
+
+    for (int i = 0; i < count; ++i)
+    {
+        const auto &entry = entries[i];
+        contextLines.append(QString("[%1] %2 %3 %4/%5 - %6")
+                                .arg(entry.index)
+                                .arg(entry.time)
+                                .arg(entry.level.toUpper())
+                                .arg(entry.apid)
+                                .arg(entry.ctid)
+                                .arg(entry.payload));
+    }
+
+    return QString(
+        "Sei un assistente per l'analisi di log DLT (Diagnostic Log and Trace).\n"
+        "Rispondi in italiano.\n"
+        "Il tuo compito e' rispondere alla domanda dell'utente basandoti sui log forniti.\n\n"
+        "LOG (totale %1 entries):\n"
+        "%2\n\n"
+        "DOMANDA: %3\n\n"
+        "RISPOSTA (includi gli indici dei messaggi rilevanti nel formato [index:N]):"
+    ).arg(entries.size())
+     .arg(contextLines.join("\n"))
+     .arg(query);
+}
+
+QString DltLlmAnalyzerInterface::parseLlmResponse(const QString &response) const
+{
+    return response.trimmed();
+}
+
+QList<int> DltLlmAnalyzerInterface::extractIndicesFromText(const QString &text) const
+{
+    QList<int> indices;
+    QRegularExpression re("\\[index:\\s*(\\d+)\\]", QRegularExpression::CaseInsensitiveOption);
+    QRegularExpressionMatchIterator it = re.globalMatch(text);
+    while (it.hasNext())
+    {
+        QRegularExpressionMatch match = it.next();
+        indices.append(match.captured(1).toInt());
+    }
+
+    if (indices.isEmpty())
+    {
+        QRegularExpression plainRe("\\b(\\d+)\\b");
+        QRegularExpressionMatchIterator pit = plainRe.globalMatch(text);
+        while (pit.hasNext() && indices.size() < 20)
+        {
+            QRegularExpressionMatch match = pit.next();
+            int num = match.captured(1).toInt();
+            if (num < 10000 && !indices.contains(num))
+            {
+                indices.append(num);
+            }
+        }
+    }
+
+    return indices;
+}
+
+DltAnalyzerInterface::QueryResult DltLlmAnalyzerInterface::analyzeQuery(
+    const QString &query,
+    const QVector<LogEntry> &entries)
+{
+    QElapsedTimer timer;
+    timer.start();
+
+    QueryResult result;
+
+    if (!isAvailable())
+    {
+        result.responseHtml = "LLM non configurato. Usa l'analyzer rule-based oppure configura un modello LLM.";
+        result.success = false;
+        result.errorMessage = "LLM analyzer not available: missing endpoint or API key";
+        result.processingTimeMs = timer.elapsed();
+        return result;
+    }
+
+    if (entries.isEmpty())
+    {
+        result.responseHtml = "Nessun log caricato. Apri un file DLT e riprova.";
+        result.success = false;
+        result.processingTimeMs = timer.elapsed();
+        return result;
+    }
+
+    if (query.trimmed().isEmpty())
+    {
+        result.responseHtml = "Inserisci una domanda o una parola chiave.";
+        result.success = false;
+        result.processingTimeMs = timer.elapsed();
+        return result;
+    }
+
+    if (m_requestInProgress)
+    {
+        result.responseHtml = "Richiesta gia' in corso. Attendi il completamento.";
+        result.success = false;
+        result.processingTimeMs = timer.elapsed();
+        return result;
+    }
+
+    QUrl url(m_apiEndpoint);
+    QNetworkRequest request(url);
+    request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+    request.setRawHeader("Authorization", QString("Bearer %1").arg(m_apiKey).toUtf8());
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    request.setTransferTimeout(m_timeout);
+#endif
+
+    const int maxEntries = qMin(entries.size(), 500);
+    QString prompt = buildPrompt(query, entries, maxEntries);
+
+    QJsonObject json;
+    json["model"] = m_modelName;
+    json["prompt"] = prompt;
+    json["stream"] = false;
+
+    if (m_maxTokens > 0)
+    {
+        json["options"] = QJsonObject{
+            {"num_predict", m_maxTokens},
+            {"temperature", m_temperature}
+        };
+    }
+
+    QJsonDocument doc(json);
+    QByteArray data = doc.toJson();
+
+    m_requestInProgress = true;
+    m_pendingResponse.clear();
+
+    m_currentReply = m_networkManager->post(request, data);
+
+    connect(m_currentReply, &QNetworkReply::finished, this, &DltLlmAnalyzerInterface::onRequestFinished);
+    connect(m_currentReply, QOverload<QNetworkReply::NetworkError>::of(&QNetworkReply::errorOccurred),
+            this, &DltLlmAnalyzerInterface::onRequestError);
+
+    int waitCount = 0;
+    const int maxWait = m_timeout / 100;
+    while (m_requestInProgress && waitCount < maxWait)
+    {
+        QCoreApplication::processEvents();
+        QThread::msleep(100);
+        waitCount++;
+    }
+
+    if (m_requestInProgress)
+    {
+        if (m_currentReply)
+        {
+            m_currentReply->abort();
+        }
+        result.responseHtml = "Timeout nella risposta del LLM. Prova con un numero minore di log entries.";
+        result.success = false;
+        result.errorMessage = "LLM request timeout";
+        result.processingTimeMs = timer.elapsed();
+        m_requestInProgress = false;
+        return result;
+    }
+
+    if (m_pendingResponse.isEmpty())
+    {
+        result.responseHtml = "Il modello LLM non ha risposto. Controlla la configurazione.";
+        result.success = false;
+        result.errorMessage = "Empty LLM response";
+        result.processingTimeMs = timer.elapsed();
+        return result;
+    }
+
+    QString responseText = parseLlmResponse(QString::fromUtf8(m_pendingResponse));
+    result.responseHtml = responseText;
+
+    result.indices = extractIndicesFromText(responseText);
+    result.snippets.reserve(result.indices.size());
+    QSet<int> seen;
+    for (int idx : result.indices)
+    {
+        if (seen.contains(idx))
+        {
+            continue;
+        }
+        seen.insert(idx);
+        for (const auto &entry : entries)
+        {
+            if (entry.index == idx)
+            {
+                result.snippets.append(entry.payload.left(120));
+                break;
+            }
+        }
+    }
+
+    result.success = true;
+    result.processingTimeMs = timer.elapsed();
+    return result;
+}
+
+void DltLlmAnalyzerInterface::onRequestFinished()
+{
+    m_requestInProgress = false;
+
+    if (!m_currentReply)
+    {
+        return;
+    }
+
+    if (m_currentReply->error() == QNetworkReply::NoError)
+    {
+        m_pendingResponse = m_currentReply->readAll();
+    }
+
+    m_currentReply->deleteLater();
+    m_currentReply = nullptr;
+}
+
+void DltLlmAnalyzerInterface::onRequestError(QNetworkReply::NetworkError error)
+{
+    Q_UNUSED(error);
+    m_requestInProgress = false;
+
+    if (m_currentReply)
+    {
+        m_pendingResponse = m_currentReply->readAll();
+    }
+}
+
+QString DltLlmAnalyzerInterface::configurationInfo() const
+{
+    if (!isAvailable())
+    {
+        return "LLM Analyzer non configurato.\n"
+               "Imposta API endpoint, API key e model name.";
+    }
+
+    return QString("LLM Analyzer\n"
+                  "- Provider: OpenAI Compatible\n"
+                  "- Endpoint: %1\n"
+                  "- Model: %2\n"
+                  "- Max Tokens: %3\n"
+                  "- Temperature: %4\n"
+                  "- Timeout: %5ms")
+        .arg(m_apiEndpoint)
+        .arg(m_modelName)
+        .arg(m_maxTokens)
+        .arg(m_temperature)
+        .arg(m_timeout);
+}
+
+QStringList DltLlmAnalyzerInterface::supportedLanguages() const
+{
+    return QStringList{"en", "it", "de", "es", "fr", "zh", "ja"};
+}
+
+bool DltLlmAnalyzerInterface::configure(const QVariantMap &config)
+{
+    if (config.contains("apiEndpoint"))
+    {
+        setApiEndpoint(config["apiEndpoint"].toString());
+    }
+    if (config.contains("apiKey"))
+    {
+        setApiKey(config["apiKey"].toString());
+    }
+    if (config.contains("modelName"))
+    {
+        setModelName(config["modelName"].toString());
+    }
+    if (config.contains("maxTokens"))
+    {
+        setMaxTokens(config["maxTokens"].toInt());
+    }
+    if (config.contains("temperature"))
+    {
+        setTemperature(config["temperature"].toDouble());
+    }
+    if (config.contains("timeout"))
+    {
+        setTimeout(config["timeout"].toInt());
+    }
+    return true;
+}
+
+QVariantMap DltLlmAnalyzerInterface::currentConfiguration() const
+{
+    QVariantMap config;
+    config["type"] = "llm";
+    config["apiEndpoint"] = m_apiEndpoint;
+    config["modelName"] = m_modelName;
+    config["maxTokens"] = m_maxTokens;
+    config["temperature"] = m_temperature;
+    config["timeout"] = m_timeout;
+    config["hasApiKey"] = !m_apiKey.isEmpty();
+    return config;
+}
+
+bool DltLlmAnalyzerInterface::testConnection(QString *errorMessage)
+{
+    if (m_apiEndpoint.isEmpty())
+    {
+        if (errorMessage)
+        {
+            *errorMessage = "API endpoint non impostato";
+        }
+        emit connectionTestResult(false, "API endpoint non impostato");
+        return false;
+    }
+
+    QUrl url(m_apiEndpoint);
+    QNetworkRequest request(url);
+    request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+    if (!m_apiKey.isEmpty())
+    {
+        request.setRawHeader("Authorization", QString("Bearer %1").arg(m_apiKey).toUtf8());
+    }
+
+    QJsonObject json;
+    json["model"] = m_modelName.isEmpty() ? "test" : m_modelName;
+    json["prompt"] = "test";
+    json["stream"] = false;
+
+    QNetworkReply *reply = m_networkManager->post(request, QJsonDocument(json).toJson());
+
+    bool success = false;
+    QString message;
+
+    QEventLoop loop;
+    QTimer timer;
+    timer.setSingleShot(true);
+    timer.setInterval(10000);
+    connect(&timer, &QTimer::timeout, &loop, &QEventLoop::quit);
+    connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+    timer.start();
+    loop.exec();
+
+    if (timer.isActive())
+    {
+        success = (reply->error() == QNetworkReply::NoError);
+        if (!success)
+        {
+            message = reply->errorString();
+        }
+        else
+        {
+            message = "Connessione riuscita";
+        }
+    }
+    else
+    {
+        message = "Timeout connessione";
+    }
+
+    reply->deleteLater();
+
+    if (errorMessage)
+    {
+        *errorMessage = message;
+    }
+    emit connectionTestResult(success, message);
+    return success;
+}
+
+void DltLlmAnalyzerInterface::setApiEndpoint(const QString &endpoint)
+{
+    if (m_apiEndpoint != endpoint)
+    {
+        m_apiEndpoint = endpoint;
+        emit apiEndpointChanged(endpoint);
+    }
+}
+
+void DltLlmAnalyzerInterface::setApiKey(const QString &key)
+{
+    if (m_apiKey != key)
+    {
+        m_apiKey = key;
+        emit apiKeyChanged(key);
+    }
+}
+
+void DltLlmAnalyzerInterface::setModelName(const QString &model)
+{
+    if (m_modelName != model)
+    {
+        m_modelName = model;
+        emit modelNameChanged(model);
+    }
+}
+
+void DltLlmAnalyzerInterface::setMaxTokens(int tokens)
+{
+    if (m_maxTokens != tokens)
+    {
+        m_maxTokens = tokens;
+        emit maxTokensChanged(tokens);
+    }
+}
+
+void DltLlmAnalyzerInterface::setTemperature(double temp)
+{
+    if (qAbs(m_temperature - temp) > 0.001)
+    {
+        m_temperature = temp;
+        emit temperatureChanged(temp);
+    }
+}
+
+void DltLlmAnalyzerInterface::setTimeout(int ms)
+{
+    if (m_timeout != ms)
+    {
+        m_timeout = ms;
+        emit timeoutChanged(ms);
+    }
+}
+
+DltLlmAnalyzerInterface *DltLlmAnalyzerFactory::createOpenAIAnalyzer(
+    const QString &apiKey,
+    const QString &model,
+    QObject *parent)
+{
+    DltLlmAnalyzerInterface *analyzer = new DltLlmAnalyzerInterface(parent);
+    analyzer->setApiEndpoint("https://api.openai.com/v1/completions");
+    analyzer->setApiKey(apiKey);
+    analyzer->setModelName(model);
+    analyzer->setMaxTokens(1000);
+    analyzer->setTemperature(0.3);
+    return analyzer;
+}
+
+DltLlmAnalyzerInterface *DltLlmAnalyzerFactory::createOllamaAnalyzer(
+    const QString &baseUrl,
+    const QString &model,
+    QObject *parent)
+{
+    DltLlmAnalyzerInterface *analyzer = new DltLlmAnalyzerInterface(parent);
+    analyzer->setApiEndpoint(baseUrl + "/api/generate");
+    analyzer->setApiKey(QString());
+    analyzer->setModelName(model);
+    analyzer->setMaxTokens(1000);
+    analyzer->setTemperature(0.3);
+    return analyzer;
+}
+
+DltLlmAnalyzerInterface *DltLlmAnalyzerFactory::createLocalAiAnalyzer(
+    const QString &baseUrl,
+    const QString &model,
+    QObject *parent)
+{
+    DltLlmAnalyzerInterface *analyzer = new DltLlmAnalyzerInterface(parent);
+    analyzer->setApiEndpoint(baseUrl + "/api/generate");
+    analyzer->setApiKey(QString());
+    analyzer->setModelName(model);
+    analyzer->setMaxTokens(1000);
+    analyzer->setTemperature(0.3);
+    return analyzer;
+}
+
+QStringList DltLlmAnalyzerFactory::availableProviders()
+{
+    return QStringList{"openai", "ollama", "local-ai"};
+}
+
+QString DltLlmAnalyzerFactory::defaultModelForProvider(const QString &provider)
+{
+    if (provider == "openai")
+    {
+        return "gpt-4";
+    }
+    if (provider == "ollama")
+    {
+        return "llama3";
+    }
+    if (provider == "local-ai")
+    {
+        return "mistral";
+    }
+    return "llama3";
+}
