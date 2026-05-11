@@ -1,14 +1,6 @@
-/*
- * This Source Code Form is subject to the terms of the Mozilla Public License,
- * v. 2.0. If a copy of the MPL was not distributed with this file, You can
- * obtain one at http://mozilla.org/MPL/2.0/.
- *
- * SPDX-License-Identifier: MPL-2.0
- */
-
 #include "dltllmanalyzerinterface.h"
 
-#include <QCoreApplication>
+#include <QDateTime>
 #include <QElapsedTimer>
 #include <QEventLoop>
 #include <QJsonDocument>
@@ -17,132 +9,234 @@
 #include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QRegularExpression>
-#include <QThread>
-#include <QTimer>
 #include <QUrl>
-#include <QUrlQuery>
-
-#include "dltanalyzerinterface.h"
 
 DltLlmAnalyzerInterface::DltLlmAnalyzerInterface(QObject *parent)
     : QObject(parent)
-    , m_maxTokens(1000)
-    , m_temperature(0.3)
-    , m_timeout(30000)
+    , m_maxTokens(1000), m_temperature(0.3), m_timeout(30000)
     , m_networkManager(new QNetworkAccessManager(this))
-    , m_currentReply(nullptr)
-    , m_requestInProgress(false)
 {
-    Q_UNUSED(parent);
 }
 
-DltLlmAnalyzerInterface::~DltLlmAnalyzerInterface()
+DltLlmAnalyzerInterface::~DltLlmAnalyzerInterface() {}
+
+bool DltLlmAnalyzerInterface::validateConfiguration() const
 {
-    if (m_currentReply)
-    {
-        m_currentReply->abort();
-        m_currentReply->deleteLater();
-    }
+    if (m_apiEndpoint.isEmpty()) return false;
+    bool local = m_apiEndpoint.contains("localhost") || m_apiEndpoint.contains("127.0.0.1")
+        || m_apiEndpoint.contains("ollama") || m_apiEndpoint.contains("local-ai");
+    if (local) return !m_modelName.isEmpty();
+    return !m_apiKey.isEmpty() && !m_modelName.isEmpty();
 }
 
 bool DltLlmAnalyzerInterface::isAvailable() const
 {
-    return validateConfiguration();
+    if (!validateConfiguration()) return false;
+    qint64 now = QDateTime::currentMSecsSinceEpoch();
+    if (now - m_lastAvailabilityCheck < AVAILABILITY_TTL_MS)
+        return m_availabilityVerified;
+
+    QUrl url(m_apiEndpoint);
+    QString tagsUrl = url.toString();
+    tagsUrl.replace("/api/generate", "/api/tags");
+
+    QNetworkAccessManager mgr;
+    QNetworkReply *reply = mgr.get(QNetworkRequest(QUrl(tagsUrl)));
+    QEventLoop loop;
+    QTimer timer;
+    timer.setSingleShot(true);
+    connect(&timer, &QTimer::timeout, &loop, &QEventLoop::quit);
+    connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+    timer.start(3000);
+    loop.exec();
+
+    m_lastAvailabilityCheck = now;
+    if (timer.isActive() && reply->error() == QNetworkReply::NoError)
+    {
+        QJsonDocument doc = QJsonDocument::fromJson(reply->readAll());
+        if (doc.isObject())
+        {
+            QJsonArray models = doc.object()["models"].toArray();
+            for (const auto &m : models)
+            {
+                if (m.toObject()["name"].toString().startsWith(m_modelName))
+                {
+                    m_availabilityVerified = true;
+                    reply->deleteLater();
+                    return true;
+                }
+            }
+        }
+    }
+    m_availabilityVerified = false;
+    reply->deleteLater();
+    return false;
 }
 
-bool DltLlmAnalyzerInterface::validateConfiguration() const
+bool DltLlmAnalyzerInterface::testConnection(QString *errMsg)
 {
     if (m_apiEndpoint.isEmpty())
     {
+        if (errMsg) *errMsg = "Endpoint non impostato";
+        emit connectionTestResult(false, "Endpoint non impostato");
         return false;
     }
 
-    bool isLocalEndpoint = m_apiEndpoint.contains("localhost") ||
-                           m_apiEndpoint.contains("127.0.0.1") ||
-                           m_apiEndpoint.contains("ollama") ||
-                           m_apiEndpoint.contains("local-ai");
+    QString tagsUrl = QUrl(m_apiEndpoint).toString().replace("/api/generate", "/api/tags");
+    QNetworkAccessManager mgr;
+    QNetworkReply *reply = mgr.get(QNetworkRequest(QUrl(tagsUrl)));
 
-    if (isLocalEndpoint)
-    {
-        return !m_modelName.isEmpty();
-    }
+    QEventLoop loop;
+    QTimer timer; timer.setSingleShot(true); timer.setInterval(5000);
+    connect(&timer, &QTimer::timeout, &loop, &QEventLoop::quit);
+    connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+    timer.start(); loop.exec();
 
-    return !m_apiKey.isEmpty() && !m_modelName.isEmpty();
+    bool ok = timer.isActive() && reply->error() == QNetworkReply::NoError;
+    QString msg = ok ? "Connessione OK" : (timer.isActive() ? reply->errorString() : "Timeout");
+    reply->deleteLater();
+    if (errMsg) *errMsg = msg;
+    emit connectionTestResult(ok, msg);
+    return ok;
 }
 
 QString DltLlmAnalyzerInterface::buildPrompt(const QString &query,
-                                            const QVector<LogEntry> &entries,
-                                            int maxEntries) const
+                                             const QVector<LogEntry> &entries,
+                                             int maxEntries) const
 {
-    QStringList contextLines;
-    const int count = qMin(entries.size(), maxEntries);
-
-    for (int i = 0; i < count; ++i)
+    QStringList ctx;
+    int n = qMin(entries.size(), maxEntries);
+    ctx.reserve(n);
+    for (int i = 0; i < n; ++i)
     {
-        const auto &entry = entries[i];
-        contextLines.append(QString("[%1] %2 %3 %4/%5 - %6")
-                                .arg(entry.index)
-                                .arg(entry.time)
-                                .arg(entry.level.toUpper())
-                                .arg(entry.apid)
-                                .arg(entry.ctid)
-                                .arg(entry.payload));
+        const auto &e = entries[i];
+        ctx.append(QString("[%1] %2 %3 %4/%5 - %6")
+            .arg(e.index).arg(e.time).arg(e.level.toUpper())
+            .arg(e.apid).arg(e.ctid).arg(e.payload));
+    }
+    return QString(
+        "You analyze DLT logs. Reference entries as [index:N].\n"
+        "Identify patterns, anomalies, error chains, root causes.\n"
+        "Answer concisely in the user's language.\n\n"
+        "LOG (%1 shown):\n%2\n\nQUERY: %3\n\nANSWER:"
+    ).arg(entries.size()).arg(ctx.join("\n")).arg(query);
+}
+
+QByteArray DltLlmAnalyzerInterface::buildRequestBody(const QString &prompt) const
+{
+    QJsonObject json;
+    json["model"] = m_modelName;
+    json["stream"] = false;
+
+    bool isOpenAI = m_apiEndpoint.contains("openai.com") || m_apiEndpoint.contains("azure");
+    if (isOpenAI)
+    {
+        QJsonArray msgs;
+        QJsonObject s; s["role"] = "system"; s["content"] = "You analyze DLT logs. Be concise.";
+        QJsonObject u; u["role"] = "user"; u["content"] = prompt;
+        msgs.append(s); msgs.append(u);
+        json["messages"] = msgs;
+        if (m_maxTokens > 0) { json["max_tokens"] = m_maxTokens; json["temperature"] = m_temperature; }
+    }
+    else
+    {
+        json["prompt"] = prompt;
+        if (m_maxTokens > 0)
+            json["options"] = QJsonObject{{"num_predict", m_maxTokens}, {"temperature", m_temperature}};
+    }
+    return QJsonDocument(json).toJson(QJsonDocument::Compact);
+}
+
+DltAnalyzerInterface::QueryResult DltLlmAnalyzerInterface::processReply(
+    QNetworkReply *reply, const QElapsedTimer &timer)
+{
+    QueryResult r;
+    r.usedAi = true;
+    r.processingTimeMs = timer.elapsed();
+
+    if (reply->error() != QNetworkReply::NoError)
+    {
+        r.responseHtml = "Errore AI: " + reply->errorString();
+        r.success = false;
+        return r;
     }
 
-    return QString(
-        "Sei un assistente per l'analisi di log DLT (Diagnostic Log and Trace).\n"
-        "Rispondi in italiano.\n"
-        "Il tuo compito e' rispondere alla domanda dell'utente basandoti sui log forniti.\n\n"
-        "LOG (totale %1 entries):\n"
-        "%2\n\n"
-        "DOMANDA: %3\n\n"
-        "RISPOSTA (includi gli indici dei messaggi rilevanti nel formato [index:N]):"
-    ).arg(entries.size())
-     .arg(contextLines.join("\n"))
-     .arg(query);
+    QByteArray data = reply->readAll();
+    if (data.isEmpty())
+    {
+        r.responseHtml = "Risposta AI vuota.";
+        r.success = false;
+        return r;
+    }
+
+    QString text = parseLlmResponse(QString::fromUtf8(data));
+    r.responseHtml = text;
+    r.indices = extractIndicesFromText(text);
+    r.success = true;
+    return r;
+}
+
+void DltLlmAnalyzerInterface::analyzeQueryAsync(const QString &query,
+                                                  const QVector<LogEntry> &entries)
+{
+    if (entries.isEmpty())
+    {
+        QueryResult r; r.responseHtml = "Nessun log da analizzare."; r.success = false; r.usedAi = true;
+        emit queryResultReady(r, query);
+        return;
+    }
+
+    int maxEntries = qMin(entries.size(), 100);
+    QString prompt = buildPrompt(query, entries, maxEntries);
+
+    QUrl url(m_apiEndpoint);
+    QNetworkRequest req(url);
+    req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+    if (!m_apiKey.isEmpty())
+        req.setRawHeader("Authorization", QString("Bearer %1").arg(m_apiKey).toUtf8());
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    req.setTransferTimeout(m_timeout);
+#endif
+
+    QByteArray body = buildRequestBody(prompt);
+    QNetworkReply *reply = m_networkManager->post(req, body);
+
+    QElapsedTimer *timer = new QElapsedTimer();
+    timer->start();
+    QString *queryCopy = new QString(query);
+
+    connect(reply, &QNetworkReply::finished, this, [this, reply, timer, queryCopy]() {
+        QueryResult r = processReply(reply, *timer);
+        emit queryResultReady(r, *queryCopy);
+        reply->deleteLater();
+        delete timer;
+        delete queryCopy;
+    });
 }
 
 QString DltLlmAnalyzerInterface::parseLlmResponse(const QString &response) const
 {
-    QJsonParseError error;
-    QJsonDocument doc = QJsonDocument::fromJson(response.toUtf8(), &error);
-
-    if (error.error != QJsonParseError::NoError)
-    {
-        return response.trimmed();
-    }
+    QJsonParseError err;
+    QJsonDocument doc = QJsonDocument::fromJson(response.toUtf8(), &err);
+    if (err.error != QJsonParseError::NoError) return response.trimmed();
 
     bool isOpenAI = m_apiEndpoint.contains("openai.com") || m_apiEndpoint.contains("azure");
-
     if (doc.isObject())
     {
-        QJsonObject obj = doc.object();
-
-        if (isOpenAI && obj.contains("choices"))
+        QJsonObject o = doc.object();
+        if (isOpenAI && o.contains("choices"))
         {
-            QJsonArray choices = obj["choices"].toArray();
-            if (!choices.isEmpty())
+            QJsonArray a = o["choices"].toArray();
+            if (!a.isEmpty())
             {
-                QJsonObject firstChoice = choices[0].toObject();
-                if (firstChoice.contains("message"))
-                {
-                    QJsonObject message = firstChoice["message"].toObject();
-                    return message["content"].toString().trimmed();
-                }
+                QJsonObject c = a[0].toObject();
+                if (c.contains("message")) return c["message"].toObject()["content"].toString().trimmed();
+                if (c.contains("text")) return c["text"].toString().trimmed();
             }
         }
-
-        if (obj.contains("response"))
-        {
-            return obj["response"].toString().trimmed();
-        }
-
-        if (obj.contains("text"))
-        {
-            return obj["text"].toString().trimmed();
-        }
+        if (o.contains("response")) return o["response"].toString().trimmed();
+        if (o.contains("text")) return o["text"].toString().trimmed();
     }
-
     return response.trimmed();
 }
 
@@ -150,490 +244,156 @@ QList<int> DltLlmAnalyzerInterface::extractIndicesFromText(const QString &text) 
 {
     QList<int> indices;
     QRegularExpression re("\\[index:\\s*(\\d+)\\]", QRegularExpression::CaseInsensitiveOption);
-    QRegularExpressionMatchIterator it = re.globalMatch(text);
-    while (it.hasNext())
-    {
-        QRegularExpressionMatch match = it.next();
-        indices.append(match.captured(1).toInt());
-    }
+    auto it = re.globalMatch(text);
+    while (it.hasNext()) indices.append(it.next().captured(1).toInt());
 
     if (indices.isEmpty())
     {
-        QRegularExpression plainRe("\\b(\\d+)\\b");
-        QRegularExpressionMatchIterator pit = plainRe.globalMatch(text);
+        QRegularExpression plain("\\b(\\d+)\\b");
+        auto pit = plain.globalMatch(text);
         while (pit.hasNext() && indices.size() < 20)
         {
-            QRegularExpressionMatch match = pit.next();
-            int num = match.captured(1).toInt();
-            if (num < 10000 && !indices.contains(num))
-            {
-                indices.append(num);
-            }
+            int n = pit.next().captured(1).toInt();
+            if (n < 10000 && !indices.contains(n)) indices.append(n);
         }
     }
-
     return indices;
 }
 
 DltAnalyzerInterface::QueryResult DltLlmAnalyzerInterface::analyzeQuery(
-    const QString &query,
-    const QVector<LogEntry> &entries)
+    const QString &query, const QVector<LogEntry> &entries)
 {
-    QElapsedTimer timer;
-    timer.start();
-
-    QueryResult result;
-
-    if (!isAvailable())
-    {
-        result.responseHtml = "LLM non configurato. Usa l'analyzer rule-based oppure configura un modello LLM.";
-        result.success = false;
-        result.errorMessage = "LLM analyzer not available: missing endpoint or API key";
-        result.processingTimeMs = timer.elapsed();
-        return result;
-    }
+    QElapsedTimer timer; timer.start();
+    QueryResult r; r.usedAi = true;
 
     if (entries.isEmpty())
     {
-        result.responseHtml = "Nessun log caricato. Apri un file DLT e riprova.";
-        result.success = false;
-        result.processingTimeMs = timer.elapsed();
-        return result;
+        r.responseHtml = "Nessun log caricato."; r.processingTimeMs = timer.elapsed();
+        return r;
     }
 
-    if (query.trimmed().isEmpty())
-    {
-        result.responseHtml = "Inserisci una domanda o una parola chiave.";
-        result.success = false;
-        result.processingTimeMs = timer.elapsed();
-        return result;
-    }
-
-    if (m_requestInProgress)
-    {
-        QMutexLocker locker(&m_requestMutex);
-        if (m_requestInProgress)  // Double-check locking
-        {
-            result.responseHtml = "Richiesta gia' in corso. Attendi il completamento.";
-            result.success = false;
-            result.processingTimeMs = timer.elapsed();
-            return result;
-        }
-    }
+    int n = qMin(entries.size(), 100);
+    QString prompt = buildPrompt(query, entries, n);
 
     QUrl url(m_apiEndpoint);
-    QNetworkRequest request(url);
-    request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+    QNetworkRequest req(url);
+    req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
     if (!m_apiKey.isEmpty())
-    {
-        request.setRawHeader("Authorization", QString("Bearer %1").arg(m_apiKey).toUtf8());
-    }
+        req.setRawHeader("Authorization", QString("Bearer %1").arg(m_apiKey).toUtf8());
+
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
-    request.setTransferTimeout(m_timeout);
+    req.setTransferTimeout(m_timeout);
 #endif
 
-    const int maxEntries = qMin(entries.size(), 500);
-    QString prompt = buildPrompt(query, entries, maxEntries);
+    QByteArray body = buildRequestBody(prompt);
+    QNetworkReply *reply = m_networkManager->post(req, body);
 
-    QJsonObject json;
-    json["model"] = m_modelName;
-    json["stream"] = false;
-
-    bool isOpenAI = m_apiEndpoint.contains("openai.com") || m_apiEndpoint.contains("azure");
-
-    if (isOpenAI)
-    {
-        QJsonArray messages;
-        QJsonObject systemMsg;
-        systemMsg["role"] = "system";
-        systemMsg["content"] = "Sei un assistente per l'analisi di log DLT (Diagnostic Log and Trace). Rispondi in italiano.";
-        QJsonObject userMsg;
-        userMsg["role"] = "user";
-        userMsg["content"] = prompt;
-        messages.append(systemMsg);
-        messages.append(userMsg);
-        json["messages"] = messages;
-
-        if (m_maxTokens > 0)
-        {
-            json["max_tokens"] = m_maxTokens;
-            json["temperature"] = m_temperature;
-        }
-    }
-    else
-    {
-        json["prompt"] = prompt;
-        if (m_maxTokens > 0)
-        {
-            json["options"] = QJsonObject{
-                {"num_predict", m_maxTokens},
-                {"temperature", m_temperature}
-            };
-        }
-    }
-
-    QJsonDocument doc(json);
-    QByteArray data = doc.toJson();
-
-    m_requestInProgress = true;
-    m_pendingResponse.clear();
-
-    m_currentReply = m_networkManager->post(request, data);
-
-    connect(m_currentReply, &QNetworkReply::finished, this, &DltLlmAnalyzerInterface::onRequestFinished);
-    connect(m_currentReply, QOverload<QNetworkReply::NetworkError>::of(&QNetworkReply::errorOccurred),
-            this, &DltLlmAnalyzerInterface::onRequestError);
-
-    // Use QEventLoop with timeout instead of busy-wait
     QEventLoop loop;
     QTimer timeoutTimer;
     timeoutTimer.setSingleShot(true);
-    
     connect(&timeoutTimer, &QTimer::timeout, &loop, &QEventLoop::quit);
-    connect(this, &DltLlmAnalyzerInterface::onRequestFinished, &loop, &QEventLoop::quit);
-    
+    connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
     timeoutTimer.start(m_timeout);
     loop.exec();
-    
+
     if (!timeoutTimer.isActive())
     {
-        // Timeout occurred
-        if (m_currentReply)
-        {
-            m_currentReply->abort();
-            m_currentReply->deleteLater();
-            m_currentReply = nullptr;
-        }
-        result.responseHtml = "Timeout nella risposta del LLM. Prova con un numero minore di log entries.";
-        result.success = false;
-        result.errorMessage = "LLM request timeout";
-        result.processingTimeMs = timer.elapsed();
-        m_requestInProgress = false;
-        return result;
+        reply->abort();
+        r.responseHtml = "Timeout AI. Fallback locale.";
+        r.success = false; r.usedAi = false;
+        r.processingTimeMs = timer.elapsed();
+        reply->deleteLater();
+        return r;
     }
     timeoutTimer.stop();
 
-    if (m_pendingResponse.isEmpty())
-    {
-        result.responseHtml = "Il modello LLM non ha risposto. Controlla la configurazione.";
-        result.success = false;
-        result.errorMessage = "Empty LLM response";
-        result.processingTimeMs = timer.elapsed();
-        return result;
-    }
+    r = processReply(reply, timer);
+    reply->deleteLater();
 
-    QString responseText = parseLlmResponse(QString::fromUtf8(m_pendingResponse));
-    result.responseHtml = responseText;
-
-    result.indices = extractIndicesFromText(responseText);
-    result.snippets.reserve(result.indices.size());
+    r.snippets.reserve(r.indices.size());
     QSet<int> seen;
-    for (int idx : result.indices)
+    for (int idx : r.indices)
     {
-        if (seen.contains(idx))
-        {
-            continue;
-        }
+        if (seen.contains(idx)) continue;
         seen.insert(idx);
-        for (const auto &entry : entries)
-        {
-            if (entry.index == idx)
-            {
-                result.snippets.append(entry.payload.left(120));
-                break;
-            }
-        }
+        for (const auto &e : entries)
+            if (e.index == idx) { r.snippets.append(e.payload.left(120)); break; }
     }
-
-    result.success = true;
-    result.processingTimeMs = timer.elapsed();
-    return result;
-}
-
-void DltLlmAnalyzerInterface::onRequestFinished()
-{
-    m_requestInProgress = false;
-
-    if (!m_currentReply)
-    {
-        return;
-    }
-
-    if (m_currentReply->error() == QNetworkReply::NoError)
-    {
-        m_pendingResponse = m_currentReply->readAll();
-    }
-    else
-    {
-        qWarning() << "LLM Network Error:" << m_currentReply->errorString();
-    }
-
-    // Ensure proper cleanup
-    disconnect(m_currentReply, nullptr, this, nullptr);
-    m_currentReply->deleteLater();
-    m_currentReply = nullptr;
-}
-
-void DltLlmAnalyzerInterface::onRequestError(QNetworkReply::NetworkError error)
-{
-    Q_UNUSED(error);
-    m_requestInProgress = false;
-
-    if (m_currentReply)
-    {
-        m_pendingResponse = m_currentReply->readAll();
-    }
+    return r;
 }
 
 QString DltLlmAnalyzerInterface::configurationInfo() const
 {
-    if (!isAvailable())
-    {
-        return "LLM Analyzer non configurato.\n"
-               "Imposta API endpoint, API key e model name.";
-    }
-
-    return QString("LLM Analyzer\n"
-                  "- Provider: OpenAI Compatible\n"
-                  "- Endpoint: %1\n"
-                  "- Model: %2\n"
-                  "- Max Tokens: %3\n"
-                  "- Temperature: %4\n"
-                  "- Timeout: %5ms")
-        .arg(m_apiEndpoint)
-        .arg(m_modelName)
-        .arg(m_maxTokens)
-        .arg(m_temperature)
-        .arg(m_timeout);
+    if (!validateConfiguration())
+        return "LLM: non configurato.";
+    return QString("LLM: %1 @ %2 | tokens=%3 temp=%4 timeout=%5ms")
+        .arg(m_modelName).arg(m_apiEndpoint).arg(m_maxTokens).arg(m_temperature).arg(m_timeout);
 }
 
-QStringList DltLlmAnalyzerInterface::supportedLanguages() const
-{
-    return QStringList{"en", "it", "de", "es", "fr", "zh", "ja"};
-}
+QStringList DltLlmAnalyzerInterface::supportedLanguages() const { return {"en","it","de","es","fr","zh","ja"}; }
 
-bool DltLlmAnalyzerInterface::configure(const QVariantMap &config)
+bool DltLlmAnalyzerInterface::configure(const QVariantMap &c)
 {
-    if (config.contains("apiEndpoint"))
-    {
-        setApiEndpoint(config["apiEndpoint"].toString());
-    }
-    if (config.contains("apiKey"))
-    {
-        setApiKey(config["apiKey"].toString());
-    }
-    if (config.contains("modelName"))
-    {
-        setModelName(config["modelName"].toString());
-    }
-    if (config.contains("maxTokens"))
-    {
-        setMaxTokens(config["maxTokens"].toInt());
-    }
-    if (config.contains("temperature"))
-    {
-        setTemperature(config["temperature"].toDouble());
-    }
-    if (config.contains("timeout"))
-    {
-        setTimeout(config["timeout"].toInt());
-    }
+    if (c.contains("apiEndpoint")) setApiEndpoint(c["apiEndpoint"].toString());
+    if (c.contains("apiKey")) setApiKey(c["apiKey"].toString());
+    if (c.contains("modelName")) setModelName(c["modelName"].toString());
+    if (c.contains("maxTokens")) setMaxTokens(c["maxTokens"].toInt());
+    if (c.contains("temperature")) setTemperature(c["temperature"].toDouble());
+    if (c.contains("timeout")) setTimeout(c["timeout"].toInt());
     return true;
 }
 
 QVariantMap DltLlmAnalyzerInterface::currentConfiguration() const
 {
-    QVariantMap config;
-    config["type"] = "llm";
-    config["apiEndpoint"] = m_apiEndpoint;
-    config["modelName"] = m_modelName;
-    config["maxTokens"] = m_maxTokens;
-    config["temperature"] = m_temperature;
-    config["timeout"] = m_timeout;
-    config["hasApiKey"] = !m_apiKey.isEmpty();
-    return config;
+    QVariantMap c;
+    c["type"] = "llm"; c["apiEndpoint"] = m_apiEndpoint; c["modelName"] = m_modelName;
+    c["maxTokens"] = m_maxTokens; c["temperature"] = m_temperature; c["timeout"] = m_timeout;
+    c["hasApiKey"] = !m_apiKey.isEmpty();
+    return c;
 }
 
-bool DltLlmAnalyzerInterface::testConnection(QString *errorMessage)
-{
-    if (m_apiEndpoint.isEmpty())
-    {
-        if (errorMessage)
-        {
-            *errorMessage = "API endpoint non impostato";
-        }
-        emit connectionTestResult(false, "API endpoint non impostato");
-        return false;
-    }
-
-    QUrl url(m_apiEndpoint);
-    QNetworkRequest request(url);
-    request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
-    if (!m_apiKey.isEmpty())
-    {
-        request.setRawHeader("Authorization", QString("Bearer %1").arg(m_apiKey).toUtf8());
-    }
-
-    QJsonObject json;
-    json["model"] = m_modelName.isEmpty() ? "test" : m_modelName;
-    json["prompt"] = "test";
-    json["stream"] = false;
-
-    QNetworkReply *reply = m_networkManager->post(request, QJsonDocument(json).toJson());
-
-    bool success = false;
-    QString message;
-
-    QEventLoop loop;
-    QTimer timer;
-    timer.setSingleShot(true);
-    timer.setInterval(10000);
-    connect(&timer, &QTimer::timeout, &loop, &QEventLoop::quit);
-    connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
-    timer.start();
-    loop.exec();
-
-    if (timer.isActive())
-    {
-        success = (reply->error() == QNetworkReply::NoError);
-        if (!success)
-        {
-            message = reply->errorString();
-        }
-        else
-        {
-            message = "Connessione riuscita";
-        }
-    }
-    else
-    {
-        message = "Timeout connessione";
-    }
-
-    reply->deleteLater();
-
-    if (errorMessage)
-    {
-        *errorMessage = message;
-    }
-    emit connectionTestResult(success, message);
-    return success;
-}
-
-void DltLlmAnalyzerInterface::setApiEndpoint(const QString &endpoint)
-{
-    if (m_apiEndpoint != endpoint)
-    {
-        m_apiEndpoint = endpoint;
-        emit apiEndpointChanged(endpoint);
-    }
-}
-
-void DltLlmAnalyzerInterface::setApiKey(const QString &key)
-{
-    if (m_apiKey != key)
-    {
-        m_apiKey = key;
-        emit apiKeyChanged(key);
-    }
-}
-
-void DltLlmAnalyzerInterface::setModelName(const QString &model)
-{
-    if (m_modelName != model)
-    {
-        m_modelName = model;
-        emit modelNameChanged(model);
-    }
-}
-
-void DltLlmAnalyzerInterface::setMaxTokens(int tokens)
-{
-    if (m_maxTokens != tokens)
-    {
-        m_maxTokens = tokens;
-        emit maxTokensChanged(tokens);
-    }
-}
-
-void DltLlmAnalyzerInterface::setTemperature(double temp)
-{
-    if (qAbs(m_temperature - temp) > 0.001)
-    {
-        m_temperature = temp;
-        emit temperatureChanged(temp);
-    }
-}
-
-void DltLlmAnalyzerInterface::setTimeout(int ms)
-{
-    if (m_timeout != ms)
-    {
-        m_timeout = ms;
-        emit timeoutChanged(ms);
-    }
-}
+void DltLlmAnalyzerInterface::setApiEndpoint(const QString &v)
+{ if (m_apiEndpoint != v) { m_apiEndpoint = v; m_lastAvailabilityCheck = 0; emit apiEndpointChanged(v); } }
+void DltLlmAnalyzerInterface::setApiKey(const QString &v)
+{ if (m_apiKey != v) { m_apiKey = v; m_lastAvailabilityCheck = 0; emit apiKeyChanged(v); } }
+void DltLlmAnalyzerInterface::setModelName(const QString &v)
+{ if (m_modelName != v) { m_modelName = v; m_lastAvailabilityCheck = 0; emit modelNameChanged(v); } }
+void DltLlmAnalyzerInterface::setMaxTokens(int v) { if (m_maxTokens != v) { m_maxTokens = v; emit maxTokensChanged(v); } }
+void DltLlmAnalyzerInterface::setTemperature(double v) { if (qAbs(m_temperature - v) > 0.001) { m_temperature = v; emit temperatureChanged(v); } }
+void DltLlmAnalyzerInterface::setTimeout(int v) { if (m_timeout != v) { m_timeout = v; emit timeoutChanged(v); } }
 
 DltLlmAnalyzerInterface *DltLlmAnalyzerFactory::createOpenAIAnalyzer(
-    const QString &apiKey,
-    const QString &model,
-    QObject *parent)
+    const QString &key, const QString &model, QObject *p)
 {
-    DltLlmAnalyzerInterface *analyzer = new DltLlmAnalyzerInterface(parent);
-    analyzer->setApiEndpoint("https://api.openai.com/v1/completions");
-    analyzer->setApiKey(apiKey);
-    analyzer->setModelName(model);
-    analyzer->setMaxTokens(1000);
-    analyzer->setTemperature(0.3);
-    return analyzer;
+    auto *a = new DltLlmAnalyzerInterface(p);
+    a->setApiEndpoint("https://api.openai.com/v1/chat/completions");
+    a->setApiKey(key); a->setModelName(model); a->setMaxTokens(1000); a->setTemperature(0.3);
+    return a;
 }
 
 DltLlmAnalyzerInterface *DltLlmAnalyzerFactory::createOllamaAnalyzer(
-    const QString &baseUrl,
-    const QString &model,
-    QObject *parent)
+    const QString &base, const QString &model, QObject *p)
 {
-    DltLlmAnalyzerInterface *analyzer = new DltLlmAnalyzerInterface(parent);
-    analyzer->setApiEndpoint(baseUrl + "/api/generate");
-    analyzer->setApiKey(QString());
-    analyzer->setModelName(model);
-    analyzer->setMaxTokens(1000);
-    analyzer->setTemperature(0.3);
-    return analyzer;
+    auto *a = new DltLlmAnalyzerInterface(p);
+    a->setApiEndpoint(base + "/api/generate");
+    a->setApiKey(QString()); a->setModelName(model); a->setMaxTokens(1000); a->setTemperature(0.3);
+    return a;
 }
 
 DltLlmAnalyzerInterface *DltLlmAnalyzerFactory::createLocalAiAnalyzer(
-    const QString &baseUrl,
-    const QString &model,
-    QObject *parent)
+    const QString &base, const QString &model, QObject *p)
 {
-    DltLlmAnalyzerInterface *analyzer = new DltLlmAnalyzerInterface(parent);
-    analyzer->setApiEndpoint(baseUrl + "/api/generate");
-    analyzer->setApiKey(QString());
-    analyzer->setModelName(model);
-    analyzer->setMaxTokens(1000);
-    analyzer->setTemperature(0.3);
-    return analyzer;
+    auto *a = new DltLlmAnalyzerInterface(p);
+    a->setApiEndpoint(base + "/api/generate");
+    a->setApiKey(QString()); a->setModelName(model); a->setMaxTokens(1000); a->setTemperature(0.3);
+    return a;
 }
 
-QStringList DltLlmAnalyzerFactory::availableProviders()
+QStringList DltLlmAnalyzerFactory::availableProviders() { return {"openai", "ollama", "local-ai"}; }
+QString DltLlmAnalyzerFactory::defaultModelForProvider(const QString &p)
 {
-    return QStringList{"openai", "ollama", "local-ai"};
-}
-
-QString DltLlmAnalyzerFactory::defaultModelForProvider(const QString &provider)
-{
-    if (provider == "openai")
-    {
-        return "gpt-4";
-    }
-    if (provider == "ollama")
-    {
-        return "llama3";
-    }
-    if (provider == "local-ai")
-    {
-        return "mistral";
-    }
+    if (p == "openai") return "gpt-4";
+    if (p == "ollama") return "llama3";
+    if (p == "local-ai") return "mistral";
     return "llama3";
 }
