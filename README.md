@@ -304,42 +304,7 @@ plugin->setAnalyzerType("llm");         // Use LLM if available
 
 ## Testing
 
-### Build Tests
-
-```bash
-cmake --build . --target dltchatplugin_test
-```
-
-### Run Tests
-
-```bash
-# Test with sample log file
-./plugin/dltchatplugin/dltchatplugin_test ../mock_dlt_log.dlt
-```
-
-### Test Scripts
-
-The plugin includes automated test scripts:
-
-```bash
-# Run all tests
-./test_complete.sh
-
-# Run mock tests
-./test_mock.sh
-```
-
-### Test Scenarios
-
-| Test | Description | Expected Result |
-|------|-------------|-----------------|
-| Parse log | Parse standard log file | Entries extracted correctly |
-| Error search | Query "mostra errori" | Returns error-level entries |
-| Summary | Query "riassumi" | Returns statistics |
-| Index lookup | Query "indice 999999" | Returns "not found" message |
-| Empty query | Query "   " | Returns "invalid query" message |
-| Keyword search | Query "timeout" | Returns matching entries |
-| Stress test | 20,000 entries | Completes under 10 seconds |
+The plugin can be tested by building DLT Viewer with the plugin and using the chat interface to query log files. The plugin integrates with DLT Viewer's testing infrastructure.
 
 ---
 
@@ -350,7 +315,6 @@ dltchatplugin/
 ├── CMakeLists.txt                 # Build configuration
 ├── dltchatplugin.h                # Main plugin class
 ├── dltchatplugin.cpp              # Plugin implementation
-├── dltchatplugin_test.cpp         # CLI test executable
 ├── chatform.h                     # Chat UI widget header
 ├── chatform.cpp                   # Chat UI widget implementation
 ├── dltchatanalyzer.h              # Rule-based analyzer header
@@ -361,15 +325,11 @@ dltchatplugin/
 ├── dltanalyzerinterface.cpp       # Analyzer interface implementation
 ├── dltllmanalyzerinterface.h      # LLM analyzer header
 ├── dltllmanalyzerinterface.cpp    # LLM analyzer implementation
-├── mock_dlt_log.dlt               # Sample DLT log file for testing
 ├── README.md                      # This file
 ├── DOCUMENTATION.md                # Full technical documentation
-├── LICENSE                        # Mozilla Public License 2.0
-└── scripts/
-    ├── run_dlt_viewer.sh          # Launch DLT Viewer with plugin
-    ├── run_tests.sh               # Run test suite
-    ├── test_complete.sh           # Complete test script
-    └── test_mock.sh                # Mock tests
+├── INSTALL.md                     # Installation guide
+├── CONTRIBUTING.md                # Contributing guidelines
+└── LICENSE                        # Mozilla Public License 2.0
 ```
 
 ---
