@@ -9,6 +9,7 @@
 #include <QTextBrowser>
 #include <QVBoxLayout>
 #include <QScrollBar>
+#include <QGroupBox>
 
 namespace DltChat {
 
@@ -19,9 +20,17 @@ Form::Form(QWidget *parent)
     , resultsList(new QListWidget(this))
     , input(new QLineEdit(this))
     , sendButton(new QPushButton(tr("Invia"), this))
-    , clearButton(new QPushButton(tr("Pulisci evidenziazioni"), this))
-    , exportCsvButton(new QPushButton(tr("Esporta Risultati CSV"), this))
-    , exportAllButton(new QPushButton(tr("Esporta Tutto CSV"), this))
+    , clearButton(new QPushButton(tr("Pulisci"), this))
+    , exportCsvButton(new QPushButton(tr("Esporta CSV"), this))
+    , exportAllButton(new QPushButton(tr("Esporta Tutto"), this))
+    , btnErrors(new QPushButton(tr("Errori"), this))
+    , btnWarnings(new QPushButton(tr("Warnings"), this))
+    , btnCan(new QPushButton(tr("CAN"), this))
+    , btnTimeout(new QPushButton(tr("Timeout"), this))
+    , btnPattern(new QPushButton(tr("Pattern"), this))
+    , btnTimeline(new QPushButton(tr("Timeline"), this))
+    , btnSummary(new QPushButton(tr("Summary"), this))
+    , btnHelp(new QPushButton(tr("Help"), this))
     , lastQuery(QString())
 {
     QLabel *title = new QLabel(tr("DLT Log Assistant"), this);
@@ -37,9 +46,23 @@ Form::Form(QWidget *parent)
 
     resultsList->setSelectionMode(QAbstractItemView::SingleSelection);
 
-    input->setPlaceholderText(tr("Fai una domanda sui log (es. 'mostra errori')"));
+    input->setPlaceholderText(tr("Fai una domanda sui log..."));
 
     QLabel *resultsLabel = new QLabel(tr("Risultati"), this);
+
+    QGroupBox *quickActions = new QGroupBox(tr("Azioni Rapide"), this);
+    QHBoxLayout *quickLayout = new QHBoxLayout();
+    quickLayout->setSpacing(2);
+    quickLayout->addWidget(btnErrors);
+    quickLayout->addWidget(btnWarnings);
+    quickLayout->addWidget(btnCan);
+    quickLayout->addWidget(btnTimeout);
+    quickLayout->addWidget(btnPattern);
+    quickLayout->addWidget(btnTimeline);
+    quickLayout->addWidget(btnSummary);
+    quickLayout->addWidget(btnHelp);
+    quickLayout->addStretch();
+    quickActions->setLayout(quickLayout);
 
     QHBoxLayout *inputLayout = new QHBoxLayout();
     inputLayout->addWidget(input, 1);
@@ -54,6 +77,7 @@ Form::Form(QWidget *parent)
     QVBoxLayout *layout = new QVBoxLayout(this);
     layout->addWidget(title);
     layout->addWidget(statusLabel);
+    layout->addWidget(quickActions);
     layout->addWidget(history, 3);
     layout->addWidget(resultsLabel);
     layout->addWidget(resultsList, 1);
@@ -66,6 +90,15 @@ Form::Form(QWidget *parent)
     connect(clearButton, &QPushButton::clicked, this, &Form::onClearClicked);
     connect(exportCsvButton, &QPushButton::clicked, this, &Form::onExportCsvClicked);
     connect(exportAllButton, &QPushButton::clicked, this, &Form::onExportAllClicked);
+
+    connect(btnErrors, &QPushButton::clicked, this, &Form::onQuickActionClicked);
+    connect(btnWarnings, &QPushButton::clicked, this, &Form::onQuickActionClicked);
+    connect(btnCan, &QPushButton::clicked, this, &Form::onQuickActionClicked);
+    connect(btnTimeout, &QPushButton::clicked, this, &Form::onQuickActionClicked);
+    connect(btnPattern, &QPushButton::clicked, this, &Form::onQuickActionClicked);
+    connect(btnTimeline, &QPushButton::clicked, this, &Form::onQuickActionClicked);
+    connect(btnSummary, &QPushButton::clicked, this, &Form::onQuickActionClicked);
+    connect(btnHelp, &QPushButton::clicked, this, &Form::onQuickActionClicked);
 }
 
 void Form::appendMessage(const QString &author, const QString &html)
@@ -188,6 +221,55 @@ void Form::onExportCsvClicked()
 void Form::onExportAllClicked()
 {
     exportAllToCsv();
+}
+
+void Form::onQuickActionClicked()
+{
+    QPushButton *btn = qobject_cast<QPushButton *>(sender());
+    if (!btn)
+    {
+        return;
+    }
+
+    QString query;
+    if (btn == btnErrors)
+    {
+        query = "error";
+    }
+    else if (btn == btnWarnings)
+    {
+        query = "warn";
+    }
+    else if (btn == btnCan)
+    {
+        query = "can";
+    }
+    else if (btn == btnTimeout)
+    {
+        query = "timeout delay";
+    }
+    else if (btn == btnPattern)
+    {
+        query = "pattern ripeti";
+    }
+    else if (btn == btnTimeline)
+    {
+        query = "timeline";
+    }
+    else if (btn == btnSummary)
+    {
+        query = "summary";
+    }
+    else if (btn == btnHelp)
+    {
+        query = "help";
+    }
+
+    if (!query.isEmpty())
+    {
+        input->setText(query);
+        onSendClicked();
+    }
 }
 
 } // namespace DltChat

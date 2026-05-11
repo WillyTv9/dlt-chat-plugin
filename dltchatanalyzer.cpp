@@ -5,6 +5,67 @@
 
 #include <algorithm>
 
+struct KeywordCategory {
+    QString name;
+    QStringList keywords;
+    QString description;
+};
+
+static const KeywordCategory CATEGORIES[] = {
+    {"Errori/Falli", {"error", "fail", "failure", "fault", "exception", "crash", "panic", "abort", "fatal", "critical", "errore", "err", "failed", "ko"}, "Errori e fallimenti di sistema"},
+    {"Comunicazione", {"can", "ethernet", "tcp", "udp", "ip", "http", "websocket", "mqtt", "bluetooth", "wifi", "serial", "uart", "spi", "i2c", "lin", "flexray", "most", " connection", "disconnect", "timeout"}, "Comunicazione di rete e bus"},
+    {"Timing", {"latency", "delay", "slow", "performance", "response", "elapsed", "duration", "timeout", "wait", " hang", "stuck", "freeze", "lento", "ritardo"}, "Problematiche di timing e performance"},
+    {"Memoria", {"memory", "heap", "stack", "alloc", "free", "leak", "overflow", "underflow", "buffer", "null", "pointer", "segfault", "corruption", "memoria"}, "Problemi di memoria"},
+    {"ECU/Sistemi", {"ecu", "ecus", "gateway", "sensor", "actuator", "controller", "module", "unit", "node", "device", "subsystem", "component"}, "Componenti e sistemi ECU"},
+    {"Stato", {"init", "start", "stop", "restart", "shutdown", "sleep", "wake", "suspend", "resume", "boot", "reset", "enable", "disable", "state"}, "Stati di sistema e transizioni"},
+    {"Dati/Payload", {"payload", "data", "frame", "packet", "message", "signal", "value", "invalid", "malformed", "parse", "decode", "encode"}, "Gestione dati e payload"},
+    {"Security", {"auth", "authentication", "authorization", "permission", "denied", "unauthorized", "access", "security", "certificate", "encryption", "crypto", "token", "login", "logout"}, "Sicurezza e autenticazione"},
+    {"Veicolo", {"vehicle", "speed", "brake", "accelerator", "steering", "gear", "engine", "battery", "charging", "adcu", "hvac", "infotainment", "telemetry"}, "Funzioni veicolo"},
+    {"Diagnostica", {"diagnostic", "dtc", "obd", "oBD", "code", "faultcode", "trouble", "status", "health", "monitor", "test", "check"}, "Diagnostica e codici errore"},
+    {"Network", {"socket", "port", "host", "address", "route", "switch", "router", "firewall", "dns", "dhcp", "arp", "ping", "packet", "bandwidth"}, "Network e protocolli"},
+    {"Storage", {"storage", "disk", "sd", "nand", "flash", "eMMC", "file", "filesystem", "read", "write", "mount", "umount", "capacity"}, "Storage e file system"},
+    {"Processi", {"process", "thread", "task", "job", "queue", "scheduler", "priority", "cpu", "load", "deadlock", "mutex", "semaphore", "sync"}, "Processi e sincronizzazione"},
+    {"Updates", {"update", "upgrade", "flash", "download", "install", "version", "firmware", "software", "ota", "package"}, "Update e upgrade software"},
+    {"Video/Audio", {"video", "audio", "camera", "display", "screen", "codec", "stream", "frame", "fps", "resolution", "latency"}, "Multimedia e video"},
+    {"Navigazione", {"gps", "position", "location", "map", "route", "navigation", "heading", "speed", "altitude", "satellite", "gnss"}, "Navigazione e posizione"},
+    {"Temperature", {"temperature", "temp", "overheat", "thermal", "cooling", "heater", "sensor", "threshold", "celsius", "fahrenheit"}, "Gestione temperatura"},
+    {"Voltaggio", {"voltage", "current", "power", "battery", "charger", "supply", "vreg", "boost", "buck", "power"}, "Gestione alimentazione"},
+    {"CAN Bus", {"can", "canfd", "canfd", "identifier", "id", "dlc", "arbitation", "stuffing", "errorframe", "remote", "extended", "canid", "trc"}, "CAN bus specifico"},
+    {"UDS/OBD", {"uds", "obd", "diagsession", "nrc", "negative", "response", "request", "service", "sid", "did", "rid", " routine", "diagnostic"}, "Diagnostica UDS/OBD"}
+};
+
+QStringList DltChatAnalyzer::getAllKeywords() const
+{
+    QStringList all;
+    for (const auto &cat : CATEGORIES)
+    {
+        all.append(cat.keywords);
+    }
+    return all;
+}
+
+QStringList DltChatAnalyzer::getAllCategories() const
+{
+    QStringList cats;
+    for (const auto &cat : CATEGORIES)
+    {
+        cats.append(cat.name);
+    }
+    return cats;
+}
+
+QStringList DltChatAnalyzer::getKeywordsForCategory(const QString &category) const
+{
+    for (const auto &cat : CATEGORIES)
+    {
+        if (cat.name.toLower() == category.toLower())
+        {
+            return cat.keywords;
+        }
+    }
+    return QStringList();
+}
+
 DltChatAnalyzer::QueryResult DltChatAnalyzer::analyzeQuery(const QString &query, const QVector<LogEntry> &entries) const
 {
     QueryResult result;
@@ -23,14 +84,35 @@ DltChatAnalyzer::QueryResult DltChatAnalyzer::analyzeQuery(const QString &query,
 
     const QString lowerQuery = query.toLower();
 
+    if (lowerQuery == "help" || lowerQuery == "aiuto" || lowerQuery == "?")
+    {
+        result.responseHtml = buildHelpHtml();
+        return result;
+    }
+
+    if (lowerQuery == "keywords" || lowerQuery == "categorie")
+    {
+        result.responseHtml = buildCategoriesHtml();
+        return result;
+    }
+
     const bool isSummary = lowerQuery.contains("summary")
         || lowerQuery.contains("summarize")
         || lowerQuery.contains("riassumi")
-        || lowerQuery.contains("sintesi");
+        || lowerQuery.contains("sintesi")
+        || lowerQuery == "statistiche"
+        || lowerQuery == "stats";
 
     if (isSummary)
     {
         result.responseHtml = buildSummaryHtml(entries);
+        return result;
+    }
+
+    const bool isListCategories = lowerQuery.contains("list") && lowerQuery.contains("category");
+    if (isListCategories)
+    {
+        result.responseHtml = buildCategoriesHtml();
         return result;
     }
 
@@ -40,7 +122,7 @@ DltChatAnalyzer::QueryResult DltChatAnalyzer::analyzeQuery(const QString &query,
         levelTokens.insert("fatal");
         levelTokens.insert("error");
     }
-    if (lowerQuery.contains("error") || lowerQuery.contains("errore"))
+    if (lowerQuery.contains("error") || lowerQuery.contains("errore") || lowerQuery.contains(" fail"))
     {
         levelTokens.insert("error");
     }
@@ -59,6 +141,18 @@ DltChatAnalyzer::QueryResult DltChatAnalyzer::analyzeQuery(const QString &query,
     if (lowerQuery.contains("verbose"))
     {
         levelTokens.insert("verbose");
+    }
+
+    QStringList categoryKeywords;
+    for (const auto &cat : CATEGORIES)
+    {
+        for (const QString &kw : cat.keywords)
+        {
+            if (lowerQuery.contains(kw))
+            {
+                categoryKeywords.append(kw);
+            }
+        }
     }
 
     QRegularExpression indexRegex("(index|indice|riga|line)\\s*(\\d+)");
@@ -90,7 +184,21 @@ DltChatAnalyzer::QueryResult DltChatAnalyzer::analyzeQuery(const QString &query,
     const bool wantsContext = lowerQuery.contains("why")
         || lowerQuery.contains("perche")
         || lowerQuery.contains("causa")
-        || lowerQuery.contains("motivo");
+        || lowerQuery.contains("motivo")
+        || lowerQuery.contains("context")
+        || lowerQuery.contains("before")
+        || lowerQuery.contains("after");
+
+    const bool wantsTimeline = lowerQuery.contains("timeline")
+        || lowerQuery.contains("chronological")
+        || lowerQuery.contains("ordina")
+        || lowerQuery.contains("sequence");
+
+    const bool wantsRepetition = lowerQuery.contains("repeat")
+        || lowerQuery.contains("ripeti")
+        || lowerQuery.contains("duplic")
+        || lowerQuery.contains("pattern")
+        || lowerQuery.contains("frequente");
 
     QSet<QString> stopwords;
     stopwords << "show" << "mostra" << "elenca" << "tutti" << "tutte" << "all"
@@ -98,13 +206,13 @@ DltChatAnalyzer::QueryResult DltChatAnalyzer::analyzeQuery(const QString &query,
               << "riassumi" << "sintesi" << "log" << "logs" << "messaggi" << "messaggio"
               << "indice" << "index" << "riga" << "line" << "timestamp" << "time" << "tempo"
               << "error" << "errors" << "errore" << "errori" << "fatal" << "fatale" << "warn" << "warning"
-              << "avviso" << "info" << "debug" << "verbose";
+              << "avviso" << "info" << "debug" << "verbose" << "search" << "find" << "cerca" << "trova";
 
     QStringList tokens = lowerQuery.split(QRegularExpression("\\W+"), Qt::SkipEmptyParts);
     QStringList keywords;
     for (const QString &token : tokens)
     {
-        if (token.size() < 3)
+        if (token.size() < 2)
         {
             continue;
         }
@@ -117,6 +225,12 @@ DltChatAnalyzer::QueryResult DltChatAnalyzer::analyzeQuery(const QString &query,
             continue;
         }
         keywords.append(token);
+    }
+
+    if (categoryKeywords.isEmpty() && keywords.isEmpty() && levelTokens.isEmpty() && explicitIndices.isEmpty())
+    {
+        result.responseHtml = "Nessun criterio di ricerca. Usa 'keywords' per vedere le categorie disponibili.";
+        return result;
     }
 
     QHash<int, LogEntry> entryByIndex;
@@ -174,6 +288,7 @@ DltChatAnalyzer::QueryResult DltChatAnalyzer::analyzeQuery(const QString &query,
 
     QVector<LogEntry> candidates;
     candidates.reserve(entries.size());
+
     for (const LogEntry &entry : entries)
     {
         if (!levelTokens.isEmpty() && !levelTokens.contains(entry.level))
@@ -187,28 +302,90 @@ DltChatAnalyzer::QueryResult DltChatAnalyzer::analyzeQuery(const QString &query,
                 continue;
             }
         }
-        if (!keywords.isEmpty())
+
+        bool hit = false;
+        if (!categoryKeywords.isEmpty())
         {
-            bool hit = false;
-            for (const QString &kw : keywords)
+            for (const QString &kw : categoryKeywords)
             {
-                if (entry.payload.contains(kw, Qt::CaseInsensitive))
+                if (entry.payload.contains(kw, Qt::CaseInsensitive) ||
+                    entry.apid.toLower().contains(kw) ||
+                    entry.ctid.toLower().contains(kw))
                 {
                     hit = true;
                     break;
                 }
             }
-            if (!hit)
+        }
+        else if (!keywords.isEmpty())
+        {
+            for (const QString &kw : keywords)
             {
-                continue;
+                if (entry.payload.contains(kw, Qt::CaseInsensitive) ||
+                    entry.apid.toLower().contains(kw) ||
+                    entry.ctid.toLower().contains(kw))
+                {
+                    hit = true;
+                    break;
+                }
             }
+        }
+        else
+        {
+            hit = true;
+        }
+
+        if (!hit)
+        {
+            continue;
         }
         candidates.append(entry);
     }
 
     if (candidates.isEmpty())
     {
-        result.responseHtml = "Nessun risultato. Prova con parole chiave diverse o usa 'riassumi'.";
+        result.responseHtml = "Nessun risultato. Prova con parole chiave diverse o usa 'keywords' per vedere le categorie.";
+        return result;
+    }
+
+    if (wantsRepetition)
+    {
+        QHash<QString, int> payloadFrequency;
+        for (const LogEntry &entry : candidates)
+        {
+            QString simplified = entry.payload.simplified();
+            if (simplified.length() > 10)
+            {
+                payloadFrequency[simplified] += 1;
+            }
+        }
+
+        QVector<QPair<QString, int>> sorted;
+        for (auto it = payloadFrequency.begin(); it != payloadFrequency.end(); ++it)
+        {
+            if (it.value() > 1)
+            {
+                sorted.append(qMakePair(it.key(), it.value()));
+            }
+        }
+        std::sort(sorted.begin(), sorted.end(), [](const QPair<QString, int> &a, const QPair<QString, int> &b) {
+            return a.second > b.second;
+        });
+
+        QString response = QString("Trovati %1 messaggi totali. Pattern ripetuti:\n").arg(candidates.size());
+        const int maxPatterns = qMin(10, sorted.size());
+        for (int i = 0; i < maxPatterns; ++i)
+        {
+            response += QString("<br>%1x: %2").arg(sorted[i].second).arg(sorted[i].first.left(80));
+        }
+        result.responseHtml = response;
+
+        for (const LogEntry &entry : candidates)
+        {
+            addMatch(entry);
+        }
+        result.indices = matchedIndices;
+        result.snippets = matchedSnippets;
         return result;
     }
 
@@ -235,17 +412,35 @@ DltChatAnalyzer::QueryResult DltChatAnalyzer::analyzeQuery(const QString &query,
         }
         response += QString(" Livelli: %1.").arg(levelList.join(", "));
     }
-    if (!keywords.isEmpty())
+    if (!categoryKeywords.isEmpty())
+    {
+        response += QString(" Categorie: %1.").arg(categoryKeywords.join(", "));
+    }
+    else if (!keywords.isEmpty())
     {
         response += QString(" Parole chiave: %1.").arg(keywords.join(", "));
     }
 
     QStringList indexPreview;
     const int previewCount = qMin(20, matchedIndices.size());
-    for (int i = 0; i < previewCount; ++i)
+    if (wantsTimeline && !matchedIndices.isEmpty())
     {
-        indexPreview.append(QString::number(matchedIndices[i]));
+        QList<int> sortedIndices = matchedIndices;
+        std::sort(sortedIndices.begin(), sortedIndices.end());
+        for (int i = 0; i < qMin(20, sortedIndices.size()); ++i)
+        {
+            indexPreview.append(QString::number(sortedIndices[i]));
+        }
+        response += "<br><b>Timeline (ordinati per indice):</b>";
     }
+    else
+    {
+        for (int i = 0; i < previewCount; ++i)
+        {
+            indexPreview.append(QString::number(matchedIndices[i]));
+        }
+    }
+
     if (!indexPreview.isEmpty())
     {
         response += QString("<br>Indici rilevanti: %1").arg(indexPreview.join(", "));
@@ -280,6 +475,41 @@ DltChatAnalyzer::QueryResult DltChatAnalyzer::analyzeQuery(const QString &query,
 
     result.responseHtml = response;
     return result;
+}
+
+QString DltChatAnalyzer::buildHelpHtml() const
+{
+    QString html = "<b>Comandi disponibili:</b><br><br>";
+    html += "<table border='0'>";
+    html += "<tr><td><b>summary / riassumi</b></td><td>Statistiche generali dei log</td></tr>";
+    html += "<tr><td><b>keywords / categorie</b></td><td>Elenco categorie di ricerca</td></tr>";
+    html += "<tr><td><b>error / errore</b></td><td>Cerca tutti gli errori</td></tr>";
+    html += "<tr><td><b>warn / avviso</b></td><td>Cerca tutti i warning</td></tr>";
+    html += "<tr><td><b>can / ethernet / tcp</b></td><td>Cerca comunicazione di rete</td></tr>";
+    html += "<tr><td><b>timeout / delay</b></td><td>Cerca problemi di timing</td></tr>";
+    html += "<tr><td><b>memory / memoria</b></td><td>Cerca problemi di memoria</td></tr>";
+    html += "<tr><td><b>ecu / sensor</b></td><td>Cerca componenti specifici</td></tr>";
+    html += "<tr><td><b>pattern / ripeti</b></td><td>Cerca messaggi ripetuti</td></tr>";
+    html += "<tr><td><b>index N</b></td><td>Vai al messaggio N</td></tr>";
+    html += "<tr><td><b>context before/after</b></td><td>Mostra contesto</td></tr>";
+    html += "</table>";
+    html += "<br><b>Categorie keyword:</b><br>";
+    for (const auto &cat : CATEGORIES)
+    {
+        html += QString("- %1<br>").arg(cat.name);
+    }
+    return html;
+}
+
+QString DltChatAnalyzer::buildCategoriesHtml() const
+{
+    QString html = "<b>Categorie di ricerca disponibili:</b><br><br>";
+    for (const auto &cat : CATEGORIES)
+    {
+        html += QString("<b>%1</b>: %2<br>").arg(cat.name, cat.keywords.join(", "));
+    }
+    html += "<br><i>Usale direttamente nella chat per cercare!</i>";
+    return html;
 }
 
 QString DltChatAnalyzer::buildSummaryHtml(const QVector<LogEntry> &entries) const

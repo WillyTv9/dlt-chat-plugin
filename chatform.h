@@ -39,6 +39,7 @@ private slots:
     void onClearClicked();
     void onExportCsvClicked();
     void onExportAllClicked();
+    void onQuickActionClicked();
 
 private:
     QLabel *statusLabel;
@@ -49,6 +50,14 @@ private:
     QPushButton *clearButton;
     QPushButton *exportCsvButton;
     QPushButton *exportAllButton;
+    QPushButton *btnErrors;
+    QPushButton *btnWarnings;
+    QPushButton *btnCan;
+    QPushButton *btnTimeout;
+    QPushButton *btnPattern;
+    QPushButton *btnTimeline;
+    QPushButton *btnSummary;
+    QPushButton *btnHelp;
     QString lastQuery;
 };
 

@@ -34,8 +34,14 @@ public:
     static QString simplifyPayload(const QString &payload);
     static QString formatEntryLine(const LogEntry &entry);
 
+    QStringList getAllKeywords() const;
+    QStringList getAllCategories() const;
+    QStringList getKeywordsForCategory(const QString &category) const;
+
 private:
     QString buildSummaryHtml(const QVector<LogEntry> &entries) const;
+    QString buildHelpHtml() const;
+    QString buildCategoriesHtml() const;
 };
 
 #endif // DLTCHATANALYZER_H
