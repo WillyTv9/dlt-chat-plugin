@@ -3,13 +3,17 @@
 [![License: MPL 2.0](https://img.shields.io/badge/License-MPL_2.0-blue.svg)](LICENSE)
 [![Qt Version](https://img.shields.io/badge/Qt-5.15+-green.svg)](https://www.qt.io/)
 [![DLT Viewer](https://img.shields.io/badge/DLT_Viewer-2.30.0+-orange.svg)](https://github.com/COVESA/dlt-viewer)
+[![Version](https://img.shields.io/badge/Version-0.2.1-blue.svg)](CHANGELOG.md)
 
 A chat-based intelligent log analysis plugin for COVESA DLT Viewer that enables natural language queries on DLT log files.
+
+**[� Documentation Index](CODE_INDEX.md) | [�🚀 Quick Start](QUICKSTART.md) | [⚙️ Configuration](CONFIGURATION.md) | [🔧 Build Guide](INSTALL.md) | [📋 Review Report](CODE_REVIEW_REPORT.md)**
 
 ## Table of Contents
 
 - [Overview](#overview)
 - [Features](#features)
+- [Quick Start](#quick-start)
 - [Requirements](#requirements)
 - [Installation](#installation)
 - [Building from Source](#building-from-source)
@@ -17,7 +21,7 @@ A chat-based intelligent log analysis plugin for COVESA DLT Viewer that enables 
 - [Configuration](#configuration)
 - [LLM Integration](#llm-integration)
 - [CSV Export](#csv-export)
-- [Testing](#testing)
+- [Documentation](#documentation)
 - [Project Structure](#project-structure)
 - [License](#license)
 - [Contributing](#contributing)
@@ -44,10 +48,20 @@ This plugin was developed following the [DLT Viewer Plugin Project Requirements]
 | **LLM Integration** | Optional AI-powered analysis (OpenAI, Ollama, LocalAI) |
 | **Row Highlighting** | Visual highlighting of matching entries |
 | **Multi-language Support** | English, Italian, German, Spanish, French |
+| **Dual Analyzer Modes** | Rule-based (fast) or AI-powered (intelligent) |
+| **Quick Actions** | Pre-configured buttons for common queries |
 
 ---
 
-## Requirements
+## Quick Start
+
+**For new users:** See [QUICKSTART.md](QUICKSTART.md) for a 5-minute setup guide with examples.
+
+**For configuration:** See [CONFIGURATION.md](CONFIGURATION.md) for detailed setup options.
+
+**For developers:** See [INSTALL.md](INSTALL.md) for building from source.
+
+---
 
 ### Runtime Requirements
 
@@ -302,6 +316,22 @@ plugin->setAnalyzerType("llm");         // Use LLM if available
 
 ---
 
+## Documentation
+
+Complete documentation is available in multiple documents:
+
+| Document | Purpose |
+|----------|---------|
+| [QUICKSTART.md](QUICKSTART.md) | 5-minute quick start guide with examples |
+| [CONFIGURATION.md](CONFIGURATION.md) | Detailed configuration and setup guide |
+| [INSTALL.md](INSTALL.md) | Build and installation instructions |
+| [CODE_REVIEW_REPORT.md](CODE_REVIEW_REPORT.md) | Code quality and issues report |
+| [CHANGELOG.md](CHANGELOG.md) | Version history and changes |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Guidelines for contributors |
+| [DOCUMENTATION.md](DOCUMENTATION.md) | Technical API documentation |
+
+---
+
 ## Testing
 
 The plugin can be tested by building DLT Viewer with the plugin and using the chat interface to query log files. The plugin integrates with DLT Viewer's testing infrastructure.
@@ -357,8 +387,11 @@ DLT Viewer Application
 
 | Version | Date | Changes |
 |---------|------|---------|
-| 0.1.0 | 2026-05-11 | Initial MVP with rule-based analysis |
+| 0.2.1 | 2026-05-11 | Fixed critical UI freezing bug, memory leak, race condition |
 | 0.2.0 | 2026-05-11 | Added CSV export and LLM interface |
+| 0.1.0 | 2026-03-01 | Initial MVP with rule-based analysis |
+
+See [CHANGELOG.md](CHANGELOG.md) for detailed version history.
 
 ---
 
@@ -367,6 +400,12 @@ DLT Viewer Application
 This project is licensed under the **Mozilla Public License 2.0 (MPL-2.0)**.
 
 See [LICENSE](LICENSE) file for full license text.
+
+**Key points:**
+- Free to use for commercial and private purposes
+- Must disclose source code modifications
+- Include copy of MPL-2.0 license
+- Any modified files must include license header
 
 ---
 
@@ -381,6 +420,74 @@ Contributions are welcome! Please follow these steps:
 5. Open a Pull Request
 
 Please ensure all tests pass before submitting a pull request.
+
+For detailed guidelines, see [CONTRIBUTING.md](CONTRIBUTING.md).
+
+---
+
+## Support & Issues
+
+### Getting Help
+
+1. **Quick Questions:** Check [QUICKSTART.md](QUICKSTART.md)
+2. **Configuration Issues:** See [CONFIGURATION.md](CONFIGURATION.md)
+3. **Build Problems:** Check [INSTALL.md](INSTALL.md)
+4. **Known Issues:** Review [CODE_REVIEW_REPORT.md](CODE_REVIEW_REPORT.md)
+
+### Reporting Issues
+
+Please create a GitHub issue with:
+
+```
+**Environment:**
+- DLT Viewer Version: X.Y.Z
+- Plugin Version: 0.2.1
+- OS: Windows/Linux/macOS
+- Qt Version: 5.15.x / 6.x
+
+**Problem Description:**
+[Clear description of the issue]
+
+**Steps to Reproduce:**
+1. ...
+2. ...
+3. ...
+
+**Expected Behavior:**
+[What should happen]
+
+**Actual Behavior:**
+[What actually happens]
+
+**Additional Context:**
+[Logs, screenshots, or example DLT files]
+```
+
+### Contact
+
+- **Project Issues:** GitHub Issues
+- **Security Issues:** Please email (see CONTRIBUTING.md)
+- **Discussions:** GitHub Discussions
+
+---
+
+## Acknowledgments
+
+- COVESA DLT Viewer project and community
+- Qt Framework contributors
+- Contributors and testers
+
+---
+
+## Disclaimer
+
+This plugin is provided as-is for educational and production analysis purposes. The authors are not responsible for any damages, data loss, or issues caused by the use of this plugin. Always maintain backups of your DLT log files.
+
+---
+
+**Latest Update:** 2026-05-11  
+**Plugin Version:** 0.2.1  
+**Status:** MVP - Production Ready
 
 ---
 

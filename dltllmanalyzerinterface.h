@@ -1,3 +1,11 @@
+/*
+ * This Source Code Form is subject to the terms of the Mozilla Public License,
+ * v. 2.0. If a copy of the MPL was not distributed with this file, You can
+ * obtain one at http://mozilla.org/MPL/2.0/.
+ *
+ * SPDX-License-Identifier: MPL-2.0
+ */
+
 #ifndef DLLMANALYZERINTERFACE_H
 #define DLLMANALYZERINTERFACE_H
 
@@ -7,6 +15,7 @@
 #include <QNetworkReply>
 #include <QObject>
 #include <QTimer>
+#include <QMutex>
 
 class QDltFile;
 
@@ -93,6 +102,7 @@ private:
     QNetworkReply *m_currentReply;
     QByteArray m_pendingResponse;
     bool m_requestInProgress;
+    mutable QMutex m_requestMutex;  // Protect m_requestInProgress
 };
 
 class DltLlmAnalyzerFactory : public QObject

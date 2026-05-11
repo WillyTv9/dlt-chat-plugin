@@ -1,3 +1,11 @@
+/*
+ * This Source Code Form is subject to the terms of the Mozilla Public License,
+ * v. 2.0. If a copy of the MPL was not distributed with this file, You can
+ * obtain one at http://mozilla.org/MPL/2.0/.
+ *
+ * SPDX-License-Identifier: MPL-2.0
+ */
+
 #include "dltexport.h"
 
 #include <QDir>
@@ -58,21 +66,25 @@ bool DltExport::exportToCsv(const QString &filePath,
     out.setCodec("UTF-8");
 #endif
 
-    out << generateCsvRow({"#", "Index", "Timestamp", "Level", "ECU", "APID", "CTID", "Payload", "Source"}) << "\n";
+    // Write header with all relevant fields
+    out << generateCsvRow({"#", "Index", "Time", "Timestamp", "Level", "ECU", "APID", "CTID", "Payload", "Source Query"}) << "\n";
 
     const int count = qMin(indices.size(), snippets.size());
     for (int i = 0; i < count; ++i)
     {
+        // Note: We only have index and snippet from the result
+        // Full entry data would require reference to entries vector
         QStringList fields = {
-            QString::number(i + 1),
-            QString::number(indices[i]),
-            QString(),
-            QString(),
-            QString(),
-            QString(),
-            QString(),
-            snippets[i],
-            query
+            QString::number(i + 1),           // Row number
+            QString::number(indices[i]),      // Index
+            QString(),                        // Time (not available in export)
+            QString(),                        // Timestamp (not available)
+            QString(),                        // Level (not available)
+            QString(),                        // ECU (not available)
+            QString(),                        // APID (not available)
+            QString(),                        // CTID (not available)
+            snippets[i],                      // Payload
+            query                             // Source query
         };
         out << generateCsvRow(sanitizeFields(fields)) << "\n";
     }

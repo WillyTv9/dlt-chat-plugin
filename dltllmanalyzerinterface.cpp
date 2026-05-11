@@ -1,13 +1,24 @@
+/*
+ * This Source Code Form is subject to the terms of the Mozilla Public License,
+ * v. 2.0. If a copy of the MPL was not distributed with this file, You can
+ * obtain one at http://mozilla.org/MPL/2.0/.
+ *
+ * SPDX-License-Identifier: MPL-2.0
+ */
+
 #include "dltllmanalyzerinterface.h"
 
 #include <QCoreApplication>
 #include <QElapsedTimer>
+#include <QEventLoop>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QNetworkReply>
 #include <QNetworkRequest>
+#include <QRegularExpression>
 #include <QThread>
+#include <QTimer>
 #include <QUrl>
 #include <QUrlQuery>
 
@@ -200,10 +211,14 @@ DltAnalyzerInterface::QueryResult DltLlmAnalyzerInterface::analyzeQuery(
 
     if (m_requestInProgress)
     {
-        result.responseHtml = "Richiesta gia' in corso. Attendi il completamento.";
-        result.success = false;
-        result.processingTimeMs = timer.elapsed();
-        return result;
+        QMutexLocker locker(&m_requestMutex);
+        if (m_requestInProgress)  // Double-check locking
+        {
+            result.responseHtml = "Richiesta gia' in corso. Attendi il completamento.";
+            result.success = false;
+            result.processingTimeMs = timer.elapsed();
+            return result;
+        }
     }
 
     QUrl url(m_apiEndpoint);
@@ -224,7 +239,6 @@ DltAnalyzerInterface::QueryResult DltLlmAnalyzerInterface::analyzeQuery(
     json["model"] = m_modelName;
     json["stream"] = false;
 
-    bool isOllama = m_apiEndpoint.contains("ollama") || m_apiEndpoint.contains("localhost:11434");
     bool isOpenAI = m_apiEndpoint.contains("openai.com") || m_apiEndpoint.contains("azure");
 
     if (isOpenAI)
@@ -270,20 +284,25 @@ DltAnalyzerInterface::QueryResult DltLlmAnalyzerInterface::analyzeQuery(
     connect(m_currentReply, QOverload<QNetworkReply::NetworkError>::of(&QNetworkReply::errorOccurred),
             this, &DltLlmAnalyzerInterface::onRequestError);
 
-    int waitCount = 0;
-    const int maxWait = m_timeout / 100;
-    while (m_requestInProgress && waitCount < maxWait)
+    // Use QEventLoop with timeout instead of busy-wait
+    QEventLoop loop;
+    QTimer timeoutTimer;
+    timeoutTimer.setSingleShot(true);
+    
+    connect(&timeoutTimer, &QTimer::timeout, &loop, &QEventLoop::quit);
+    connect(this, &DltLlmAnalyzerInterface::onRequestFinished, &loop, &QEventLoop::quit);
+    
+    timeoutTimer.start(m_timeout);
+    loop.exec();
+    
+    if (!timeoutTimer.isActive())
     {
-        QCoreApplication::processEvents();
-        QThread::msleep(100);
-        waitCount++;
-    }
-
-    if (m_requestInProgress)
-    {
+        // Timeout occurred
         if (m_currentReply)
         {
             m_currentReply->abort();
+            m_currentReply->deleteLater();
+            m_currentReply = nullptr;
         }
         result.responseHtml = "Timeout nella risposta del LLM. Prova con un numero minore di log entries.";
         result.success = false;
@@ -292,6 +311,7 @@ DltAnalyzerInterface::QueryResult DltLlmAnalyzerInterface::analyzeQuery(
         m_requestInProgress = false;
         return result;
     }
+    timeoutTimer.stop();
 
     if (m_pendingResponse.isEmpty())
     {
@@ -343,7 +363,13 @@ void DltLlmAnalyzerInterface::onRequestFinished()
     {
         m_pendingResponse = m_currentReply->readAll();
     }
+    else
+    {
+        qWarning() << "LLM Network Error:" << m_currentReply->errorString();
+    }
 
+    // Ensure proper cleanup
+    disconnect(m_currentReply, nullptr, this, nullptr);
     m_currentReply->deleteLater();
     m_currentReply = nullptr;
 }

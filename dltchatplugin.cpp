@@ -1,3 +1,11 @@
+/*
+ * This Source Code Form is subject to the terms of the Mozilla Public License,
+ * v. 2.0. If a copy of the MPL was not distributed with this file, You can
+ * obtain one at http://mozilla.org/MPL/2.0/.
+ *
+ * SPDX-License-Identifier: MPL-2.0
+ */
+
 #include "dltchatplugin.h"
 
 #include <QAbstractItemView>
@@ -30,14 +38,24 @@ void DltChatPlugin::setupDefaultAnalyzer()
     m_ruleBasedAnalyzer = new DltRuleBasedAnalyzer();
     m_analyzer = m_ruleBasedAnalyzer;
 
+    // Try to create Ollama analyzer with configurable defaults
+    // These can be overridden by loadConfig()
+    QString endpoint = "http://localhost:11434";
+    QString model = "qwen3.5:4b";
+    
     m_llmAnalyzer = DltLlmAnalyzerFactory::createOllamaAnalyzer(
-        "http://localhost:11434",
-        "qwen3.5:4b",
+        endpoint,
+        model,
         this);
 
     if (m_llmAnalyzer && m_llmAnalyzer->isAvailable())
     {
-        qDebug() << "DLT Chat Plugin: Ollama LLM initialized with qwen3.5:4b";
+        qDebug() << "DLT Chat Plugin: Ollama LLM initialized with" << model;
+    }
+    else
+    {
+        qDebug() << "DLT Chat Plugin: Ollama LLM not available at" << endpoint
+                 << "(this is OK - will use rule-based analyzer by default)";
     }
 }
 
@@ -500,6 +518,11 @@ int DltChatPlugin::findRowForIndex(int index) const
     }
 
     const int rows = dltFile->sizeFilter();
+    if (rows <= 0)
+    {
+        return -1;
+    }
+
     for (int row = 0; row < rows; ++row)
     {
         if (dltFile->getMsgFilterPos(row) == index)

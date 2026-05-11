@@ -1,0 +1,37 @@
+# DLT Chat Plugin Configuration File
+# Place this file in the DLT Viewer plugins configuration directory
+# or in the same directory as the plugin binary
+#
+# Default filename: dlt_chat_plugin.ini
+
+[Analyzer]
+# Type of analyzer: "rule-based" or "llm"
+type=rule-based
+
+# LLM Configuration (only used if type=llm)
+# Supported endpoints: OpenAI, Ollama, LocalAI
+
+# For Ollama (local, open source models):
+llmEndpoint=http://localhost:11434
+llmApiKey=
+llmModel=qwen3.5:4b
+
+# For OpenAI (requires API key):
+# llmEndpoint=https://api.openai.com/v1/chat/completions
+# llmApiKey=sk-xxxxxxxxxxxxxxxxxxxx
+# llmModel=gpt-3.5-turbo
+
+# For LocalAI (local inference):
+# llmEndpoint=http://localhost:8000/v1/chat/completions
+# llmApiKey=
+# llmModel=gpt-4
+
+[Behavior]
+# Maximum number of results to display per query
+maxResults=200
+
+# Maximum timeout in milliseconds for LLM requests
+llmTimeout=30000
+
+# Highlight color (RGB in hex format)
+highlightColor=#FFE680
