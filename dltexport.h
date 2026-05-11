@@ -6,7 +6,7 @@
 #include <QList>
 #include <QVector>
 
-#include "dltchatanalyzer.h"
+#include "dltanalyzerinterface.h"
 
 class DltExport
 {
@@ -17,7 +17,7 @@ public:
                            const QString &query);
 
     static bool exportAllEntries(const QString &filePath,
-                                const QVector<DltChatAnalyzer::LogEntry> &entries);
+                                const QVector<DltAnalyzerInterface::LogEntry> &entries);
 
     static QString generateCsvRow(const QStringList &fields);
     static QStringList sanitizeFields(const QStringList &fields);

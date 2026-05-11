@@ -3,6 +3,7 @@
 #include <QAbstractItemView>
 #include <QItemSelectionModel>
 #include <QMutexLocker>
+#include <QSettings>
 
 DltChatPlugin::DltChatPlugin()
     : form(nullptr)
@@ -21,6 +22,7 @@ DltChatPlugin::DltChatPlugin()
 DltChatPlugin::~DltChatPlugin()
 {
     delete m_llmAnalyzer;
+    delete m_ruleBasedAnalyzer;
 }
 
 void DltChatPlugin::setupDefaultAnalyzer()
@@ -30,12 +32,12 @@ void DltChatPlugin::setupDefaultAnalyzer()
 
     m_llmAnalyzer = DltLlmAnalyzerFactory::createOllamaAnalyzer(
         "http://localhost:11434",
-        "phi4-mini",
+        "qwen3.5:4b",
         this);
 
     if (m_llmAnalyzer && m_llmAnalyzer->isAvailable())
     {
-        qDebug() << "DLT Chat Plugin: Ollama LLM initialized with phi4-mini";
+        qDebug() << "DLT Chat Plugin: Ollama LLM initialized with qwen3.5:4b";
     }
 }
 
@@ -64,14 +66,53 @@ QString DltChatPlugin::error()
     return errorText;
 }
 
-bool DltChatPlugin::loadConfig(QString /*filename*/)
+bool DltChatPlugin::loadConfig(QString filename)
 {
+    if (filename.isEmpty())
+    {
+        return false;
+    }
+
+    QSettings settings(filename, QSettings::IniFormat);
+
+    settings.beginGroup("Analyzer");
+    QString analyzerType = settings.value("type", "rule-based").toString();
+    setAnalyzerType(analyzerType);
+
+    QString endpoint = settings.value("llmEndpoint", "").toString();
+    QString apiKey = settings.value("llmApiKey", "").toString();
+    QString model = settings.value("llmModel", "qwen3.5:4b").toString();
+
+    if (!endpoint.isEmpty())
+    {
+        configureLlmAnalyzer(endpoint, apiKey, model);
+    }
+    settings.endGroup();
+
     return true;
 }
 
-bool DltChatPlugin::saveConfig(QString /*filename*/)
+bool DltChatPlugin::saveConfig(QString filename)
 {
-    return true;
+    if (filename.isEmpty())
+    {
+        return false;
+    }
+
+    QSettings settings(filename, QSettings::IniFormat);
+
+    settings.beginGroup("Analyzer");
+    settings.setValue("type", m_currentAnalyzerType);
+    if (m_llmAnalyzer)
+    {
+        settings.setValue("llmEndpoint", m_llmAnalyzer->apiEndpoint());
+        settings.setValue("llmApiKey", m_llmAnalyzer->apiKey());
+        settings.setValue("llmModel", m_llmAnalyzer->modelName());
+    }
+    settings.endGroup();
+
+    settings.sync();
+    return settings.status() == QSettings::NoError;
 }
 
 QStringList DltChatPlugin::infoConfig()
@@ -301,7 +342,7 @@ void DltChatPlugin::onExportRequested(const QString &filePath, const QList<int> 
 {
     Q_UNUSED(query);
 
-    QVector<DltChatAnalyzer::LogEntry> snapshot;
+    QVector<DltAnalyzerInterface::LogEntry> snapshot;
     {
         QMutexLocker locker(&entriesMutex);
         snapshot = entries;
@@ -324,7 +365,7 @@ void DltChatPlugin::onExportRequested(const QString &filePath, const QList<int> 
 
 void DltChatPlugin::onExportAllRequested(const QString &filePath)
 {
-    QVector<DltChatAnalyzer::LogEntry> snapshot;
+    QVector<DltAnalyzerInterface::LogEntry> snapshot;
     {
         QMutexLocker locker(&entriesMutex);
         snapshot = entries;
@@ -373,7 +414,7 @@ void DltChatPlugin::ingestMessage(int index, QDltMsg &msg)
         messageDecoder->decodeMsg(localMsg, 0);
     }
 
-    DltChatAnalyzer::LogEntry entry;
+    DltAnalyzerInterface::LogEntry entry;
     entry.index = index;
     entry.time = QString("%1.%2")
         .arg(localMsg.getTimeString())
@@ -385,7 +426,7 @@ void DltChatPlugin::ingestMessage(int index, QDltMsg &msg)
     entry.apid = localMsg.getApid();
     entry.ctid = localMsg.getCtid();
     entry.level = localMsg.getSubtypeString().toLower();
-    entry.payload = DltChatAnalyzer::simplifyPayload(localMsg.toStringPayload());
+    entry.payload = DltRuleBasedAnalyzer::simplifyPayload(localMsg.toStringPayload());
 
     indexToPos.insert(index, entries.size());
     entries.append(entry);
@@ -401,7 +442,7 @@ DltAnalyzerInterface::QueryResult DltChatPlugin::analyzeQueryInternal(const QStr
         return fallback;
     }
 
-    QVector<DltChatAnalyzer::LogEntry> snapshot;
+    QVector<DltAnalyzerInterface::LogEntry> snapshot;
     {
         QMutexLocker locker(&entriesMutex);
         snapshot = entries;

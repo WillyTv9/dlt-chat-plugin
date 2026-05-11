@@ -5,11 +5,7 @@
 #include <QFileInfo>
 #include <QTextStream>
 
-#if __has_include(<DltChatAnalyzer>)
-#include <DltChatAnalyzer>
-#else
-#include "dltchatanalyzer.h"
-#endif
+
 
 QString DltExport::generateCsvRow(const QStringList &fields)
 {
@@ -86,7 +82,7 @@ bool DltExport::exportToCsv(const QString &filePath,
 }
 
 bool DltExport::exportAllEntries(const QString &filePath,
-                                const QVector<DltChatAnalyzer::LogEntry> &entries)
+                                const QVector<DltAnalyzerInterface::LogEntry> &entries)
 {
     if (entries.isEmpty())
     {
@@ -108,7 +104,7 @@ bool DltExport::exportAllEntries(const QString &filePath,
 
     out << generateCsvRow({"Index", "Time", "Timestamp", "Level", "ECU", "APID", "CTID", "Payload"}) << "\n";
 
-    for (const DltChatAnalyzer::LogEntry &entry : entries)
+    for (const DltAnalyzerInterface::LogEntry &entry : entries)
     {
         QStringList fields = {
             QString::number(entry.index),

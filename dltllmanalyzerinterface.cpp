@@ -36,17 +36,7 @@ DltLlmAnalyzerInterface::~DltLlmAnalyzerInterface()
 
 bool DltLlmAnalyzerInterface::isAvailable() const
 {
-    if (m_apiEndpoint.isEmpty())
-        return false;
-
-    bool isLocalEndpoint = m_apiEndpoint.contains("localhost") ||
-                           m_apiEndpoint.contains("127.0.0.1") ||
-                           m_apiEndpoint.startsWith("http://");
-
-    if (isLocalEndpoint)
-        return true;
-
-    return !m_apiKey.isEmpty();
+    return validateConfiguration();
 }
 
 bool DltLlmAnalyzerInterface::validateConfiguration() const
@@ -55,15 +45,18 @@ bool DltLlmAnalyzerInterface::validateConfiguration() const
     {
         return false;
     }
-    if (m_apiKey.isEmpty())
+
+    bool isLocalEndpoint = m_apiEndpoint.contains("localhost") ||
+                           m_apiEndpoint.contains("127.0.0.1") ||
+                           m_apiEndpoint.contains("ollama") ||
+                           m_apiEndpoint.contains("local-ai");
+
+    if (isLocalEndpoint)
     {
-        return false;
+        return !m_modelName.isEmpty();
     }
-    if (m_modelName.isEmpty())
-    {
-        return false;
-    }
-    return true;
+
+    return !m_apiKey.isEmpty() && !m_modelName.isEmpty();
 }
 
 QString DltLlmAnalyzerInterface::buildPrompt(const QString &query,
@@ -100,6 +93,45 @@ QString DltLlmAnalyzerInterface::buildPrompt(const QString &query,
 
 QString DltLlmAnalyzerInterface::parseLlmResponse(const QString &response) const
 {
+    QJsonParseError error;
+    QJsonDocument doc = QJsonDocument::fromJson(response.toUtf8(), &error);
+
+    if (error.error != QJsonParseError::NoError)
+    {
+        return response.trimmed();
+    }
+
+    bool isOpenAI = m_apiEndpoint.contains("openai.com") || m_apiEndpoint.contains("azure");
+
+    if (doc.isObject())
+    {
+        QJsonObject obj = doc.object();
+
+        if (isOpenAI && obj.contains("choices"))
+        {
+            QJsonArray choices = obj["choices"].toArray();
+            if (!choices.isEmpty())
+            {
+                QJsonObject firstChoice = choices[0].toObject();
+                if (firstChoice.contains("message"))
+                {
+                    QJsonObject message = firstChoice["message"].toObject();
+                    return message["content"].toString().trimmed();
+                }
+            }
+        }
+
+        if (obj.contains("response"))
+        {
+            return obj["response"].toString().trimmed();
+        }
+
+        if (obj.contains("text"))
+        {
+            return obj["text"].toString().trimmed();
+        }
+    }
+
     return response.trimmed();
 }
 
@@ -190,15 +222,40 @@ DltAnalyzerInterface::QueryResult DltLlmAnalyzerInterface::analyzeQuery(
 
     QJsonObject json;
     json["model"] = m_modelName;
-    json["prompt"] = prompt;
     json["stream"] = false;
 
-    if (m_maxTokens > 0)
+    bool isOllama = m_apiEndpoint.contains("ollama") || m_apiEndpoint.contains("localhost:11434");
+    bool isOpenAI = m_apiEndpoint.contains("openai.com") || m_apiEndpoint.contains("azure");
+
+    if (isOpenAI)
     {
-        json["options"] = QJsonObject{
-            {"num_predict", m_maxTokens},
-            {"temperature", m_temperature}
-        };
+        QJsonArray messages;
+        QJsonObject systemMsg;
+        systemMsg["role"] = "system";
+        systemMsg["content"] = "Sei un assistente per l'analisi di log DLT (Diagnostic Log and Trace). Rispondi in italiano.";
+        QJsonObject userMsg;
+        userMsg["role"] = "user";
+        userMsg["content"] = prompt;
+        messages.append(systemMsg);
+        messages.append(userMsg);
+        json["messages"] = messages;
+
+        if (m_maxTokens > 0)
+        {
+            json["max_tokens"] = m_maxTokens;
+            json["temperature"] = m_temperature;
+        }
+    }
+    else
+    {
+        json["prompt"] = prompt;
+        if (m_maxTokens > 0)
+        {
+            json["options"] = QJsonObject{
+                {"num_predict", m_maxTokens},
+                {"temperature", m_temperature}
+            };
+        }
     }
 
     QJsonDocument doc(json);

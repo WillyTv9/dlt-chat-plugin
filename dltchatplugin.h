@@ -9,7 +9,7 @@
 
 #include "plugininterface.h"
 #include "chatform.h"
-#include "dltchatanalyzer.h"
+
 #include "dltexport.h"
 #include "dltanalyzerinterface.h"
 #include "dltllmanalyzerinterface.h"
@@ -96,7 +96,7 @@ private:
     QDltMessageDecoder *messageDecoder;
     QColor highlightColor;
 
-    QVector<DltChatAnalyzer::LogEntry> entries;
+    QVector<DltAnalyzerInterface::LogEntry> entries;
     QHash<int, int> indexToPos;
     QMutex entriesMutex;
 
