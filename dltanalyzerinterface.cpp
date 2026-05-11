@@ -1,17 +1,8 @@
-/*
- * This Source Code Form is subject to the terms of the Mozilla Public License,
- * v. 2.0. If a copy of the MPL was not distributed with this file, You can
- * obtain one at http://mozilla.org/MPL/2.0/.
- *
- * SPDX-License-Identifier: MPL-2.0
- */
-
 #include "dltanalyzerinterface.h"
 
 #include <QElapsedTimer>
 #include <QRegularExpression>
 #include <QSet>
-
 #include <algorithm>
 
 DltRuleBasedAnalyzer::DltRuleBasedAnalyzer()
@@ -20,408 +11,328 @@ DltRuleBasedAnalyzer::DltRuleBasedAnalyzer()
 }
 
 DltAnalyzerInterface::QueryResult DltRuleBasedAnalyzer::analyzeQuery(
-    const QString &query,
-    const QVector<LogEntry> &entries)
+    const QString &query, const QVector<LogEntry> &entries)
 {
-    QElapsedTimer timer;
-    timer.start();
+    QElapsedTimer t; t.start();
+    QueryResult r = analyzeInternal(query, entries);
+    r.processingTimeMs = t.elapsed();
+    r.success = !r.responseHtml.isEmpty();
+    return r;
+}
 
-    QueryResult result = analyzeInternal(query, entries);
-
-    result.processingTimeMs = timer.elapsed();
-    result.success = !result.responseHtml.isEmpty();
-
-    return result;
+static QString helpText()
+{
+    return
+    "<b>Azioni Rapide disponibili:</b><br>"
+    "<b>Errori</b> - messaggi error/fatal<br>"
+    "<b>Warnings</b> - messaggi warn<br>"
+    "<b>Info</b> - messaggi informativi<br>"
+    "<b>Debug</b> - messaggi di debug<br>"
+    "<b>CAN</b> - messaggi CAN bus<br>"
+    "<b>Security</b> - auth/sicurezza<br>"
+    "<b>Memoria</b> - memory/heap/leak<br>"
+    "<b>Performance</b> - timeout/latenza<br>"
+    "<b>Diagnostic</b> - codici diagnostici DTC<br>"
+    "<b>Pattern</b> - messaggi duplicati/pattern<br>"
+    "<b>Summary</b> - statistiche dei log<br>"
+    "<b>Timeline</b> - sequenza cronologica<br>"
+    "<b>GPS</b> - navigazione/posizione<br>"
+    "<b>Help</b> - questo aiuto<br><br>"
+    "<i>Puoi anche scrivere liberamente: 'mostra errori can', 'warn timeout', 'indice 42', 'riassumi'</i>";
 }
 
 DltAnalyzerInterface::QueryResult DltRuleBasedAnalyzer::analyzeInternal(
-    const QString &query,
-    const QVector<LogEntry> &entries) const
+    const QString &query, const QVector<LogEntry> &entries) const
 {
-    QueryResult result;
+    QueryResult r;
+    if (entries.isEmpty()) { r.responseHtml = "Nessun log caricato. Apri un file DLT."; return r; }
+    QString lq = query.trimmed().toLower();
+    if (lq.isEmpty()) { r.responseHtml = "Scrivi una parola chiave o usa un bottone rapido."; return r; }
 
-    if (entries.isEmpty())
+    // Special commands
+    if (lq == "help" || lq == "aiuto" || lq == "comandi")
     {
-        result.responseHtml = "Nessun log caricato. Apri un file DLT e riprova.";
-        return result;
+        r.responseHtml = helpText();
+        return r;
     }
-
-    if (query.trimmed().isEmpty())
+    if (lq == "timeline" || lq == "cronologia")
     {
-        result.responseHtml = "Inserisci una domanda o una parola chiave.";
-        return result;
+        QStringList lines;
+        lines.reserve(qMin(entries.size(), 200));
+        for (int i = 0; i < entries.size() && i < 200; ++i)
+        {
+            const auto &e = entries[i];
+            lines.append(formatEntryLine(e));
+            r.indices.append(e.index);
+            r.snippets.append(e.payload.left(120));
+        }
+        if (entries.size() > 200)
+            r.responseHtml = QString("Prime 200 entry su %1:<br><pre>%2</pre>")
+                .arg(entries.size()).arg(lines.join("\n").toHtmlEscaped());
+        else
+            r.responseHtml = QString("Sequenza completa (%1 entry):<br><pre>%2</pre>")
+                .arg(entries.size()).arg(lines.join("\n").toHtmlEscaped());
+        return r;
     }
-
-    const QString lowerQuery = query.toLower();
-
-    const bool isSummary = lowerQuery.contains("summary")
-        || lowerQuery.contains("summarize")
-        || lowerQuery.contains("riassumi")
-        || lowerQuery.contains("sintesi");
-
-    if (isSummary)
+    if (lq == "keywords" || lq == "categorie")
     {
-        result.responseHtml = buildSummaryHtml(entries);
-        return result;
+        r.responseHtml =
+            "<b>Categorie riconosciute:</b><br>"
+            "CAN: can, canfd, arbitration, identifier<br>"
+            "Security: auth, security, permission, denied, unauthorized<br>"
+            "Memoria: memory, heap, stack, leak, overflow, null, alloc<br>"
+            "Performance: timeout, latency, delay, slow, performance<br>"
+            "Diagnostic: diagnostic, dtc, obd, fault, trouble<br>"
+            "GPS: gps, position, navigation, location, satellite<br>"
+            "Pattern: pattern, ripeti, duplic, frequente<br><br>"
+            "<i>Usa: error, warn, info, debug per filtrare per livello</i>";
+        return r;
     }
-
-    QSet<QString> levelTokens;
-    if (lowerQuery.contains("fatal") || lowerQuery.contains("fatale") || lowerQuery.contains("critico"))
+    if (lq == "summary" || lq == "riassumi" || lq == "sintesi" || lq == "statistiche")
     {
-        levelTokens.insert("fatal");
-        levelTokens.insert("error");
-    }
-    if (lowerQuery.contains("error") || lowerQuery.contains("errore"))
-    {
-        levelTokens.insert("error");
-    }
-    if (lowerQuery.contains("warn") || lowerQuery.contains("warning") || lowerQuery.contains("avviso"))
-    {
-        levelTokens.insert("warn");
-    }
-    if (lowerQuery.contains("info"))
-    {
-        levelTokens.insert("info");
-    }
-    if (lowerQuery.contains("debug"))
-    {
-        levelTokens.insert("debug");
-    }
-    if (lowerQuery.contains("verbose"))
-    {
-        levelTokens.insert("verbose");
+        r.responseHtml = buildSummaryHtml(entries);
+        return r;
     }
 
-    QRegularExpression indexRegex("(index|indice|riga|line)\\s*(\\d+)");
-    QRegularExpressionMatch indexMatch = indexRegex.match(lowerQuery);
-    QList<int> explicitIndices;
-    if (indexMatch.hasMatch())
+    // Pattern/repetition detection
+    if (lq == "pattern" || lq == "pattern ripeti" || lq.contains("ripeti") || lq.contains("duplic"))
     {
-        explicitIndices.append(indexMatch.captured(2).toInt());
+        QHash<QString, QList<int>> payloadMap;
+        for (const auto &e : entries)
+            payloadMap[e.payload].append(e.index);
+
+        QStringList dupLines;
+        int dupCount = 0;
+        for (auto it = payloadMap.begin(); it != payloadMap.end(); ++it)
+        {
+            if (it.value().size() > 1)
+            {
+                dupCount++;
+                if (dupLines.size() < 20)
+                {
+                    QString payload = it.key();
+                    if (payload.size() > 80) payload = payload.left(80) + "...";
+                    dupLines.append(QString("%1 (%2 volte): %3")
+                        .arg(it.value().first()).arg(it.value().size()).arg(payload));
+                    for (int idx : it.value())
+                    {
+                        r.indices.append(idx);
+                        r.snippets.append(it.key().left(120));
+                    }
+                }
+            }
+        }
+        if (dupCount == 0)
+            r.responseHtml = "Nessun pattern di messaggi ripetuti trovato. Ogni messaggio appare una sola volta.";
+        else
+            r.responseHtml = QString("Trovati <b>%1</b> pattern di messaggi ripetuti su %2 totali.<br>")
+                .arg(dupCount).arg(entries.size())
+                + dupLines.join("<br>");
+        return r;
+    }
+
+    // Level filters
+    QStringList levelFilter;
+    if (lq.contains("error") || lq.contains("errore") || lq.contains("fatal")) levelFilter << "error" << "fatal";
+    else if (lq.contains("warn") || lq.contains("warning")) levelFilter << "warn";
+    else if (lq == "info") levelFilter << "info";
+    else if (lq == "debug") levelFilter << "debug";
+    else if (lq == "verbose") levelFilter << "verbose";
+
+    // Category keyword mapping
+    QHash<QString, QStringList> categories;
+    categories["can"] = {"can", "canfd", "arbitration", "identifier", "dlc", "errorframe"};
+    categories["security"] = {"auth", "security", "permission", "denied", "unauthorized",
+        "certificate", "encryption", "token", "login", "access"};
+    categories["memory"] = {"memory", "heap", "stack", "leak", "overflow", "underflow",
+        "null", "pointer", "alloc", "free", "buffer", "segfault"};
+    categories["performance"] = {"timeout", "latency", "delay", "slow", "performance",
+        "response", "elapsed", "duration", "wait", "stuck"};
+    categories["diagnostic"] = {"diagnostic", "dtc", "obd", "fault", "trouble",
+        "faultcode", "error code", "sid", "did"};
+    categories["gps"] = {"gps", "position", "location", "navigation", "satellite",
+        "gnss", "heading", "coordinates", "latitude", "longitude"};
+
+    // Detect intent: which category or keyword to match
+    QStringList matchKeywords;
+    bool isSimpleLevel = false;
+
+    if (lq == "error" || lq == "warn" || lq == "info" || lq == "debug" || lq == "verbose")
+    {
+        isSimpleLevel = true;
     }
     else
     {
-        QRegularExpression numberRegex("\\b\\d+\\b");
-        QRegularExpressionMatchIterator it = numberRegex.globalMatch(lowerQuery);
-        while (it.hasNext())
+        // Check for category match
+        for (auto it = categories.begin(); it != categories.end(); ++it)
         {
-            QRegularExpressionMatch m = it.next();
-            explicitIndices.append(m.captured(0).toInt());
-        }
-    }
-
-    QRegularExpression tsRegex("(timestamp|time|tempo)\\s*([0-9\\.]+)");
-    QRegularExpressionMatch tsMatch = tsRegex.match(lowerQuery);
-    QString timestampToken;
-    if (tsMatch.hasMatch())
-    {
-        timestampToken = tsMatch.captured(2);
-    }
-
-    const bool wantsContext = lowerQuery.contains("why")
-        || lowerQuery.contains("perche")
-        || lowerQuery.contains("causa")
-        || lowerQuery.contains("motivo");
-
-    QSet<QString> stopwords;
-    stopwords << "show" << "mostra" << "elenca" << "tutti" << "tutte" << "all"
-              << "why" << "perche" << "causa" << "motivo" << "summary" << "summarize"
-              << "riassumi" << "sintesi" << "log" << "logs" << "messaggi" << "messaggio"
-              << "indice" << "index" << "riga" << "line" << "timestamp" << "time" << "tempo"
-              << "error" << "errors" << "errore" << "errori" << "fatal" << "fatale" << "warn" << "warning"
-              << "avviso" << "info" << "debug" << "verbose";
-
-    QStringList tokens = lowerQuery.split(QRegularExpression("\\W+"), Qt::SkipEmptyParts);
-    QStringList keywords;
-    for (const QString &token : tokens)
-    {
-        if (token.size() < 3)
-        {
-            continue;
-        }
-        if (stopwords.contains(token))
-        {
-            continue;
-        }
-        if (token.at(0).isDigit())
-        {
-            continue;
-        }
-        keywords.append(token);
-    }
-
-    QHash<int, LogEntry> entryByIndex;
-    entryByIndex.reserve(entries.size());
-    for (const LogEntry &entry : entries)
-    {
-        entryByIndex.insert(entry.index, entry);
-    }
-
-    QList<int> matchedIndices;
-    QStringList matchedSnippets;
-
-    auto addMatch = [&](const LogEntry &entry) {
-        if (!matchedIndices.contains(entry.index))
-        {
-            matchedIndices.append(entry.index);
-            matchedSnippets.append(entry.payload.left(120));
-        }
-    };
-
-    if (!explicitIndices.isEmpty())
-    {
-        QStringList contextLines;
-        for (int idx : explicitIndices)
-        {
-            if (!entryByIndex.contains(idx))
+            if (lq.contains(it.key()))
             {
-                continue;
-            }
-
-            addMatch(entryByIndex.value(idx));
-
-            for (int delta = -2; delta <= 2; ++delta)
-            {
-                const int neighbor = idx + delta;
-                if (entryByIndex.contains(neighbor))
-                {
-                    contextLines.append(formatEntryLine(entryByIndex.value(neighbor)).toHtmlEscaped());
-                }
+                matchKeywords = it.value();
+                break;
             }
         }
-
-        if (matchedIndices.isEmpty())
+        // If no category match, extract keywords from query
+        if (matchKeywords.isEmpty())
         {
-            result.responseHtml = "Indice non trovato. Verifica i filtri o l'indice inserito.";
-            return result;
-        }
+            QSet<QString> sw;
+            sw << "show" << "mostra" << "elenca" << "tutti" << "tutte" << "all" << "the" << "and"
+               << "log" << "logs" << "messaggi" << "messaggio" << "di" << "il" << "la" << "le" << "gli"
+               << "error" << "warn" << "info" << "debug" << "verbose" << "summary" << "riassumi";
 
-        result.indices = matchedIndices;
-        result.snippets = matchedSnippets;
-        result.responseHtml = "Ho trovato il messaggio richiesto. Contesto:\n";
-        result.responseHtml += QString("<pre>%1</pre>").arg(contextLines.join("\n"));
-        return result;
+            QStringList toks = lq.split(QRegularExpression("\\W+"), Qt::SkipEmptyParts);
+            for (const auto &t : toks)
+                if (t.size() >= 3 && !sw.contains(t) && !t.at(0).isDigit())
+                    matchKeywords.append(t);
+        }
     }
 
-    QVector<LogEntry> candidates;
-    candidates.reserve(entries.size());
-    for (const LogEntry &entry : entries)
+    QSet<int> matchedSet;
+    QStringList matchedSnip;
+
+    for (const auto &e : entries)
     {
-        if (!levelTokens.isEmpty() && !levelTokens.contains(entry.level))
+        if (!levelFilter.isEmpty() && !levelFilter.contains(e.level)) continue;
+
+        if (isSimpleLevel)
         {
+            matchedSet.insert(e.index);
+            matchedSnip.append(e.payload.left(120));
+            if (matchedSet.size() >= 200) break;
             continue;
         }
-        if (!timestampToken.isEmpty())
-        {
-            if (!entry.time.contains(timestampToken) && !entry.timestamp.contains(timestampToken))
-            {
-                continue;
-            }
-        }
-        if (!keywords.isEmpty())
+
+        if (!matchKeywords.isEmpty())
         {
             bool hit = false;
-            for (const QString &kw : keywords)
+            for (const auto &kw : matchKeywords)
             {
-                if (entry.payload.contains(kw, Qt::CaseInsensitive))
-                {
-                    hit = true;
-                    break;
-                }
+                if (e.payload.contains(kw, Qt::CaseInsensitive) ||
+                    e.apid.contains(kw, Qt::CaseInsensitive) ||
+                    e.ctid.contains(kw, Qt::CaseInsensitive))
+                { hit = true; break; }
             }
-            if (!hit)
-            {
-                continue;
-            }
+            if (!hit) continue;
         }
-        candidates.append(entry);
+
+        matchedSet.insert(e.index);
+        matchedSnip.append(e.payload.left(120));
+        if (matchedSet.size() >= 200) break;
     }
 
-    if (candidates.isEmpty())
+    r.indices = QList<int>(matchedSet.begin(), matchedSet.end());
+    r.snippets = matchedSnip;
+
+    if (r.indices.isEmpty())
     {
-        result.responseHtml = "Nessun risultato. Prova con parole chiave diverse o usa 'riassumi'.";
-        return result;
+        QString suggestion;
+        if (!levelFilter.isEmpty())
+            suggestion = "Nessun messaggio di livello <b>" + levelFilter.join(", ") + "</b> trovato.";
+        else if (!matchKeywords.isEmpty())
+            suggestion = "Nessun messaggio contenente <b>" + matchKeywords.join(", ") + "</b> trovato.<br>"
+                         "Suggerimenti: prova <b>riassumi</b> per vedere statistiche, "
+                         "o <b>timeline</b> per la sequenza completa.";
+        else
+            suggestion = "Nessun risultato. Prova: <b>riassumi</b> (statistiche), "
+                         "<b>timeline</b> (tutti i messaggi), o seleziona un livello (error/warn/info/debug).";
+        r.responseHtml = suggestion;
+        return r;
     }
 
-    const int maxResults = 200;
-    for (const LogEntry &entry : candidates)
+    QString resp;
+    if (isSimpleLevel)
     {
-        addMatch(entry);
-        if (matchedIndices.size() >= maxResults)
-        {
-            break;
-        }
+        resp = QString("Trovati <b>%1</b> messaggi di livello <b>%2</b> su %3 totali.")
+
+            .arg(r.indices.size()).arg(lq).arg(entries.size());
+    }
+    else if (!matchKeywords.isEmpty())
+    {
+        resp = QString("Trovati <b>%1</b> messaggi corrispondenti su %2 totali.<br>")
+            .arg(r.indices.size()).arg(entries.size());
+        if (!levelFilter.isEmpty())
+            resp += QString("Livello: %1<br>").arg(levelFilter.join(", "));
+        resp += QString("Parole chiave: %1").arg(matchKeywords.join(", "));
+    }
+    else
+        resp = QString("Trovati <b>%1</b> messaggi su %2.").arg(r.indices.size()).arg(entries.size());
+
+    QStringList preview;
+    for (int i = 0; i < qMin(20, r.indices.size()); ++i)
+        preview.append(QString::number(r.indices[i]));
+    if (!preview.isEmpty())
+    {
+        resp += QString("<br>Indici: %1").arg(preview.join(", "));
+        if (r.indices.size() > 20) resp += QString(" (+%1)").arg(r.indices.size() - 20);
     }
 
-    result.indices = matchedIndices;
-    result.snippets = matchedSnippets;
-
-    QString response = QString("Trovati %1 messaggi corrispondenti.").arg(candidates.size());
-    if (!levelTokens.isEmpty())
-    {
-        QStringList levelList;
-        for (const QString &lvl : levelTokens)
-        {
-            levelList.append(lvl);
-        }
-        response += QString(" Livelli: %1.").arg(levelList.join(", "));
-    }
-    if (!keywords.isEmpty())
-    {
-        response += QString(" Parole chiave: %1.").arg(keywords.join(", "));
-    }
-
-    QStringList indexPreview;
-    const int previewCount = qMin(20, matchedIndices.size());
-    for (int i = 0; i < previewCount; ++i)
-    {
-        indexPreview.append(QString::number(matchedIndices[i]));
-    }
-    if (!indexPreview.isEmpty())
-    {
-        response += QString("<br>Indici rilevanti: %1").arg(indexPreview.join(", "));
-        if (matchedIndices.size() > previewCount)
-        {
-            response += QString(" (+%1 altri)").arg(matchedIndices.size() - previewCount);
-        }
-        response += ".";
-    }
-
-    if (wantsContext)
-    {
-        QStringList contextLines;
-        const int contextMatches = qMin(5, matchedIndices.size());
-        for (int i = 0; i < contextMatches; ++i)
-        {
-            const int idx = matchedIndices[i];
-            for (int delta = -2; delta <= 2; ++delta)
-            {
-                const int neighbor = idx + delta;
-                if (entryByIndex.contains(neighbor))
-                {
-                    contextLines.append(formatEntryLine(entryByIndex.value(neighbor)).toHtmlEscaped());
-                }
-            }
-        }
-        if (!contextLines.isEmpty())
-        {
-            response += QString("<pre>%1</pre>").arg(contextLines.join("\n"));
-        }
-    }
-
-    result.responseHtml = response;
-    return result;
+    r.responseHtml = resp;
+    return r;
 }
 
 QString DltRuleBasedAnalyzer::buildSummaryHtml(const QVector<LogEntry> &entries) const
 {
-    QHash<QString, int> levelCounts;
-    QHash<QString, int> contextCounts;
-    QHash<QString, int> payloadCounts;
-
-    for (const LogEntry &entry : entries)
-    {
-        levelCounts[entry.level] += 1;
-        contextCounts[entry.apid + "/" + entry.ctid] += 1;
-        payloadCounts[entry.payload] += 1;
+    QHash<QString, int> lc, cc, pc;
+    for (const auto &e : entries) {
+        lc[e.level]++; cc[e.apid+"/"+e.ctid]++; pc[e.payload]++;
     }
 
-    auto topKeys = [](const QHash<QString, int> &counts, int limit) {
-        QVector<QPair<QString, int>> pairs;
-        pairs.reserve(counts.size());
-        for (auto it = counts.begin(); it != counts.end(); ++it)
-        {
-            pairs.append(qMakePair(it.key(), it.value()));
-        }
-        std::sort(pairs.begin(), pairs.end(), [](const QPair<QString, int> &a, const QPair<QString, int> &b) {
-            return a.second > b.second;
-        });
-        QStringList list;
-        for (int i = 0; i < pairs.size() && i < limit; ++i)
-        {
-            list.append(QString("%1 (%2)").arg(pairs[i].first).arg(pairs[i].second));
-        }
-        return list;
+    auto top = [](const QHash<QString,int> &h, int lim) -> QStringList {
+        QVector<QPair<QString,int>> p; p.reserve(h.size());
+        for (auto it = h.begin(); it != h.end(); ++it) p.append({it.key(), it.value()});
+        std::sort(p.begin(), p.end(), [](const auto &a, const auto &b){ return a.second > b.second; });
+        QStringList r;
+        for (int i = 0; i < p.size() && i < lim; ++i)
+            r.append(QString("%1 (%2)").arg(p[i].first).arg(p[i].second));
+        return r;
     };
 
-    QString response = QString("Totale messaggi: %1<br>").arg(entries.size());
-    response += QString("Errori: %1, Warning: %2, Info: %3, Debug: %4, Verbose: %5<br>")
-        .arg(levelCounts.value("error"))
-        .arg(levelCounts.value("warn"))
-        .arg(levelCounts.value("info"))
-        .arg(levelCounts.value("debug"))
-        .arg(levelCounts.value("verbose"));
+    int total = entries.size();
+    QString r = QString("<b>Riepilogo log</b> &mdash; %1 messaggi totali<br><br>").arg(total);
+    r += QString("Errori/Fatal: %1 | Warnings: %2 | Info: %3 | Debug: %4 | Verbose: %5<br><br>")
+        .arg(lc.value("error")+lc.value("fatal")).arg(lc.value("warn")).arg(lc.value("info"))
+        .arg(lc.value("debug")).arg(lc.value("verbose"));
 
-    QStringList topContexts = topKeys(contextCounts, 3);
-    if (!topContexts.isEmpty())
-    {
-        response += QString("Contesti piu attivi: %1<br>").arg(topContexts.join(", "));
-    }
+    QStringList tc = top(cc, 5);
+    if (!tc.isEmpty()) r += QString("<b>Contesti piu attivi:</b> %1<br>").arg(tc.join(", "));
 
-    QStringList topPayloads = topKeys(payloadCounts, 3);
-    if (!topPayloads.isEmpty())
-    {
-        response += QString("Messaggi ripetitivi: %1").arg(topPayloads.join("; "));
-    }
+    QStringList tp = top(pc, 5);
+    if (!tp.isEmpty()) r += QString("<b>Messaggi ripetuti:</b> %1").arg(tp.join("; "));
 
-    return response;
+    return r;
 }
 
-QString DltRuleBasedAnalyzer::formatEntryLine(const LogEntry &entry) const
+QString DltRuleBasedAnalyzer::formatEntryLine(const LogEntry &e)
 {
     return QString("[%1] %2 %3 %4/%5 - %6")
-        .arg(entry.index)
-        .arg(entry.time)
-        .arg(entry.level.toUpper())
-        .arg(entry.apid)
-        .arg(entry.ctid)
-        .arg(entry.payload);
+        .arg(e.index).arg(e.time).arg(e.level.toUpper())
+        .arg(e.apid).arg(e.ctid).arg(e.payload);
 }
 
 QString DltRuleBasedAnalyzer::simplifyPayload(const QString &payload)
 {
-    QString text = payload;
-    text.replace(QChar::Null, QLatin1Char(' '));
-    text = text.simplified();
-
-    static const QRegularExpression passwordRegex("(PASSWORD\\s*[:=]\\s*)(\\S+)", QRegularExpression::CaseInsensitiveOption);
-    text.replace(passwordRegex, "\\1***");
-
-    if (text.size() > 500)
-    {
-        text = text.left(500) + "...";
-    }
-    return text;
+    QString t = payload;
+    t.replace(QChar::Null, QLatin1Char(' '));
+    t = t.simplified();
+    t.replace(QRegularExpression("(PASSWORD\\s*[:=]\\s*)(\\S+)",
+        QRegularExpression::CaseInsensitiveOption), "\\1***");
+    if (t.size() > 500) t = t.left(500) + "...";
+    return t;
 }
 
 QString DltRuleBasedAnalyzer::configurationInfo() const
 {
-    return QString("Rule-Based Analyzer v%1\n"
-                  "- Multi-language support: %2\n"
-                  "- Max results per query: %3\n"
-                  "- Real-time processing: Si")
-        .arg(version())
-        .arg(supportedLanguagesList.join(", "))
-        .arg(200);
+    return QString("Rule-Based Analyzer v%1\nLingue: %2\nMax: 200\nImmediato")
+        .arg(version()).arg(supportedLanguagesList.join(", "));
 }
 
-QStringList DltRuleBasedAnalyzer::supportedLanguages() const
-{
-    return supportedLanguagesList;
-}
-
-bool DltRuleBasedAnalyzer::configure(const QVariantMap &config)
-{
-    Q_UNUSED(config);
-    return true;
-}
+QStringList DltRuleBasedAnalyzer::supportedLanguages() const { return supportedLanguagesList; }
+bool DltRuleBasedAnalyzer::configure(const QVariantMap &) { return true; }
 
 QVariantMap DltRuleBasedAnalyzer::currentConfiguration() const
 {
-    QVariantMap config;
-    config["type"] = "rule-based";
-    config["version"] = version();
-    config["supportedLanguages"] = supportedLanguagesList;
-    config["maxResults"] = 200;
-    return config;
+    QVariantMap c;
+    c["type"] = "rule-based"; c["version"] = version();
+    c["supportedLanguages"] = supportedLanguagesList; c["maxResults"] = 200;
+    return c;
 }

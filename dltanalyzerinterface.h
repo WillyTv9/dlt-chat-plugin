@@ -1,11 +1,3 @@
-/*
- * This Source Code Form is subject to the terms of the Mozilla Public License,
- * v. 2.0. If a copy of the MPL was not distributed with this file, You can
- * obtain one at http://mozilla.org/MPL/2.0/.
- *
- * SPDX-License-Identifier: MPL-2.0
- */
-
 #ifndef DLTANALYZERINTERFACE_H
 #define DLTANALYZERINTERFACE_H
 
@@ -41,14 +33,7 @@ public:
         bool success = false;
         QString errorMessage;
         qint64 processingTimeMs = 0;
-    };
-
-    struct QueryContext
-    {
-        QString query;
-        QVector<LogEntry> entries;
-        int maxResults = 200;
-        bool includeContext = false;
+        bool usedAi = false;
     };
 
     virtual ~DltAnalyzerInterface() = default;
@@ -82,7 +67,7 @@ public:
     DltRuleBasedAnalyzer();
     ~DltRuleBasedAnalyzer() override = default;
 
-    QString name() const override { return "DLT Rule-Based Analyzer"; }
+    QString name() const override { return "Rule-Based Analyzer"; }
     QString version() const override { return "1.0.0"; }
     QString interfaceVersion() const override { return DLT_ANALYZER_INTERFACE_VERSION; }
 
@@ -90,7 +75,7 @@ public:
     bool supportsStreaming() const override { return false; }
 
     QueryResult analyzeQuery(const QString &query,
-                           const QVector<LogEntry> &entries) override;
+                            const QVector<LogEntry> &entries) override;
 
     QString configurationInfo() const override;
     QStringList supportedLanguages() const override;
@@ -100,13 +85,14 @@ public:
 
     static QString simplifyPayload(const QString &payload);
 
+    static QString formatEntryLine(const LogEntry &entry);
+
 private:
     QueryResult analyzeInternal(const QString &query,
-                               const QVector<LogEntry> &entries) const;
+                                const QVector<LogEntry> &entries) const;
     QString buildSummaryHtml(const QVector<LogEntry> &entries) const;
-    QString formatEntryLine(const LogEntry &entry) const;
 
     QStringList supportedLanguagesList;
 };
 
-#endif // DLTANALYZERINTERFACE_H
+#endif
