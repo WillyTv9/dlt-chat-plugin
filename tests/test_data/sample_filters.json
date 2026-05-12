@@ -1,0 +1,31 @@
+{
+    "version": "1.0.0",
+    "description": "Sample automotive filters for testing",
+    "filters": [
+        {
+            "label": "CAN Errors",
+            "pattern": "CAN.*error|error.*CAN|arbitration|bus-off",
+            "fields": ["payload"],
+            "color": "#FF0000",
+            "level": ["error", "fatal"],
+            "enabled": true
+        },
+        {
+            "label": "Security Events",
+            "pattern": "auth|security|login|token",
+            "fields": ["payload", "apid"],
+            "color": "#FF8800",
+            "level": ["warn", "error"],
+            "domain": "generic",
+            "enabled": true
+        },
+        {
+            "label": "CarPlay Session",
+            "pattern": "carplay|iap2|AirPlay",
+            "fields": ["payload", "apid", "ctid"],
+            "color": "#00AAFF",
+            "domain": "carplay",
+            "enabled": true
+        }
+    ]
+}
