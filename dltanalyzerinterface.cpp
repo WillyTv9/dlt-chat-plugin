@@ -67,18 +67,29 @@ static QString helpText()
     "<b>Warnings</b> - messaggi warn<br>"
     "<b>Info</b> - messaggi informativi<br>"
     "<b>Debug</b> - messaggi di debug<br>"
+    "<b>Verbose</b> - messaggi verbose<br>"
     "<b>CAN</b> - messaggi CAN bus<br>"
     "<b>Security</b> - auth/sicurezza<br>"
     "<b>Memoria</b> - memory/heap/leak<br>"
     "<b>Performance</b> - timeout/latenza<br>"
     "<b>Diagnostic</b> - codici diagnostici DTC<br>"
+    "<b>GPS</b> - navigazione/posizione<br>"
     "<b>Pattern</b> - messaggi duplicati/pattern<br>"
     "<b>Summary</b> - statistiche dei log<br>"
     "<b>Timeline</b> - sequenza cronologica<br>"
-    "<b>GPS</b> - navigazione/posizione<br>"
     "<b>Categorizza</b> - classifica errori per categoria<br>"
+    "<b>CarPlay</b> - eventi sessione CarPlay<br>"
+    "<b>AndroidAuto</b> - eventi Android Auto<br>"
+    "<b>Focus</b> - video focus perso<br>"
+    "<b>Ducking</b> - audio ducking<br>"
+    "<b>mDNS</b> - handshake mDNS<br>"
+    "<b>Sensor</b> - dati sensori veicolo<br>"
+    "<b>Auth Errors</b> - errori autenticazione<br>"
+    "<b>Session</b> - eventi inizio/fine sessione<br>"
+    "<b>Keywords</b> - parole chiave disponibili<br>"
+    "<b>Categories</b> - categorie disponibili<br>"
     "<b>Help</b> - questo aiuto<br><br>"
-    "<i>Puoi anche combinare: 'mostra errori can', 'warn timeout', 'info carplay'</i>";
+    "<i>Puoi anche combinare: 'error can', 'warn timeout', 'info carplay'</i>";
 }
 
 static QStringList extractLevels(const QString &lq)
@@ -190,7 +201,7 @@ DltAnalyzerInterface::QueryResult DltRuleBasedAnalyzer::analyzeInternal(
                 .arg(entries.size()).arg(lines.join("\n").toHtmlEscaped());
         return r;
     }
-    if (lq == "keywords" || lq == "categorie")
+    if (lq == "keywords" || lq == "categorie" || lq == "categories")
     {
         QString html = "<b>Categorie riconosciute:</b><br>"
             "CAN: can, canfd, arbitration, identifier<br>"

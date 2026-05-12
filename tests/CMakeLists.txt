@@ -9,9 +9,9 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
-find_package(Qt5 QUIET COMPONENTS Core Test)
+find_package(Qt5 QUIET COMPONENTS Core Gui Network Test)
 if(NOT Qt5_FOUND)
-    find_package(Qt6 REQUIRED COMPONENTS Core Test)
+    find_package(Qt6 REQUIRED COMPONENTS Core Gui Network Test)
     set(QT_PREFIX Qt6)
 else()
     set(QT_PREFIX Qt5)
@@ -39,6 +39,6 @@ add_executable(tests
 )
 
 target_include_directories(tests PRIVATE ${CMAKE_SOURCE_DIR}/..)
-target_link_libraries(tests ${QT_PREFIX}::Core ${QT_PREFIX}::Test)
+target_link_libraries(tests ${QT_PREFIX}::Core ${QT_PREFIX}::Gui ${QT_PREFIX}::Network ${QT_PREFIX}::Test)
 
 add_test(NAME tests COMMAND tests)

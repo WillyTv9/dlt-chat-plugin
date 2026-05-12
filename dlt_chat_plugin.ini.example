@@ -10,7 +10,7 @@ type=rule-based
 # --- Ollama (local, open source) ---
 llmEndpoint=http://localhost:11434/api/generate
 llmApiKey=
-llmModel=qwen3.5:4b
+llmModel=llama3.2:1b
 
 # --- OpenAI ---
 # llmEndpoint=https://api.openai.com/v1/chat/completions

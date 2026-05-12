@@ -127,6 +127,13 @@ static BtnColors debugColors(bool dark)
         : BtnColors{"#e0e0e0", "#424242", "#bdbdbd"};
 }
 
+static BtnColors verboseColors(bool dark)
+{
+    return dark
+        ? BtnColors{"#333333", "#bdbdbd", "#4a4a4a"}
+        : BtnColors{"#f5f5f5", "#757575", "#e0e0e0"};
+}
+
 static BtnColors systemColors(bool dark)
 {
     return dark
@@ -218,7 +225,7 @@ Form::Form(QWidget *parent)
     aiProgress->setFixedHeight(4);
     aiProgress->hide();
 
-    // Quick actions - 3x7 grid (20 buttons)
+    // Quick actions - 4x7 grid (26 buttons)
     QGroupBox *quickBox = new QGroupBox(tr("Quick Actions"), this);
     QGridLayout *ql = new QGridLayout();
     ql->setSpacing(2);
@@ -229,38 +236,49 @@ Form::Form(QWidget *parent)
         BtnColors (*getColors)(bool);
     };
 
-    BtnDef bd[] = {
-        {"Errors",      "Errors and fatals",       errorColors},
-        {"Warnings",    "Warning messages",        warnColors},
-        {"Info",        "Informational messages",  infoColors},
-        {"Debug",       "Debug messages",          debugColors},
-        {"CAN",         "CAN bus messages",        systemColors},
-        {"Security",    "Auth and security",       systemColors},
-        {"Memory",      "Memory issues",           systemColors},
-        {"Performance", "Timeouts and delays",     systemColors},
-        {"Diagnostic",  "DTC diagnostics",         systemColors},
-        {"Pattern",     "Repeated messages",       analysisColors},
-        {"Summary",     "Log statistics",          analysisColors},
-        {"Timeline",    "Chronological order",     analysisColors},
-        {"GPS",         "Navigation and GPS",      systemColors},
-        {"Categorizza", "Classify errors by category", helpColors},
-        {"Help",        "Show available commands", helpColors},
-        {"CarPlay",     "CarPlay session events",  automotiveColors},
-        {"AndroidAuto", "Android Auto events",     automotiveColors},
-        {"Focus",       "Video Focus Lost",        automotiveColors},
-        {"Ducking",     "Audio Ducking events",    automotiveColors},
-        {"mDNS",        "mDNS Handshake events",   automotiveColors},
-        {"Sensor",      "Vehicle Sensor Data",     automotiveColors},
-    };
-    int totalButtons = sizeof(bd) / sizeof(bd[0]);
-    for (int i = 0; i < totalButtons; ++i)
-    {
-        auto *b = makeBtn(tr(bd[i].text), tr(bd[i].tip), this);
-        auto c = bd[i].getColors(dark);
+    auto addBtn = [&](const char *text, const char *tip, int row, int col,
+                       BtnColors (*getColors)(bool)) {
+        auto *b = makeBtn(tr(text), tr(tip), this);
+        auto c = getColors(dark);
         applyBtnStyle(b, dark, c.bg, c.fg, c.hover);
         connect(b, &QPushButton::clicked, this, &Form::onQuickActionClicked);
-        ql->addWidget(b, i / 7, i % 7);
-    }
+        ql->addWidget(b, row, col);
+    };
+
+    // Row 0: Level filters
+    addBtn("Errors",      "Errors and fatals",        0, 0, errorColors);
+    addBtn("Warnings",    "Warning messages",         0, 1, warnColors);
+    addBtn("Info",        "Informational messages",   0, 2, infoColors);
+    addBtn("Debug",       "Debug messages",           0, 3, debugColors);
+    addBtn("Verbose",     "Verbose messages",         0, 4, verboseColors);
+
+    // Row 1: Category filters + help
+    addBtn("CAN",         "CAN bus messages",         1, 0, systemColors);
+    addBtn("Security",    "Auth and security",        1, 1, systemColors);
+    addBtn("Memory",      "Memory issues",            1, 2, systemColors);
+    addBtn("Performance", "Timeouts and delays",      1, 3, systemColors);
+    addBtn("Diagnostic",  "DTC diagnostics",          1, 4, systemColors);
+    addBtn("GPS",         "Navigation and GPS",       1, 5, systemColors);
+    addBtn("Categories",  "Show available categories",1, 6, analysisColors);
+
+    // Row 2: Automotive presets
+    addBtn("CarPlay",     "CarPlay session events",   2, 0, automotiveColors);
+    addBtn("AndroidAuto", "Android Auto events",      2, 1, automotiveColors);
+    addBtn("Focus",       "Video Focus Lost",         2, 2, automotiveColors);
+    addBtn("Ducking",     "Audio Ducking events",     2, 3, automotiveColors);
+    addBtn("mDNS",        "mDNS Handshake events",    2, 4, automotiveColors);
+    addBtn("Sensor",      "Vehicle Sensor Data",      2, 5, automotiveColors);
+    addBtn("Auth Errors", "Authentication errors",    2, 6, automotiveColors);
+
+    // Row 3: Analysis + commands
+    addBtn("Session",     "Session start/stop events",3, 0, automotiveColors);
+    addBtn("Pattern",     "Repeated messages",        3, 1, analysisColors);
+    addBtn("Summary",     "Log statistics",           3, 2, analysisColors);
+    addBtn("Timeline",    "Chronological order",      3, 3, analysisColors);
+    addBtn("Categorizza", "Classify errors by category",3,4, helpColors);
+    addBtn("Help",        "Show available commands",  3, 5, helpColors);
+    addBtn("Keywords",    "Show available keywords",  3, 6, analysisColors);
+
     quickBox->setLayout(ql);
 
     // Header: title + AI status + config button
@@ -508,13 +526,17 @@ void Form::onQuickActionClicked()
     if (map.isEmpty()) {
         map = {
             {tr("Errors"),"error"},{tr("Warnings"),"warn"},{tr("Info"),"info"},{tr("Debug"),"debug"},
+            {tr("Verbose"),"verbose"},
             {tr("CAN"),"can"},{tr("Security"),"security"},{tr("Memory"),"memory"},
-            {tr("Performance"),"performance"},{tr("Diagnostic"),"diagnostic"},{tr("Pattern"),"pattern"},
-            {tr("Summary"),"summary"},{tr("Timeline"),"timeline"},{tr("GPS"),"gps"},
+            {tr("Performance"),"performance"},{tr("Diagnostic"),"diagnostic"},{tr("GPS"),"gps"},
+            {tr("Categories"),"categories"},
+            {tr("Pattern"),"pattern"},{tr("Summary"),"summary"},{tr("Timeline"),"timeline"},
             {tr("Categorizza"),"categorizza"},{tr("Help"),"help"},
             {tr("CarPlay"),"carplay"},{tr("AndroidAuto"),"androidauto"},
             {tr("Focus"),"video_focus"},{tr("Ducking"),"audio_ducking"},
             {tr("mDNS"),"mdns"},{tr("Sensor"),"sensor_data"},
+            {tr("Auth Errors"),"auth_errors"},{tr("Session"),"session"},
+            {tr("Keywords"),"keywords"},
         };
     }
     QString q = map.value(btn->text());

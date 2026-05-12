@@ -73,6 +73,11 @@ void AutomotiveLogParser::classify(DltAnalyzerInterface::LogEntry &entry)
         else if (payload.contains("certificate", Qt::CaseInsensitive) ||
                  payload.contains("TLS"))
             entry.event = QStringLiteral("auth_tls");
+        else if ((payload.contains("session", Qt::CaseInsensitive) &&
+                  (payload.contains("stop", Qt::CaseInsensitive) ||
+                   payload.contains("disconnect", Qt::CaseInsensitive))) ||
+                 payload.contains("link down", Qt::CaseInsensitive))
+            entry.event = QStringLiteral("session_stop");
 
         return;
     }

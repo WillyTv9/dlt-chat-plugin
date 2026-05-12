@@ -1,6 +1,7 @@
 #include "test_llmutils.h"
 #include "dltllmanalyzerinterface.h"
 #include <QTest>
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 

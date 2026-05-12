@@ -107,6 +107,7 @@ public:
     bool searchByTag(const QString &tag, QList<int> &outIndices) const;
     bool searchByCategory(const QString &category, QList<int> &outIndices) const;
     QString getSummaryForIndex(int index) const;
+    QString getCategoryForIndex(int index) const;
     QSet<QString> getAllTags() const;
     QSet<QString> getAllCategories() const;
 

@@ -26,7 +26,7 @@ Quick summary:
 
 ```
 ┌──────────────────────────────────────────────┐
-│ Chat Log Assistant     AI: qwen2.5:0.5b [⚙] │  ← Title bar
+│ Chat Log Assistant     AI: llama3.2:1b [⚙] │  ← Title bar
 │ Loaded 15000 msgs | CarPlay: 230 | AA: 150  │  ← Status bar
 ├──────────────────────────────────────────────┤
 │ [Errors] [Warnings] [Info] [Debug] [CAN]     │
@@ -144,7 +144,7 @@ Any other text performs a keyword search across all log entries.
 3. Fill in the fields:
    - **Endpoint**: API URL (auto-filled for standard providers)
    - **API Key**: required for OpenAI only
-   - **Model**: e.g., `qwen2.5:0.5b`, `llama3`, `gpt-4`
+   - **Model**: e.g., `llama3.2:1b`, `llama3`, `gpt-4`
    - **Max Tokens**: maximum response length (default: 1000)
    - **Temperature**: creativity level (default: 0.3)
    - **Timeout**: request timeout in ms (default: 30000)
@@ -174,7 +174,7 @@ The AI will:
 
 | Status | Meaning |
 |--------|---------|
-| `AI: qwen2.5:0.5b` (green) | AI ready and online |
+| `AI: llama3.2:1b` (green) | AI ready and online |
 | `AI: offline` (orange) | AI configured but unreachable |
 | `AI: -` (gray) | AI not configured |
 
@@ -269,7 +269,7 @@ The plugin saves configuration to an INI file. Example:
 type = rule-based
 llmEndpoint = http://localhost:11434/api/generate
 llmApiKey =
-llmModel = qwen2.5:0.5b
+llmModel = llama3.2:1b
 bulkAnalysisEnabled = false
 
 [Behavior]

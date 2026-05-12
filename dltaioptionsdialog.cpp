@@ -17,6 +17,7 @@
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QNetworkRequest>
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QEventLoop>
@@ -38,22 +39,22 @@ DltAiOptionsDialog::DltAiOptionsDialog(QWidget *parent)
     m_apiKey = new QLineEdit(this);
     m_apiKey->setEchoMode(QLineEdit::Password);
     m_apiKey->setPlaceholderText(tr("Not required (Ollama/LocalAI)")); // Italian: Non richiesta (Ollama/LocalAI)
-    m_model = new QLineEdit("qwen2.5:0.5b", this);
-    m_modelHint = new QLabel(tr("Suggerito: qwen2.5:0.5b (~500MB) per uso locale leggero. "
-                               "Installare con: ollama pull qwen2.5:0.5b"), this);
+    m_model = new QLineEdit("llama3.2:1b", this);
+    m_modelHint = new QLabel(tr("Suggerito: llama3.2:1b (~1.3GB) per uso locale leggero. "
+                               "Installare con: ollama pull llama3.2:1b"), this);
     m_modelHint->setStyleSheet("font-size: 9px; color: #888; font-style: italic;");
     m_modelHint->setWordWrap(true);
     m_maxTokens = new QSpinBox(this);
     m_maxTokens->setRange(64, 8192);
-    m_maxTokens->setValue(1000);
+    m_maxTokens->setValue(4096);
     m_temperature = new QDoubleSpinBox(this);
     m_temperature->setRange(0.0, 2.0);
     m_temperature->setSingleStep(0.1);
-    m_temperature->setValue(0.3);
+    m_temperature->setValue(0.7);
     m_timeout = new QSpinBox(this);
     m_timeout->setRange(5000, 120000);
     m_timeout->setSingleStep(5000);
-    m_timeout->setValue(30000);
+    m_timeout->setValue(120000);
     m_timeout->setSuffix(" ms");
 
     m_testBtn = new QPushButton(tr("Test Connection"), this);  // Italian: Test Connessione
@@ -118,8 +119,19 @@ void DltAiOptionsDialog::onTestConnection()
 
     QJsonObject body;
     body["model"] = m_model->text().isEmpty() ? "test" : m_model->text();
-    body["prompt"] = "test";
     body["stream"] = false;
+
+    bool isOpenAI = m_provider->currentIndex() == 1;
+    if (isOpenAI) {
+        QJsonArray msgs;
+        QJsonObject userMsg;
+        userMsg["role"] = "user";
+        userMsg["content"] = "test";
+        msgs.append(userMsg);
+        body["messages"] = msgs;
+    } else {
+        body["prompt"] = "test";
+    }
 
     QNetworkReply *reply = mgr.post(req, QJsonDocument(body).toJson());
     QEventLoop loop;

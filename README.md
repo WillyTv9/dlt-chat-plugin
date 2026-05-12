@@ -187,7 +187,7 @@ Example `dlt_chat_plugin.ini`:
 type=rule-based
 llmEndpoint=http://localhost:11434/api/generate
 llmApiKey=
-llmModel=qwen2.5:0.5b
+llmModel=llama3.2:1b
 bulkAnalysisEnabled=false
 
 [Behavior]

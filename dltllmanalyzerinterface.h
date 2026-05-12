@@ -71,6 +71,10 @@ public:
     // Utility methods exposed for testing
     QString parseLlmResponse(const QString &response) const;
     QList<int> extractIndicesFromText(const QString &text) const;
+    QString buildPrompt(const QString &query,
+                        const QVector<LogEntry> &entries,
+                        int maxEntries) const;
+    QByteArray buildRequestBody(const QString &prompt) const;
 
 signals:
     void apiEndpointChanged(const QString &endpoint);
@@ -83,10 +87,6 @@ signals:
     void queryResultReady(const DltAnalyzerInterface::QueryResult &result, const QString &originalQuery);
 
 private:
-    QString buildPrompt(const QString &query,
-                        const QVector<LogEntry> &entries,
-                        int maxEntries) const;
-    QByteArray buildRequestBody(const QString &prompt) const;
     QueryResult processReply(QNetworkReply *reply, const QElapsedTimer &timer);
 
     // Rate limiting: token bucket

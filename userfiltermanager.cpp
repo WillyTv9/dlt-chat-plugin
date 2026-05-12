@@ -153,8 +153,7 @@ UserFilter UserFilterManager::parseSingleFilter(const QJsonObject &obj, int idx,
 
     QJsonArray fieldsArr = obj["fields"].toArray();
     if (fieldsArr.isEmpty()) {
-        if (error) *error = QString("Filter '%1': missing or empty 'fields'").arg(label);
-        return f;
+        fieldsArr = QJsonArray{"payload"};
     }
     for (const auto &v : fieldsArr)
         f.fields.append(v.toString().toLower());
@@ -177,7 +176,8 @@ UserFilter UserFilterManager::parseSingleFilter(const QJsonObject &obj, int idx,
         return f;
     }
 
-    QJsonArray levelsArr = obj["level"].toArray();
+    QJsonArray levelsArr = obj["levels"].toArray();
+    if (levelsArr.isEmpty()) levelsArr = obj["level"].toArray();
     for (const auto &v : levelsArr)
         f.levels.append(v.toString().toLower());
 

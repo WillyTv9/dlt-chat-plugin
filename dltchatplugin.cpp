@@ -7,6 +7,7 @@
 #include <QMutexLocker>
 #include <QSettings>
 #include <QThread>
+#include <QTimer>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QNetworkRequest>
@@ -57,12 +58,15 @@ DltChatPlugin::DltChatPlugin()
             });
 
     m_bulkAnalyzer = new DltBulkAnalyzer(this);
+    m_bulkAnalyzer->setAnalyzer(m_llmAnalyzer);
     connect(m_bulkAnalyzer, &DltBulkAnalyzer::progressUpdated,
             this, &DltChatPlugin::onBulkProgress);
     connect(m_bulkAnalyzer, &DltBulkAnalyzer::analysisFinished,
             this, &DltChatPlugin::onBulkFinished);
     connect(m_bulkAnalyzer, &DltBulkAnalyzer::errorOccurred,
             this, &DltChatPlugin::onBulkError);
+
+    QTimer::singleShot(0, this, &DltChatPlugin::checkAiAvailabilityAsync);
 }
 
 DltChatPlugin::~DltChatPlugin()
@@ -79,14 +83,10 @@ void DltChatPlugin::setupDefaultAnalyzer()
     m_analyzer = m_ruleBasedAnalyzer;
 
     m_llmAnalyzer = DltLlmAnalyzerFactory::createOllamaAnalyzer(
-        "http://localhost:11434", "qwen2.5:0.5b", this);
+        "http://localhost:11434", "llama3.2:1b", this);
 
     connect(m_llmAnalyzer, &DltLlmAnalyzerInterface::queryResultReady,
             this, &DltChatPlugin::onLlmResultReady);
-
-    m_bulkAnalyzer->setAnalyzer(m_llmAnalyzer);
-
-    checkAiAvailabilityAsync();
 }
 
 void DltChatPlugin::startBulkAnalysis()
@@ -244,7 +244,7 @@ bool DltChatPlugin::loadConfig(QString filename)
     setAnalyzerType(t);
     QString ep = settings.value("llmEndpoint", "").toString();
     QString key = settings.value("llmApiKey", "").toString();
-    QString model = settings.value("llmModel", "qwen2.5:0.5b").toString();
+    QString model = settings.value("llmModel", "llama3.2:1b").toString();
     if (!ep.isEmpty()) configureLlmAnalyzer(ep, key, model);
     m_bulkAnalysisEnabled = settings.value("bulkAnalysisEnabled", false).toBool();
     settings.endGroup();
@@ -434,6 +434,48 @@ void DltChatPlugin::onQuerySubmitted(const QString &query)
 
     // --- ROUTING ---
 
+    // 0. Bulk: tag: / category: query routing
+    if (lq.startsWith("tag:") && m_bulkAnalyzer && m_bulkAnalyzer->hasCompleted()) {
+        QString tag = lq.mid(4).trimmed();
+        QList<int> indices;
+        m_bulkAnalyzer->searchByTag(tag, indices);
+        if (indices.isEmpty()) {
+            form->appendMessage("Chat Assistant",
+                QString("Nessun risultato per tag <b>%1</b>.").arg(tag.toHtmlEscaped()));
+        } else {
+            QSet<QString> cats;
+            for (int idx : indices)
+                cats.insert(m_bulkAnalyzer->getCategoryForIndex(idx));
+            cats.remove("unknown");
+            QString html = QString("Trovati <b>%1</b> risultati per tag <b>%2</b>.<br>")
+                .arg(indices.size()).arg(tag.toHtmlEscaped());
+            if (!cats.isEmpty() && cats.size() <= 15)
+                html += QString("Categorie: %1").arg(QStringList(cats.values()).join(", "));
+            form->appendMessage("Chat Assistant", html);
+        }
+        QList<int> display = indices.mid(0, kMaxDisplayResults);
+        form->setResults(display, QStringList(), QStringList());
+        highlightIndices(indices);
+        return;
+    }
+    if (lq.startsWith("category:") && m_bulkAnalyzer && m_bulkAnalyzer->hasCompleted()) {
+        QString cat = lq.mid(9).trimmed();
+        QList<int> indices;
+        m_bulkAnalyzer->searchByCategory(cat, indices);
+        if (indices.isEmpty()) {
+            form->appendMessage("Chat Assistant",
+                QString("Nessun risultato per categoria <b>%1</b>.").arg(cat.toHtmlEscaped()));
+        } else {
+            QString html = QString("Trovati <b>%1</b> risultati per categoria <b>%2</b>.<br>")
+                .arg(indices.size()).arg(cat.toHtmlEscaped());
+            form->appendMessage("Chat Assistant", html);
+        }
+        QList<int> display = indices.mid(0, kMaxDisplayResults);
+        form->setResults(display, QStringList(), QStringList());
+        highlightIndices(indices);
+        return;
+    }
+
     // 1. Quick Button / Preset automotive match
     static const QHash<QString, QString> presetMap = {
         {"carplay", "carplay"},
@@ -490,7 +532,7 @@ void DltChatPlugin::onQuerySubmitted(const QString &query)
         "summary", "riassumi", "sintesi", "statistiche",
         "timeline", "cronologia",
         "help", "aiuto", "comandi",
-        "keywords", "categorie",
+        "keywords", "categorie", "categories",
         "pattern",
         "categorizza", "categorize", "classifica"
     };

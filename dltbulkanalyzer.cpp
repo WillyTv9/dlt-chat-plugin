@@ -317,6 +317,16 @@ QString DltBulkAnalyzer::getSummaryForIndex(int index) const
     return QString();
 }
 
+QString DltBulkAnalyzer::getCategoryForIndex(int index) const
+{
+    const QHash<int, BulkAnalysisResult> &results = m_worker->results();
+    if (results.contains(index))
+    {
+        return results[index].category;
+    }
+    return QString();
+}
+
 QSet<QString> DltBulkAnalyzer::getAllTags() const
 {
     const QHash<int, BulkAnalysisResult> &results = m_worker->results();

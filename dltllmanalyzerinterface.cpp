@@ -20,7 +20,7 @@ static constexpr int kBaseRetryDelayMs = 1000;
 
 DltLlmAnalyzerInterface::DltLlmAnalyzerInterface(QObject *parent)
     : QObject(parent)
-    , m_maxTokens(1000), m_temperature(0.3), m_timeout(30000)
+    , m_maxTokens(4096), m_temperature(0.7), m_timeout(120000)
     , m_networkManager(new QNetworkAccessManager(this))
 {
 }
@@ -598,7 +598,7 @@ DltLlmAnalyzerInterface *DltLlmAnalyzerFactory::createOpenAIAnalyzer(
 {
     auto *a = new DltLlmAnalyzerInterface(p);
     a->setApiEndpoint("https://api.openai.com/v1/chat/completions");
-    a->setApiKey(key); a->setModelName(model); a->setMaxTokens(1000); a->setTemperature(0.3);
+    a->setApiKey(key); a->setModelName(model); a->setMaxTokens(4096); a->setTemperature(0.7);
     return a;
 }
 
@@ -607,7 +607,7 @@ DltLlmAnalyzerInterface *DltLlmAnalyzerFactory::createOllamaAnalyzer(
 {
     auto *a = new DltLlmAnalyzerInterface(p);
     a->setApiEndpoint(base + "/api/generate");
-    a->setApiKey(QString()); a->setModelName(model); a->setMaxTokens(1000); a->setTemperature(0.3);
+    a->setApiKey(QString()); a->setModelName(model); a->setMaxTokens(4096); a->setTemperature(0.7);
     return a;
 }
 
@@ -616,7 +616,7 @@ DltLlmAnalyzerInterface *DltLlmAnalyzerFactory::createLocalAiAnalyzer(
 {
     auto *a = new DltLlmAnalyzerInterface(p);
     a->setApiEndpoint(base + "/api/generate");
-    a->setApiKey(QString()); a->setModelName(model); a->setMaxTokens(1000); a->setTemperature(0.3);
+    a->setApiKey(QString()); a->setModelName(model); a->setMaxTokens(4096); a->setTemperature(0.7);
     return a;
 }
 
