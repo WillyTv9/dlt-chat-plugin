@@ -39,6 +39,9 @@ DltChatPlugin::DltChatPlugin()
     , highlightColor(255, 230, 128)
     , m_analyzer(nullptr), m_ruleBasedAnalyzer(nullptr), m_llmAnalyzer(nullptr)
     , m_currentAnalyzerType("rule-based")
+    , m_bulkAnalyzer(nullptr)
+    , m_bulkAnalysisEnabled(false)
+    , m_bulkAnalysisInProgress(false)
     , m_aiAvailabilityRetryCount(0)
 {
     indexStopwords.reserve(70);
@@ -52,11 +55,20 @@ DltChatPlugin::DltChatPlugin()
                 applyUserFilterHighlights();
                 updateDomainStatus();
             });
+
+    m_bulkAnalyzer = new DltBulkAnalyzer(this);
+    connect(m_bulkAnalyzer, &DltBulkAnalyzer::progressUpdated,
+            this, &DltChatPlugin::onBulkProgress);
+    connect(m_bulkAnalyzer, &DltBulkAnalyzer::analysisFinished,
+            this, &DltChatPlugin::onBulkFinished);
+    connect(m_bulkAnalyzer, &DltBulkAnalyzer::errorOccurred,
+            this, &DltChatPlugin::onBulkError);
 }
 
 DltChatPlugin::~DltChatPlugin()
 {
     delete m_userFilterManager;
+    delete m_bulkAnalyzer;
     delete m_llmAnalyzer;
     delete m_ruleBasedAnalyzer;
 }
@@ -72,7 +84,50 @@ void DltChatPlugin::setupDefaultAnalyzer()
     connect(m_llmAnalyzer, &DltLlmAnalyzerInterface::queryResultReady,
             this, &DltChatPlugin::onLlmResultReady);
 
+    m_bulkAnalyzer->setAnalyzer(m_llmAnalyzer);
+
     checkAiAvailabilityAsync();
+}
+
+void DltChatPlugin::startBulkAnalysis()
+{
+    if (!m_bulkAnalysisEnabled) return;
+    if (m_bulkAnalyzer->isRunning()) return;
+
+    QMutexLocker lock(&entriesMutex);
+    if (entries.isEmpty()) return;
+
+    m_bulkAnalysisInProgress = true;
+    updateStatus(QString("Bulk analysis started for %1 logs...").arg(entries.size()));
+    m_bulkAnalyzer->startBulkAnalysis(entries, 100);
+}
+
+void DltChatPlugin::onBulkProgress(double progress, int processed, int total)
+{
+    QString status = QString("Bulk analysis: %1/%2 (%3%)")
+        .arg(processed)
+        .arg(total)
+        .arg(static_cast<int>(progress * 100));
+    updateStatus(status);
+}
+
+void DltChatPlugin::onBulkFinished(bool success)
+{
+    m_bulkAnalysisInProgress = false;
+    if (success)
+    {
+        updateStatus("Bulk analysis completed successfully.");
+    }
+    else
+    {
+        updateStatus("Bulk analysis finished with errors.");
+    }
+}
+
+void DltChatPlugin::onBulkError(const QString &error)
+{
+    m_bulkAnalysisInProgress = false;
+    updateStatus(QString("Bulk analysis error: %1").arg(error));
 }
 
 static QStringList buildLevels(const QHash<int,int> &idxMap,
@@ -191,6 +246,7 @@ bool DltChatPlugin::loadConfig(QString filename)
     QString key = settings.value("llmApiKey", "").toString();
     QString model = settings.value("llmModel", "qwen2.5:0.5b").toString();
     if (!ep.isEmpty()) configureLlmAnalyzer(ep, key, model);
+    m_bulkAnalysisEnabled = settings.value("bulkAnalysisEnabled", false).toBool();
     settings.endGroup();
     settings.beginGroup("Behavior");
     if (settings.contains("highlightColor"))
@@ -212,6 +268,7 @@ bool DltChatPlugin::saveConfig(QString filename)
         s.setValue("llmApiKey", m_llmAnalyzer->apiKey());
         s.setValue("llmModel", m_llmAnalyzer->modelName());
     }
+    s.setValue("bulkAnalysisEnabled", m_bulkAnalysisEnabled);
     s.endGroup();
     s.beginGroup("Behavior");
     s.setValue("highlightColor", highlightColor.name());
@@ -265,6 +322,11 @@ void DltChatPlugin::initFileFinish()
 {
     rebuildFilterRowMap();
     updateDomainStatus();
+
+    if (m_bulkAnalysisEnabled && m_llmAnalyzer && m_llmAnalyzer->isAvailable())
+    {
+        startBulkAnalysis();
+    }
 }
 
 void DltChatPlugin::initMsg(int idx, QDltMsg &msg) { ingestMessage(idx, msg); }

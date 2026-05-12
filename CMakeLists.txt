@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 project(dltchatplugin
-    VERSION 0.3.0
+    VERSION 0.4.0
     DESCRIPTION "Chat Log Assistant plugin for DLT Viewer"
     LANGUAGES CXX
 )
@@ -35,6 +35,7 @@ add_library(dltchatplugin MODULE
     dltexport.cpp
     dltanalyzerinterface.cpp
     dltllmanalyzerinterface.cpp
+    dltbulkanalyzer.cpp
     dltaioptionsdialog.cpp
     automotivelogparser.cpp
     userfiltermanager.cpp

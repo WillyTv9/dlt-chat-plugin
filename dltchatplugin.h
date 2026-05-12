@@ -18,10 +18,11 @@
 #include "dltaioptionsdialog.h"
 #include "automotivelogparser.h"
 #include "userfiltermanager.h"
+#include "dltbulkanalyzer.h"
 #include "qdltmessagedecoder.h"
 #include "qdltfile.h"
 
-#define DLT_CHAT_PLUGIN_VERSION "0.3.0"
+#define DLT_CHAT_PLUGIN_VERSION "0.4.0"
 
 class DltChatPlugin : public QObject, QDLTPluginInterface, QDltPluginViewerInterface, QDltPluginControlInterface
 {
@@ -85,6 +86,9 @@ private slots:
     void onExportAllRequested(const QString &filePath);
     void onLlmResultReady(const DltAnalyzerInterface::QueryResult &result, const QString &originalQuery);
     void onUserFilterLoadRequested(const QString &path);
+    void onBulkProgress(double progress, int processed, int total);
+    void onBulkFinished(bool success);
+    void onBulkError(const QString &error);
 
 private:
     void clearData();
@@ -129,6 +133,11 @@ private:
     DltRuleBasedAnalyzer *m_ruleBasedAnalyzer;
     DltLlmAnalyzerInterface *m_llmAnalyzer;
     QString m_currentAnalyzerType;
+
+    DltBulkAnalyzer *m_bulkAnalyzer;
+    bool m_bulkAnalysisEnabled;
+    bool m_bulkAnalysisInProgress;
+    void startBulkAnalysis();
 
     int m_aiState = 0;
     QString m_aiModelName;
