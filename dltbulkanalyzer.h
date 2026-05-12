@@ -70,7 +70,7 @@ private:
     QVector<QVector<DltAnalyzerInterface::LogEntry>> m_chunks;
 
     QHash<int, BulkAnalysisResult> m_results;
-    QMutex m_mutex;
+    mutable QMutex m_mutex;
     QWaitCondition m_cv;
     bool m_paused = false;
     bool m_cancelled = false;

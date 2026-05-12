@@ -65,7 +65,7 @@ public:
     bool validateConfiguration() const;
     bool testConnection(QString *errorMessage = nullptr);
 
-    void analyzeQueryAsync(const QString &query, const QVector<LogEntry> &entries);
+    bool analyzeQueryAsync(const QString &query, const QVector<LogEntry> &entries);
     void setExtraContext(const QString &context) { m_extraContext = context; }
 
     // Utility methods exposed for testing
