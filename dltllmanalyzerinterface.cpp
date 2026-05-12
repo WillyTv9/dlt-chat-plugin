@@ -3,8 +3,13 @@
 #include <QDateTime>
 #include <QElapsedTimer>
 #include <QEventLoop>
+#include <QRandomGenerator>
+#include <QThread>
 
 static constexpr int kLlmMaxEntries = 100;
+static constexpr int kMaxRetries = 3;
+static constexpr int kBaseRetryDelayMs = 1000;
+
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
@@ -181,44 +186,6 @@ DltAnalyzerInterface::QueryResult DltLlmAnalyzerInterface::processReply(
     return r;
 }
 
-void DltLlmAnalyzerInterface::analyzeQueryAsync(const QString &query,
-                                                  const QVector<LogEntry> &entries)
-{
-    if (entries.isEmpty())
-    {
-        QueryResult r; r.responseHtml = "Nessun log da analizzare."; r.success = false; r.usedAi = true;
-        emit queryResultReady(r, query);
-        return;
-    }
-
-    int maxEntries = qMin(entries.size(), kLlmMaxEntries);
-    QString prompt = buildPrompt(query, entries, maxEntries);
-
-    QUrl url(m_apiEndpoint);
-    QNetworkRequest req(url);
-    req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
-    if (!m_apiKey.isEmpty())
-        req.setRawHeader("Authorization", QString("Bearer %1").arg(m_apiKey).toUtf8());
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
-    req.setTransferTimeout(m_timeout);
-#endif
-
-    QByteArray body = buildRequestBody(prompt);
-    QNetworkReply *reply = m_networkManager->post(req, body);
-
-    QElapsedTimer *timer = new QElapsedTimer();
-    timer->start();
-    QString *queryCopy = new QString(query);
-
-    connect(reply, &QNetworkReply::finished, this, [this, reply, timer, queryCopy]() {
-        QueryResult r = processReply(reply, *timer);
-        emit queryResultReady(r, *queryCopy);
-        reply->deleteLater();
-        delete timer;
-        delete queryCopy;
-    });
-}
-
 QString DltLlmAnalyzerInterface::parseLlmResponse(const QString &response) const
 {
     QJsonParseError err;
@@ -265,27 +232,90 @@ QList<int> DltLlmAnalyzerInterface::extractIndicesFromText(const QString &text) 
     return indices;
 }
 
-DltAnalyzerInterface::QueryResult DltLlmAnalyzerInterface::analyzeQuery(
-    const QString &query, const QVector<LogEntry> &entries)
+static QString buildCacheKey(const QString &query, const QVector<DltAnalyzerInterface::LogEntry> &entries)
 {
-    QElapsedTimer timer; timer.start();
-    QueryResult r; r.usedAi = true;
+    QCryptographicHash hash(QCryptographicHash::Sha1);
+    hash.addData(query.toUtf8());
+    int n = qMin(entries.size(), 20);
+    for (int i = 0; i < n; ++i) {
+        hash.addData(QByteArray::number(entries[i].index));
+    }
+    hash.addData(QByteArray::number(entries.size()));
+    return hash.result().toHex();
+}
+
+bool DltLlmAnalyzerInterface::analyzeQueryAsync(const QString &query,
+                                                 const QVector<LogEntry> &entries)
+{
+    QMutexLocker lock(&m_circuitMutex);
+    qint64 now = QDateTime::currentMSecsSinceEpoch();
+
+    if (m_circuitState == CircuitState::Open)
+    {
+        if (now - m_lastFailureTime > CIRCUIT_OPEN_TIMEOUT_MS)
+        {
+            m_circuitState = CircuitState::HalfOpen;
+        }
+        else
+        {
+            QueryResult r;
+            r.responseHtml = "Circuito aperto: troppi fallimenti. Riprova tra un minuto.";
+            r.success = false;
+            r.usedAi = true;
+            emit queryResultReady(r, query);
+            return false;
+        }
+    }
+    lock.unlock();
 
     if (entries.isEmpty())
     {
-        r.responseHtml = "Nessun log caricato."; r.processingTimeMs = timer.elapsed();
-        return r;
+        QueryResult r; r.responseHtml = "Nessun log da analizzare."; r.success = false; r.usedAi = true;
+        emit queryResultReady(r, query);
+        return true;
     }
 
-    int n = qMin(entries.size(), 100);
-    QString prompt = buildPrompt(query, entries, n);
+    QString cacheKey = buildCacheKey(query, entries);
+    {
+        QMutexLocker lockCache(&m_cacheMutex);
+        if (m_responseCache.contains(cacheKey))
+        {
+            CacheEntry entry = m_responseCache.value(cacheKey);
+            QueryResult r = entry.result;
+            r.processingTimeMs = 0;
+            emit queryResultReady(r, query);
+            return true;
+        }
+    }
+
+    QMutexLocker lockRate(&m_rateLimiter.mutex);
+    qint64 nowRate = QDateTime::currentMSecsSinceEpoch();
+    double elapsedSec = (nowRate - m_rateLimiter.lastRefill) / 1000.0;
+    m_rateLimiter.tokens = qMin(m_rateLimiter.capacity,
+                                 m_rateLimiter.tokens + elapsedSec * m_rateLimiter.refillRate);
+    m_rateLimiter.lastRefill = nowRate;
+
+    if (m_rateLimiter.tokens < 1.0)
+    {
+        int waitMs = static_cast<int>((1.0 - m_rateLimiter.tokens) / m_rateLimiter.refillRate * 1000);
+        lockRate.unlock();
+
+        QTimer::singleShot(waitMs, this, [this, query, entries]() {
+            analyzeQueryAsync(query, entries);
+        });
+        return true;
+    }
+    m_rateLimiter.tokens -= 1.0;
+    lockRate.unlock();
+
+    int maxEntries = qMin(entries.size(), kLlmMaxEntries);
+    QString prompt = buildPrompt(query, entries, maxEntries);
 
     QUrl url(m_apiEndpoint);
     QNetworkRequest req(url);
     req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
     if (!m_apiKey.isEmpty())
         req.setRawHeader("Authorization", QString("Bearer %1").arg(m_apiKey).toUtf8());
-
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
     req.setTransferTimeout(m_timeout);
 #endif
@@ -293,27 +323,221 @@ DltAnalyzerInterface::QueryResult DltLlmAnalyzerInterface::analyzeQuery(
     QByteArray body = buildRequestBody(prompt);
     QNetworkReply *reply = m_networkManager->post(req, body);
 
-    QEventLoop loop;
-    QTimer timeoutTimer;
-    timeoutTimer.setSingleShot(true);
-    connect(&timeoutTimer, &QTimer::timeout, &loop, &QEventLoop::quit);
-    connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
-    timeoutTimer.start(m_timeout);
-    loop.exec();
+    QElapsedTimer *timer = new QElapsedTimer();
+    timer->start();
+    QString *queryCopy = new QString(query);
+    QString *cacheKeyPtr = new QString(cacheKey);
 
-    if (!timeoutTimer.isActive())
-    {
-        reply->abort();
-        r.responseHtml = "Timeout AI. Fallback locale.";
-        r.success = false; r.usedAi = false;
-        r.processingTimeMs = timer.elapsed();
+    connect(reply, &QNetworkReply::finished, this, [this, reply, timer, queryCopy, cacheKeyPtr]() {
+        QueryResult r = processReply(reply, *timer);
+
+        {
+            QMutexLocker lock(&m_circuitMutex);
+            if (!r.success)
+            {
+                m_failureCount++;
+                m_lastFailureTime = QDateTime::currentMSecsSinceEpoch();
+                if (m_failureCount >= CIRCUIT_FAILURE_THRESHOLD)
+                {
+                    m_circuitState = CircuitState::Open;
+                }
+            }
+            else
+            {
+                m_failureCount = 0;
+                m_circuitState = CircuitState::Closed;
+            }
+        }
+
+        if (r.success)
+        {
+            QMutexLocker lock(&m_cacheMutex);
+            if (m_responseCache.size() >= CACHE_MAX_SIZE)
+            {
+                QList<QString> keys = m_responseCache.keys();
+                for (int i = 0; i < keys.size() / 2; ++i)
+                {
+                    m_responseCache.remove(keys[i]);
+                }
+            }
+            CacheEntry entry;
+            entry.result = r;
+            entry.timestamp = QDateTime::currentDateTime();
+            m_responseCache[*cacheKeyPtr] = entry;
+        }
+
+        emit queryResultReady(r, *queryCopy);
         reply->deleteLater();
+        delete timer;
+        delete queryCopy;
+        delete cacheKeyPtr;
+    });
+
+    return true;
+}
+
+DltAnalyzerInterface::QueryResult DltLlmAnalyzerInterface::analyzeQuery(
+    const QString &query, const QVector<LogEntry> &entries)
+{
+    QElapsedTimer timer; timer.start();
+    QueryResult r; r.usedAi = true;
+
+    {
+        QMutexLocker lock(&m_circuitMutex);
+        qint64 now = QDateTime::currentMSecsSinceEpoch();
+        if (m_circuitState == CircuitState::Open)
+        {
+            if (now - m_lastFailureTime > CIRCUIT_OPEN_TIMEOUT_MS)
+            {
+                m_circuitState = CircuitState::HalfOpen;
+            }
+            else
+            {
+                r.responseHtml = "Circuito aperto: troppi fallimenti. Riprova tra un minuto.";
+                r.success = false;
+                r.processingTimeMs = timer.elapsed();
+                return r;
+            }
+        }
+    }
+
+    if (entries.isEmpty())
+    {
+        r.responseHtml = "Nessun log caricato."; r.processingTimeMs = timer.elapsed();
         return r;
     }
-    timeoutTimer.stop();
 
-    r = processReply(reply, timer);
-    reply->deleteLater();
+    QString cacheKey = buildCacheKey(query, entries);
+    {
+        QMutexLocker lock(&m_cacheMutex);
+        if (m_responseCache.contains(cacheKey))
+        {
+            CacheEntry entry = m_responseCache.value(cacheKey);
+            r = entry.result;
+            r.processingTimeMs = 0;
+            return r;
+        }
+    }
+
+    {
+        QMutexLocker lock(&m_rateLimiter.mutex);
+        qint64 now = QDateTime::currentMSecsSinceEpoch();
+        double elapsedSec = (now - m_rateLimiter.lastRefill) / 1000.0;
+        m_rateLimiter.tokens = qMin(m_rateLimiter.capacity,
+                                     m_rateLimiter.tokens + elapsedSec * m_rateLimiter.refillRate);
+        m_rateLimiter.lastRefill = now;
+
+        if (m_rateLimiter.tokens < 1.0)
+        {
+            int waitMs = static_cast<int>((1.0 - m_rateLimiter.tokens) / m_rateLimiter.refillRate * 1000);
+            lock.unlock();
+
+            QThread::sleep(waitMs / 1000);
+
+            QMutexLocker lock2(&m_rateLimiter.mutex);
+            m_rateLimiter.tokens = 0.0;
+        }
+        else
+        {
+            m_rateLimiter.tokens -= 1.0;
+        }
+    }
+
+    int retryCount = 0;
+    while (retryCount <= kMaxRetries)
+    {
+        if (retryCount > 0)
+        {
+            int baseDelay = kBaseRetryDelayMs * (1 << (retryCount - 1));
+            int jitter = QRandomGenerator::global()->bounded(0, baseDelay / 2);
+            int delay = baseDelay + jitter;
+            QThread::sleep(delay / 1000);
+        }
+
+        int n = qMin(entries.size(), 100);
+        QString prompt = buildPrompt(query, entries, n);
+
+        QUrl url(m_apiEndpoint);
+        QNetworkRequest req(url);
+        req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+        if (!m_apiKey.isEmpty())
+            req.setRawHeader("Authorization", QString("Bearer %1").arg(m_apiKey).toUtf8());
+
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+        req.setTransferTimeout(m_timeout);
+#endif
+
+        QByteArray body = buildRequestBody(prompt);
+        QNetworkReply *reply = m_networkManager->post(req, body);
+
+        QEventLoop loop;
+        QTimer timeoutTimer;
+        timeoutTimer.setSingleShot(true);
+        connect(&timeoutTimer, &QTimer::timeout, &loop, &QEventLoop::quit);
+        connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+        timeoutTimer.start(m_timeout);
+        loop.exec();
+
+        if (!timeoutTimer.isActive())
+        {
+            reply->abort();
+            reply->deleteLater();
+            retryCount++;
+            continue;
+        }
+        timeoutTimer.stop();
+
+        r = processReply(reply, timer);
+        reply->deleteLater();
+
+        if (r.success)
+        {
+            {
+                QMutexLocker lock(&m_cacheMutex);
+                if (m_responseCache.size() >= CACHE_MAX_SIZE)
+                {
+                    QList<QString> keys = m_responseCache.keys();
+                    for (int i = 0; i < keys.size() / 2; ++i)
+                    {
+                        m_responseCache.remove(keys[i]);
+                    }
+                }
+                CacheEntry entry;
+                entry.result = r;
+                entry.timestamp = QDateTime::currentDateTime();
+                m_responseCache[cacheKey] = entry;
+            }
+
+            {
+                QMutexLocker lock(&m_circuitMutex);
+                m_failureCount = 0;
+                m_circuitState = CircuitState::Closed;
+            }
+
+            break;
+        }
+        else
+        {
+            QMutexLocker lock(&m_circuitMutex);
+            m_failureCount++;
+            m_lastFailureTime = QDateTime::currentMSecsSinceEpoch();
+            if (m_failureCount >= CIRCUIT_FAILURE_THRESHOLD)
+            {
+                m_circuitState = CircuitState::Open;
+                r.responseHtml = "Circuito aperto dopo ripetuti fallimenti.";
+                return r;
+            }
+            lock.unlock();
+
+            retryCount++;
+            if (retryCount > kMaxRetries)
+            {
+                r.responseHtml = "Timeout AI. Fallback locale.";
+                r.success = false;
+                r.usedAi = false;
+            }
+        }
+    }
 
     r.snippets.reserve(r.indices.size());
     QSet<int> seen;
@@ -324,6 +548,8 @@ DltAnalyzerInterface::QueryResult DltLlmAnalyzerInterface::analyzeQuery(
         for (const auto &e : entries)
             if (e.index == idx) { r.snippets.append(e.payload.left(120)); break; }
     }
+
+    r.processingTimeMs = timer.elapsed();
     return r;
 }
 
