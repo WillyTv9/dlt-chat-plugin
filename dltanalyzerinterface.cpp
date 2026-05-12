@@ -15,6 +15,35 @@ static constexpr int kDupPreviewLines = 20;
 static constexpr int kContextFrames = 10;
 static constexpr int kContextNeighbors = 2;
 
+struct ErrorCategory {
+    QString name;
+    QStringList patterns;
+};
+
+static const QVector<ErrorCategory> &errorCategories()
+{
+    static QVector<ErrorCategory> cats;
+    if (cats.isEmpty()) {
+        cats = {
+            {"Comunicazione",  {"timeout", "connection", "disconnect", "handshake",
+                                "no response", "link down", "bus-off", "lost"}},
+            {"Memoria",        {"memory", "heap", "stack", "leak", "overflow",
+                                "null pointer", "alloc", "segfault", "out of memory"}},
+            {"Sicurezza",      {"auth", "security", "permission", "denied",
+                                "unauthorized", "certificate", "encryption", "token"}},
+            {"Configurazione", {"configuration", "config", "invalid param",
+                                "wrong", "unknown", "unexpected", "mismatch"}},
+            {"Hardware",       {"hardware", "sensor", "actuator", "driver",
+                                "i2c", "spi", "gpio", "adc", "dac"}},
+            {"Timeout",        {"timeout", "timed out", "expired", "retry",
+                                "no ack", "no response"}},
+            {"Protocollo",     {"protocol", "checksum", "crc", "framing",
+                                "invalid message", "malformed", "unexpected data"}},
+        };
+    }
+    return cats;
+}
+
 DltRuleBasedAnalyzer::DltRuleBasedAnalyzer()
 {
     supportedLanguagesList << "en" << "it" << "de" << "es" << "fr";
@@ -47,6 +76,7 @@ static QString helpText()
     "<b>Summary</b> - statistiche dei log<br>"
     "<b>Timeline</b> - sequenza cronologica<br>"
     "<b>GPS</b> - navigazione/posizione<br>"
+    "<b>Categorizza</b> - classifica errori per categoria<br>"
     "<b>Help</b> - questo aiuto<br><br>"
     "<i>Puoi anche combinare: 'mostra errori can', 'warn timeout', 'info carplay'</i>";
 }
@@ -179,6 +209,62 @@ DltAnalyzerInterface::QueryResult DltRuleBasedAnalyzer::analyzeInternal(
     if (lq == "summary" || lq == "riassumi" || lq == "sintesi" || lq == "statistiche")
     {
         r.responseHtml = buildSummaryHtml(entries);
+        return r;
+    }
+
+    // Error categorization
+    if (lq == "categorizza" || lq == "categorize" || lq == "classifica")
+    {
+        QVector<LogEntry> errors;
+        for (const auto &e : entries)
+            if (e.level == "error" || e.level == "fatal")
+                errors.append(e);
+
+        if (errors.isEmpty())
+        {
+            r.responseHtml = "Nessun errore o fatal da categorizzare.";
+            return r;
+        }
+
+        QHash<QString, QList<int>> categorized;
+        QList<int> uncategorized;
+        for (const auto &e : errors)
+        {
+            bool matched = false;
+            for (const auto &cat : errorCategories())
+            {
+                for (const auto &pat : cat.patterns)
+                {
+                    if (e.payload.contains(pat, Qt::CaseInsensitive))
+                    {
+                        categorized[cat.name].append(e.index);
+                        r.indices.append(e.index);
+                        r.snippets.append(e.payload.left(kSnippetLength));
+                        matched = true;
+                        break;
+                    }
+                }
+                if (matched) break;
+            }
+            if (!matched) {
+                uncategorized.append(e.index);
+                r.indices.append(e.index);
+                r.snippets.append(e.payload.left(kSnippetLength));
+            }
+        }
+
+        QString html = QString("<b>Categorizzazione errori</b> &mdash; %1 errori/fatal su %2 totali<br><br>")
+            .arg(errors.size()).arg(entries.size());
+
+        for (auto it = categorized.begin(); it != categorized.end(); ++it)
+            html += QString("<b>%1:</b> %2 messaggi (es. indice %3)<br>")
+                .arg(it.key()).arg(it.value().size()).arg(it.value().first());
+
+        if (!uncategorized.isEmpty())
+            html += QString("<br><b>Non categorizzati:</b> %1 messaggi<br>")
+                .arg(uncategorized.size());
+
+        r.responseHtml = html;
         return r;
     }
 

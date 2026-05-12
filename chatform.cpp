@@ -243,6 +243,7 @@ Form::Form(QWidget *parent)
         {"Summary",     "Log statistics",          analysisColors},
         {"Timeline",    "Chronological order",     analysisColors},
         {"GPS",         "Navigation and GPS",      systemColors},
+        {"Categorizza", "Classify errors by category", helpColors},
         {"Help",        "Show available commands", helpColors},
         {"CarPlay",     "CarPlay session events",  automotiveColors},
         {"AndroidAuto", "Android Auto events",     automotiveColors},
@@ -424,6 +425,7 @@ void Form::onSendClicked() {
         q = q.left(kMaxInputLength);
     }
     input->clear();
+    lastQuery = q;
     emit querySubmitted(q);
 }
 
@@ -435,6 +437,7 @@ void Form::onAiSendClicked() {
         q = q.left(kMaxInputLength);
     }
     aiInput->clear();
+    lastQuery = q;
     emit aiQuerySubmitted(q);
 }
 
@@ -507,7 +510,8 @@ void Form::onQuickActionClicked()
             {tr("Errors"),"error"},{tr("Warnings"),"warn"},{tr("Info"),"info"},{tr("Debug"),"debug"},
             {tr("CAN"),"can"},{tr("Security"),"security"},{tr("Memory"),"memory"},
             {tr("Performance"),"performance"},{tr("Diagnostic"),"diagnostic"},{tr("Pattern"),"pattern"},
-            {tr("Summary"),"summary"},{tr("Timeline"),"timeline"},{tr("GPS"),"gps"},{tr("Help"),"help"},
+            {tr("Summary"),"summary"},{tr("Timeline"),"timeline"},{tr("GPS"),"gps"},
+            {tr("Categorizza"),"categorizza"},{tr("Help"),"help"},
             {tr("CarPlay"),"carplay"},{tr("AndroidAuto"),"androidauto"},
             {tr("Focus"),"video_focus"},{tr("Ducking"),"audio_ducking"},
             {tr("mDNS"),"mdns"},{tr("Sensor"),"sensor_data"},

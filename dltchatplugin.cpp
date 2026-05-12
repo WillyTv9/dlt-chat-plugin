@@ -491,7 +491,8 @@ void DltChatPlugin::onQuerySubmitted(const QString &query)
         "timeline", "cronologia",
         "help", "aiuto", "comandi",
         "keywords", "categorie",
-        "pattern"
+        "pattern",
+        "categorizza", "categorize", "classifica"
     };
     for (const auto &cmd : specialCommands) {
         if (lq == cmd || lq.startsWith(cmd + " ")) { isSpecial = true; break; }
