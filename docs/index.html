@@ -1,0 +1,1388 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8" />
+<title>DLT Chat Plugin — Presentazione</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="deck-stage.js"></script>
+<style>
+  :root {
+    --bg: oklch(0.985 0.004 240);
+    --bg-2: oklch(0.96 0.006 240);
+    --ink: oklch(0.18 0.012 240);
+    --ink-2: oklch(0.35 0.012 240);
+    --muted: oklch(0.55 0.012 240);
+    --line: oklch(0.88 0.008 240);
+    --line-2: oklch(0.78 0.008 240);
+    --accent: oklch(0.58 0.18 248);
+    --accent-soft: oklch(0.92 0.04 248);
+    --warn: oklch(0.70 0.16 60);
+    --err: oklch(0.58 0.20 25);
+    --ok: oklch(0.62 0.14 150);
+  }
+  html, body { margin:0; padding:0; background:#111; color:var(--ink); font-family:'Inter', Helvetica, Arial, sans-serif; }
+  deck-stage { --slide-bg: var(--bg); }
+  section {
+    width: 1920px; height: 1080px;
+    background: var(--bg);
+    color: var(--ink);
+    position: relative;
+    overflow: hidden;
+    font-family: 'Inter', Helvetica, Arial, sans-serif;
+    font-size: 24px;
+    line-height: 1.4;
+  }
+  .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+  .pad { padding: 96px 112px; box-sizing: border-box; height: 100%; }
+
+  /* header chrome */
+  .chrome {
+    position:absolute; top:48px; left:112px; right:112px;
+    display:flex; justify-content:space-between; align-items:center;
+    font-family:'JetBrains Mono', monospace;
+    font-size:16px; color:var(--muted); letter-spacing:0.04em;
+    text-transform:uppercase;
+  }
+  .chrome .dot { display:inline-block; width:8px; height:8px; background:var(--accent); border-radius:50%; margin-right:10px; vertical-align:middle; }
+  .footer {
+    position:absolute; bottom:48px; left:112px; right:112px;
+    display:flex; justify-content:space-between; align-items:center;
+    font-family:'JetBrains Mono', monospace;
+    font-size:14px; color:var(--muted); letter-spacing:0.06em;
+  }
+
+  /* type */
+  .eyebrow { font-family:'JetBrains Mono', monospace; font-size:16px; color:var(--accent); letter-spacing:0.14em; text-transform:uppercase; margin-bottom:32px; }
+  h1.title { font-size: 128px; line-height: 0.96; font-weight: 600; letter-spacing:-0.03em; margin: 0; color:var(--ink); }
+  h1.section { font-size: 96px; line-height: 1; font-weight: 600; letter-spacing:-0.025em; margin: 0; }
+  h2.slide { font-size: 64px; line-height: 1.05; font-weight: 600; letter-spacing:-0.02em; margin: 0 0 48px 0; }
+  .lede { font-size: 32px; line-height: 1.4; color: var(--ink-2); max-width: 1300px; font-weight: 400; }
+  .small { font-size: 18px; color: var(--muted); }
+
+  /* layout helpers */
+  .row { display:flex; gap:48px; }
+  .col { flex:1; min-width:0; }
+  .grid { display:grid; gap:24px; }
+  .stack > * + * { margin-top: 24px; }
+
+  /* cards */
+  .card {
+    background: var(--bg-2);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 32px;
+  }
+  .card.bare { background: transparent; }
+  .card .label { font-family:'JetBrains Mono', monospace; font-size:14px; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted); margin-bottom:14px; }
+  .card .big { font-size: 56px; font-weight:600; letter-spacing:-0.02em; line-height:1; color:var(--ink); }
+  .card .desc { margin-top: 14px; color:var(--ink-2); font-size: 20px; line-height:1.5; }
+
+  /* buttons mock grid (21) */
+  .btn-grid { display:grid; grid-template-columns: repeat(7, 1fr); gap:18px; }
+  .btn-mock {
+    border-radius: 12px;
+    border:1px solid var(--line);
+    background: var(--bg);
+    padding: 22px 18px;
+    display:flex; flex-direction:column; align-items:flex-start; gap:10px;
+    height: 116px; box-sizing:border-box;
+    transition: transform .2s;
+  }
+  .btn-mock .sw { width: 28px; height: 28px; border-radius: 8px; }
+  .btn-mock .nm { font-weight: 600; font-size: 18px; color: var(--ink); }
+  .btn-mock .cmd { font-family:'JetBrains Mono', monospace; font-size: 13px; color: var(--muted); }
+
+  /* code block */
+  pre.code, .code-block {
+    background: var(--ink);
+    color: oklch(0.92 0.01 240);
+    border-radius: 14px;
+    padding: 32px 36px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 20px;
+    line-height: 1.6;
+    overflow:hidden;
+    margin: 0;
+  }
+  .code-block .k { color: oklch(0.78 0.14 248); }
+  .code-block .s { color: oklch(0.78 0.14 130); }
+  .code-block .c { color: oklch(0.6 0.02 240); font-style: italic; }
+  .code-block .n { color: oklch(0.82 0.12 60); }
+
+  /* tag pill */
+  .tag { display:inline-block; padding: 6px 14px; border:1px solid var(--line-2); border-radius:999px; font-family:'JetBrains Mono', monospace; font-size:14px; color:var(--ink-2); letter-spacing:0.04em; }
+  .tag.accent { background:var(--accent-soft); border-color:transparent; color:var(--accent); }
+  .tag.solid { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+
+  /* divider */
+  .hr { height:1px; background: var(--line); width:100%; }
+
+  /* table */
+  table.t { width:100%; border-collapse: collapse; font-size:20px; }
+  table.t th, table.t td { text-align:left; padding: 14px 16px; border-bottom:1px solid var(--line); }
+  table.t th { font-family:'JetBrains Mono', monospace; font-size: 14px; text-transform:uppercase; letter-spacing:0.1em; color:var(--muted); font-weight:500; }
+  table.t td.mono { font-family:'JetBrains Mono', monospace; font-size:18px; color:var(--ink-2); }
+  table.t td.k { font-weight:500; }
+
+  /* mock app frame */
+  .app {
+    background: oklch(0.14 0.012 240);
+    color: oklch(0.92 0.008 240);
+    border-radius: 16px;
+    padding: 28px;
+    box-shadow: 0 30px 60px -30px rgba(0,0,0,0.35);
+    border: 1px solid oklch(0.22 0.012 240);
+  }
+  .app .titlebar {
+    display:flex; align-items:center; gap:10px; margin-bottom: 20px;
+    font-family:'JetBrains Mono', monospace; font-size:13px; color: oklch(0.6 0.012 240); letter-spacing:0.06em;
+  }
+  .app .titlebar .lights { display:flex; gap:6px; }
+  .app .titlebar .lights span { width:10px; height:10px; border-radius:50%; background: oklch(0.3 0.012 240); }
+
+  /* hero glyph */
+  .hero-mark {
+    position:absolute; right:112px; top:50%; transform: translateY(-50%);
+    width: 520px; height: 520px;
+    border: 1px solid var(--line-2);
+    border-radius: 50%;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .hero-mark::after {
+    content:''; position:absolute; inset: 80px; border-radius:50%; border:1px solid var(--line-2);
+  }
+  .hero-mark .core { width: 200px; height: 200px; background: var(--ink); border-radius: 50%; display:flex; align-items:center; justify-content:center; color:var(--bg); font-family:'JetBrains Mono', monospace; font-size: 20px; letter-spacing:0.1em; }
+
+  /* section divider slide */
+  .section-divider { background: var(--ink); color: var(--bg); }
+  .section-divider .eyebrow { color: var(--accent); }
+  .section-divider .lede { color: oklch(0.78 0.008 240); }
+  .section-divider .chrome, .section-divider .footer { color: oklch(0.55 0.012 240); }
+
+  /* arrow flow */
+  .flow { display:grid; grid-template-columns: 1fr auto 1fr auto 1fr; gap: 24px; align-items: stretch; }
+  .flow .node { background: var(--bg-2); border:1px solid var(--line); border-radius: 14px; padding: 24px; }
+  .flow .arr { display:flex; align-items:center; font-family:'JetBrains Mono', monospace; color:var(--muted); font-size: 28px; }
+
+  /* pipe diagram */
+  .pipe { font-family:'JetBrains Mono', monospace; white-space: pre; font-size: 18px; color: var(--ink-2); line-height: 1.65; }
+
+  /* stat */
+  .statline { display:flex; gap: 64px; align-items: baseline; }
+  .stat .v { font-size: 96px; font-weight: 600; letter-spacing:-0.03em; color: var(--ink); line-height: 1; }
+  .stat .l { font-family:'JetBrains Mono', monospace; font-size: 14px; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; margin-top: 12px; }
+
+  /* tiny chip used inside cards */
+  .chip-row { display:flex; flex-wrap:wrap; gap:10px; }
+
+  /* circuit breaker diagram */
+  .cb-states { display:grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+  .cb-state { border:1px solid var(--line); border-radius:14px; padding: 28px; background: var(--bg); }
+  .cb-state.closed { border-color: var(--ok); }
+  .cb-state.open { border-color: var(--err); }
+  .cb-state.half { border-color: var(--warn); }
+  .cb-state .name { font-family:'JetBrains Mono', monospace; font-size:14px; letter-spacing:0.1em; text-transform:uppercase; }
+  .cb-state .h { font-size: 36px; font-weight:600; margin: 10px 0 14px; letter-spacing:-0.02em; }
+</style>
+<script type="application/json" id="speaker-notes">[]</script>
+</head>
+<body>
+
+<deck-stage>
+
+<!-- 01 — TITLE -->
+<section data-screen-label="01 Title">
+  <div class="chrome">
+    <div><span class="dot"></span>DLT Chat Plugin · v0.4.0</div>
+    <div>MPL-2.0</div>
+  </div>
+  <div class="pad" style="display:flex; flex-direction:column; justify-content:center; height:100%;">
+    <div style="max-width: 1200px;">
+      <div class="eyebrow">COVESA DLT Viewer · Plugin</div>
+      <h1 class="title">Chat con i tuoi<br/>log automotive.</h1>
+      <div class="lede" style="margin-top: 48px;">
+        Un'interfaccia conversazionale per analizzare file DLT — filtri rapidi, ricerca strutturata e analisi assistita da AI, con fallback rule-based sempre disponibile.
+      </div>
+      <div style="margin-top: 64px; display:flex; gap:14px; flex-wrap:wrap;">
+        <span class="tag">CarPlay</span>
+        <span class="tag">Android Auto</span>
+        <span class="tag">Ollama · OpenAI · LocalAI</span>
+        <span class="tag">Qt 5.15+ / 6.x</span>
+        <span class="tag">C++17</span>
+      </div>
+    </div>
+  </div>
+  <div class="hero-mark">
+    <div class="core">DLT · v0.4</div>
+  </div>
+  <div class="footer">
+    <div>Presentazione progetto</div>
+    <div>01</div>
+  </div>
+</section>
+
+<!-- 02 — IL PROBLEMA -->
+<section data-screen-label="02 Problema">
+  <div class="chrome">
+    <div><span class="dot"></span>Contesto</div>
+    <div>01 / Il problema</div>
+  </div>
+  <div class="pad" style="padding-top: 160px;">
+    <div class="eyebrow">Il problema</div>
+    <h1 class="section" style="max-width:1400px;">Analizzare log DLT è lento,<br/>manuale e poco accessibile.</h1>
+    <div class="row" style="margin-top: 80px; gap: 32px;">
+      <div class="card col">
+        <div class="label">Oggi</div>
+        <div class="big" style="font-size:36px; line-height:1.2;">Ricerca manuale</div>
+        <div class="desc">Scorrere migliaia di righe di log per trovare un singolo evento di handshake fallito.</div>
+      </div>
+      <div class="card col">
+        <div class="label">Oggi</div>
+        <div class="big" style="font-size:36px; line-height:1.2;">Filtri complessi</div>
+        <div class="desc">Espressioni regex e filtri combinati che richiedono memoria di sintassi e contesto del progetto.</div>
+      </div>
+      <div class="card col">
+        <div class="label">Oggi</div>
+        <div class="big" style="font-size:36px; line-height:1.2;">Conoscenza tribale</div>
+        <div class="desc">Ogni team accumula trucchi e pattern personali — difficili da trasferire ai nuovi ingegneri.</div>
+      </div>
+    </div>
+    <div style="margin-top:64px; max-width: 1500px;" class="lede">
+      Ingegneri automotive, sviluppatori embedded e team di validazione CarPlay / Android Auto perdono ore in ricerca quando potrebbero <strong>fare domande</strong>.
+    </div>
+  </div>
+  <div class="footer"><div>DLT Chat Plugin</div><div>02</div></div>
+</section>
+
+<!-- 03 — LA SOLUZIONE -->
+<section data-screen-label="03 Soluzione">
+  <div class="chrome">
+    <div><span class="dot"></span>Visione</div>
+    <div>02 / La soluzione</div>
+  </div>
+  <div class="pad" style="padding-top: 160px;">
+    <div class="eyebrow">La soluzione</div>
+    <h1 class="section" style="max-width:1500px;">Una chat-bar dentro DLT Viewer<br/>che capisce i log automotive.</h1>
+
+    <div class="grid" style="grid-template-columns: repeat(4, 1fr); margin-top: 80px;">
+      <div class="card">
+        <div class="label">01</div>
+        <div style="font-size: 28px; font-weight:600; line-height:1.2;">Linguaggio naturale</div>
+        <div class="desc">Chiedi <span class="mono">"trova i timeout su iAP2"</span> invece di scrivere regex.</div>
+      </div>
+      <div class="card">
+        <div class="label">02</div>
+        <div style="font-size: 28px; font-weight:600; line-height:1.2;">21 pulsanti rapidi</div>
+        <div class="desc">Filtri pronti per livello, dominio ed evento — un click, zero digitazione.</div>
+      </div>
+      <div class="card">
+        <div class="label">03</div>
+        <div style="font-size: 28px; font-weight:600; line-height:1.2;">AI opzionale</div>
+        <div class="desc">Ollama, OpenAI, LocalAI o provider custom — sempre con fallback rule-based.</div>
+      </div>
+      <div class="card">
+        <div class="label">04</div>
+        <div style="font-size: 28px; font-weight:600; line-height:1.2;">Automotive-aware</div>
+        <div class="desc">Classifica CarPlay, Android Auto, eventi di sessione, audio focus e mDNS.</div>
+      </div>
+    </div>
+
+    <div class="row" style="margin-top: 80px;">
+      <div class="col">
+        <div class="statline">
+          <div class="stat"><div class="v">21</div><div class="l">Pulsanti rapidi</div></div>
+          <div class="stat"><div class="v">9</div><div class="l">Eventi automotive</div></div>
+          <div class="stat"><div class="v">4</div><div class="l">Provider LLM</div></div>
+          <div class="stat"><div class="v">~55</div><div class="l">Test case</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="footer"><div>DLT Chat Plugin</div><div>03</div></div>
+</section>
+
+<!-- 04 — TARGET UTENTE -->
+<section data-screen-label="04 Target">
+  <div class="chrome">
+    <div><span class="dot"></span>Target</div>
+    <div>03 / Per chi è</div>
+  </div>
+  <div class="pad" style="padding-top: 160px;">
+    <div class="eyebrow">Target utente</div>
+    <h2 class="slide" style="max-width: 1500px;">Chi passa la giornata dentro un terminale di log.</h2>
+
+    <div class="row" style="margin-top:32px; gap:32px;">
+      <div class="card col">
+        <div class="label">Persona 01</div>
+        <div style="font-size: 32px; font-weight: 600; letter-spacing:-0.01em;">Ingegnere automotive</div>
+        <div class="desc">Sviluppo e validazione sistemi infotainment. Cerca cause di disconnessione CarPlay durante test su strada.</div>
+        <div class="chip-row" style="margin-top:24px;">
+          <span class="tag">CarPlay</span><span class="tag">iAP2</span><span class="tag">Bench test</span>
+        </div>
+      </div>
+      <div class="card col">
+        <div class="label">Persona 02</div>
+        <div style="font-size: 32px; font-weight: 600; letter-spacing:-0.01em;">Sviluppatore embedded</div>
+        <div class="desc">Lavora su Android Auto / AOAP. Debugga handshake mDNS, focus video, sensor streaming.</div>
+        <div class="chip-row" style="margin-top:24px;">
+          <span class="tag">Android Auto</span><span class="tag">AOAP</span><span class="tag">USB</span>
+        </div>
+      </div>
+      <div class="card col">
+        <div class="label">Persona 03</div>
+        <div style="font-size: 32px; font-weight: 600; letter-spacing:-0.01em;">Team diagnostica</div>
+        <div class="desc">Triage su piattaforme connesse — vuole categorizzare errori e produrre report CSV condivisibili.</div>
+        <div class="chip-row" style="margin-top:24px;">
+          <span class="tag">Triage</span><span class="tag">Report</span><span class="tag">Validation</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="footer"><div>DLT Chat Plugin</div><div>04</div></div>
+</section>
+
+<!-- 05 — SECTION DIVIDER · ARCHITETTURA -->
+<section class="section-divider" data-screen-label="05 Sezione · Architettura">
+  <div class="chrome">
+    <div><span class="dot"></span>Parte I</div>
+    <div>Architettura</div>
+  </div>
+  <div class="pad" style="display:flex; flex-direction:column; justify-content:center; height:100%;">
+    <div class="eyebrow">Parte 01</div>
+    <h1 class="title" style="color: var(--bg);">Architettura<br/>&amp; flusso dati.</h1>
+    <div class="lede" style="margin-top:48px; max-width: 1200px;">Plugin Qt, pattern Strategy, inverted index e signal/slot. Ogni componente è isolato e testabile.</div>
+  </div>
+  <div class="footer"><div>DLT Chat Plugin</div><div>05</div></div>
+</section>
+
+<!-- 06 — PATTERN DI DESIGN -->
+<section data-screen-label="06 Pattern">
+  <div class="chrome">
+    <div><span class="dot"></span>Architettura</div>
+    <div>04 / Pattern di design</div>
+  </div>
+  <div class="pad" style="padding-top: 160px;">
+    <div class="eyebrow">Pattern di design</div>
+    <h2 class="slide">Otto pattern in cooperazione.</h2>
+
+    <table class="t" style="margin-top: 24px;">
+      <thead><tr><th style="width:260px;">Pattern</th><th style="width:520px;">Dove vive</th><th>Scopo</th></tr></thead>
+      <tbody>
+        <tr><td class="k">Plugin</td><td class="mono">DltChatPlugin</td><td>Integrazione con DLT Viewer via QDLTPluginInterface</td></tr>
+        <tr><td class="k">Strategy</td><td class="mono">DltAnalyzerInterface</td><td>Analisi intercambiabile rule-based o LLM</td></tr>
+        <tr><td class="k">Observer</td><td class="mono">Qt Signals / Slots</td><td>Comunicazione UI ↔ analyzer</td></tr>
+        <tr><td class="k">Circuit Breaker</td><td class="mono">DltLlmAnalyzerInterface</td><td>5 fallimenti → 60s open; protegge da provider AI instabili</td></tr>
+        <tr><td class="k">Token Bucket</td><td class="mono">DltLlmAnalyzerInterface</td><td>Rate limit: 10 token, 1 refill / secondo</td></tr>
+        <tr><td class="k">LRU Cache</td><td class="mono">Plugin (10k) · LLM (1k)</td><td>Risposte e query riutilizzate in O(1)</td></tr>
+        <tr><td class="k">Worker Thread</td><td class="mono">DltBulkAnalyzerWorker</td><td>Bulk analysis in QThread non-blocking</td></tr>
+        <tr><td class="k">Factory</td><td class="mono">DltLlmAnalyzerFactory</td><td>Crea l'analyzer giusto per ogni provider</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="footer"><div>DLT Chat Plugin</div><div>06</div></div>
+</section>
+
+<!-- 07 — FLUSSO DATI -->
+<section data-screen-label="07 Flusso dati">
+  <div class="chrome">
+    <div><span class="dot"></span>Architettura</div>
+    <div>05 / Flusso dati</div>
+  </div>
+  <div class="pad" style="padding-top: 160px;">
+    <div class="eyebrow">Flusso dati</div>
+    <h2 class="slide">Dal file DLT alla risposta.</h2>
+
+    <div class="row" style="gap: 48px;">
+      <div class="col" style="flex: 1.1;">
+        <div class="pipe">DLT Viewer (load file)
+    │
+    ▼
+initFileStart()  → reset stato
+initMsg(msg)     → ingestMessage() per ogni messaggio
+    │
+    ▼
+<span style="color:var(--accent);">ingestMessage()</span>
+  ├─ Decodifica messaggio DLT → LogEntry
+  ├─ AutomotiveLogParser::classify()  (dominio + evento)
+  └─ Aggiorna invertedIndex
+    │
+    ▼
+<span style="color:var(--accent);">onQuerySubmitted(query)</span>
+  ├─ Preset match?    → filterByPreset()
+  ├─ Comando speciale? → ruleBasedAnalyzer
+  ├─ Level / category? → ruleBasedAnalyzer
+  └─ Testo libero      → liveSearch() (inverted index + regex)
+    │
+    ▼
+form->appendMessage() + setResults() + highlightIndices()</div>
+      </div>
+      <div class="col" style="flex: 0.9;">
+        <div class="card">
+          <div class="label">Inverted index</div>
+          <div style="font-size:24px; font-weight:600; margin-bottom: 16px;">Ricerca O(K)</div>
+          <pre class="code" style="background:var(--bg); color: var(--ink); border:1px solid var(--line); font-size: 19px; padding: 24px;">"error"   → {0, 1, 5, 12, 45}
+"timeout" → {1, 67, 89}
+"iap2"    → {5, 12, 34}
+
+# AND set-intersection
+"error timeout"  →  {1}</pre>
+          <div class="desc" style="margin-top:18px;">Le query AND intersecano i set di indici. Nessun full scan dei payload per query con keyword conosciute.</div>
+        </div>
+        <div class="card" style="margin-top:24px;">
+          <div class="label">Limiti operativi</div>
+          <div class="row" style="gap:24px; margin-top: 8px;">
+            <div><div style="font-size:36px; font-weight:600;">500k</div><div class="small">Entry max</div></div>
+            <div><div style="font-size:36px; font-weight:600;">1.000</div><div class="small">Display cap</div></div>
+            <div><div style="font-size:36px; font-weight:600;">10k</div><div class="small">Cache plugin</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="footer"><div>DLT Chat Plugin</div><div>07</div></div>
+</section>
+
+<!-- 08 — SECTION DIVIDER · UI -->
+<section class="section-divider" data-screen-label="08 Sezione · UI">
+  <div class="chrome">
+    <div><span class="dot"></span>Parte II</div>
+    <div>Interfaccia</div>
+  </div>
+  <div class="pad" style="display:flex; flex-direction:column; justify-content:center; height:100%;">
+    <div class="eyebrow">Parte 02</div>
+    <h1 class="title" style="color: var(--bg);">Interfaccia<br/>&amp; pulsanti rapidi.</h1>
+    <div class="lede" style="margin-top:48px; max-width: 1200px;">Una griglia 3×7 di azioni color-coded. Operazioni frequenti senza digitare.</div>
+  </div>
+  <div class="footer"><div>DLT Chat Plugin</div><div>08</div></div>
+</section>
+
+<!-- 09 — 21 PULSANTI -->
+<section data-screen-label="09 21 pulsanti">
+  <div class="chrome">
+    <div><span class="dot"></span>UI</div>
+    <div>06 / 21 pulsanti rapidi</div>
+  </div>
+  <div class="pad" style="padding-top: 140px;">
+    <div class="eyebrow">UI · griglia 3 × 7</div>
+    <h2 class="slide">Ventuno comandi, un click ciascuno.</h2>
+
+    <div class="btn-grid" style="margin-top: 16px;">
+      <!-- row 1 -->
+      <div class="btn-mock"><div class="sw" style="background:oklch(0.62 0.20 25);"></div><div class="nm">Errors</div><div class="cmd">error</div></div>
+      <div class="btn-mock"><div class="sw" style="background:oklch(0.72 0.16 60);"></div><div class="nm">Warnings</div><div class="cmd">warn</div></div>
+      <div class="btn-mock"><div class="sw" style="background:oklch(0.72 0.14 230);"></div><div class="nm">Infos</div><div class="cmd">info</div></div>
+      <div class="btn-mock"><div class="sw" style="background:oklch(0.55 0.01 240);"></div><div class="nm">Debug</div><div class="cmd">debug</div></div>
+      <div class="btn-mock"><div class="sw" style="background:oklch(0.78 0.01 240);"></div><div class="nm">Verbose</div><div class="cmd">verbose</div></div>
+      <div class="btn-mock"><div class="sw" style="background:oklch(0.40 0.16 260);"></div><div class="nm">CarPlay</div><div class="cmd">carplay</div></div>
+      <div class="btn-mock"><div class="sw" style="background:oklch(0.42 0.14 150);"></div><div class="nm">Android Auto</div><div class="cmd">androidauto</div></div>
+      <!-- row 2 -->
+      <div class="btn-mock"><div class="sw" style="background:oklch(0.55 0.18 305);"></div><div class="nm">Video Focus</div><div class="cmd">video_focus</div></div>
+      <div class="btn-mock"><div class="sw" style="background:oklch(0.72 0.14 350);"></div><div class="nm">Audio Ducking</div><div class="cmd">audio_ducking</div></div>
+      <div class="btn-mock"><div class="sw" style="background:oklch(0.70 0.13 200);"></div><div class="nm">mDNS</div><div class="cmd">mdns</div></div>
+      <div class="btn-mock"><div class="sw" style="background:oklch(0.62 0.16 145);"></div><div class="nm">Sensor Data</div><div class="cmd">sensor_data</div></div>
+      <div class="btn-mock"><div class="sw" style="background:oklch(0.42 0.18 25);"></div><div class="nm">Auth Errors</div><div class="cmd">auth_errors</div></div>
+      <div class="btn-mock"><div class="sw" style="background:oklch(0.78 0.14 95);"></div><div class="nm">Session</div><div class="cmd">session</div></div>
+      <div class="btn-mock"><div class="sw" style="background:oklch(0.42 0.14 150);"></div><div class="nm">Summary</div><div class="cmd">summary</div></div>
+      <!-- row 3 -->
+      <div class="btn-mock"><div class="sw" style="background:oklch(0.55 0.05 240);"></div><div class="nm">Timeline</div><div class="cmd">timeline</div></div>
+      <div class="btn-mock"><div class="sw" style="background:oklch(0.55 0.05 160);"></div><div class="nm">Pattern</div><div class="cmd">pattern</div></div>
+      <div class="btn-mock"><div class="sw" style="background:oklch(0.60 0.012 240);"></div><div class="nm">Help</div><div class="cmd">help</div></div>
+      <div class="btn-mock"><div class="sw" style="background:oklch(0.55 0.05 300);"></div><div class="nm">Keywords</div><div class="cmd">keywords</div></div>
+      <div class="btn-mock"><div class="sw" style="background:oklch(0.60 0.012 240);"></div><div class="nm">Categories</div><div class="cmd">categories</div></div>
+      <div class="btn-mock"><div class="sw" style="background:oklch(0.70 0.14 25);"></div><div class="nm">Clear</div><div class="cmd">(clear)</div></div>
+      <div class="btn-mock"><div class="sw" style="background:oklch(0.55 0.18 248);"></div><div class="nm">CSV</div><div class="cmd">(export)</div></div>
+    </div>
+
+    <div class="row" style="margin-top:48px; gap: 24px;">
+      <div class="col"><span class="tag accent">Riga 1 · Filtri livello + dominio</span></div>
+      <div class="col"><span class="tag accent">Riga 2 · Eventi automotive + analisi</span></div>
+      <div class="col"><span class="tag accent">Riga 3 · Comandi sistema + utilità</span></div>
+    </div>
+  </div>
+  <div class="footer"><div>DLT Chat Plugin</div><div>09</div></div>
+</section>
+
+<!-- 10 — UI MOCKUP -->
+<section data-screen-label="10 UI Mockup">
+  <div class="chrome">
+    <div><span class="dot"></span>UI</div>
+    <div>07 / Pannello Chat</div>
+  </div>
+  <div class="pad" style="padding-top: 140px;">
+    <div class="eyebrow">Chat Log Assistant · panel</div>
+    <h2 class="slide">Dove vive: dentro DLT Viewer.</h2>
+
+    <div class="app" style="margin-top: 24px;">
+      <div class="titlebar">
+        <div class="lights"><span></span><span></span><span></span></div>
+        <div style="margin-left:12px;">DLT Viewer — View · Panels · Chat Log Assistant</div>
+        <div style="margin-left:auto; display:flex; gap:12px; align-items:center;">
+          <span style="display:inline-flex; align-items:center; gap:8px;"><span style="width:8px;height:8px;border-radius:50%;background:oklch(0.62 0.14 150);"></span> AI Online · qwen2.5:0.5b</span>
+        </div>
+      </div>
+
+      <div style="display:grid; grid-template-columns: 1.05fr 1fr; gap: 24px;">
+        <!-- left: chat -->
+        <div style="background: oklch(0.18 0.012 240); border-radius:12px; padding:24px; min-height: 440px;">
+          <div style="font-family:'JetBrains Mono', monospace; font-size:13px; color:oklch(0.6 0.012 240); letter-spacing:0.1em; text-transform:uppercase; margin-bottom:18px;">CHAT HISTORY</div>
+          <div style="font-family:'JetBrains Mono', monospace; font-size:18px; line-height:1.7;">
+            <div style="color:oklch(0.7 0.14 230);">user ▸ <span style="color:oklch(0.9 0.01 240);">find timeouts on iAP2 handshake</span></div>
+            <div style="margin-top:14px; color:oklch(0.7 0.14 150);">asst ▸ <span style="color:oklch(0.85 0.01 240);">Trovati 3 eventi di timeout su iAP2.<br/>&nbsp;&nbsp;[index:1247]  iap2 handshake timeout (5s)<br/>&nbsp;&nbsp;[index:3380]  iAP2 link_check timeout<br/>&nbsp;&nbsp;[index:5012]  authentication phase timeout</span></div>
+            <div style="margin-top:18px; color:oklch(0.7 0.14 230);">user ▸ <span style="color:oklch(0.9 0.01 240);">summary</span></div>
+            <div style="margin-top:14px; color:oklch(0.7 0.14 150);">asst ▸ <span style="color:oklch(0.85 0.01 240);">12 482 entries · 48 errors · 211 warnings<br/>&nbsp;&nbsp;Domini: CarPlay 3 921 · Android Auto 1 854<br/>&nbsp;&nbsp;Top context: iAP2 (1 244) · AOAP (612)</span></div>
+          </div>
+          <div style="margin-top:32px; display:flex; gap:10px;">
+            <div style="flex:1; background: oklch(0.22 0.012 240); border-radius:10px; padding: 14px 18px; font-family:'JetBrains Mono', monospace; color: oklch(0.8 0.01 240); font-size:18px;">› ask the log…</div>
+            <div style="background: var(--accent); color: white; border-radius: 10px; padding: 14px 22px; font-family: 'Inter'; font-weight:600;">Send</div>
+          </div>
+        </div>
+
+        <!-- right: results -->
+        <div style="background: oklch(0.16 0.012 240); border-radius:12px; padding:24px;">
+          <div style="font-family:'JetBrains Mono', monospace; font-size:13px; color:oklch(0.6 0.012 240); letter-spacing:0.1em; text-transform:uppercase; margin-bottom:18px;">RESULTS · 3 of 12 482</div>
+          <div style="font-family:'JetBrains Mono', monospace; font-size: 15px; line-height: 1.7; color: oklch(0.85 0.01 240);">
+            <div style="border-left: 3px solid oklch(0.62 0.20 25); padding-left:14px; margin-bottom:12px;"><span style="color: oklch(0.6 0.012 240);">12:08:31.245</span> &nbsp;<span style="color:oklch(0.7 0.20 25);">ERR</span>&nbsp; CARP iap2 &nbsp; handshake timeout (5s)</div>
+            <div style="border-left: 3px solid oklch(0.62 0.20 25); padding-left:14px; margin-bottom:12px;"><span style="color: oklch(0.6 0.012 240);">12:08:36.111</span> &nbsp;<span style="color:oklch(0.7 0.20 25);">ERR</span>&nbsp; CARP iap2 &nbsp; link_check timeout</div>
+            <div style="border-left: 3px solid oklch(0.72 0.16 60); padding-left:14px; margin-bottom:12px;"><span style="color: oklch(0.6 0.012 240);">12:08:41.880</span> &nbsp;<span style="color:oklch(0.78 0.16 60);">WRN</span>&nbsp; CARP iap2 &nbsp; auth phase slow (2.1s)</div>
+            <div style="border-left: 3px solid oklch(0.72 0.14 230); padding-left:14px; margin-bottom:12px;"><span style="color: oklch(0.6 0.012 240);">12:08:45.002</span> &nbsp;<span style="color:oklch(0.78 0.14 230);">INF</span>&nbsp; CARP iap2 &nbsp; session re-established</div>
+            <div style="border-left: 3px solid oklch(0.62 0.20 25); padding-left:14px; margin-bottom:12px;"><span style="color: oklch(0.6 0.012 240);">12:09:02.451</span> &nbsp;<span style="color:oklch(0.7 0.20 25);">ERR</span>&nbsp; CARP iap2 &nbsp; authentication timeout</div>
+            <div style="border-left: 3px solid oklch(0.78 0.14 95); padding-left:14px; margin-bottom:12px;"><span style="color: oklch(0.6 0.012 240);">12:09:05.012</span> &nbsp;<span style="color:oklch(0.85 0.14 95);">SES</span>&nbsp; CARP mdns &nbsp; _apple-mobdev2._tcp resolved</div>
+          </div>
+          <div style="margin-top: 16px; font-family:'JetBrains Mono', monospace; font-size:13px; color: oklch(0.5 0.012 240);">▸ double-click → jump to entry in DLT Viewer</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="footer"><div>DLT Chat Plugin</div><div>10</div></div>
+</section>
+
+<!-- 11 — SECTION DIVIDER · ANALISI -->
+<section class="section-divider" data-screen-label="11 Sezione · Analisi">
+  <div class="chrome">
+    <div><span class="dot"></span>Parte III</div>
+    <div>Analisi</div>
+  </div>
+  <div class="pad" style="display:flex; flex-direction:column; justify-content:center; height:100%;">
+    <div class="eyebrow">Parte 03</div>
+    <h1 class="title" style="color: var(--bg);">Analisi rule-based<br/>&amp; comandi.</h1>
+    <div class="lede" style="margin-top:48px; max-width: 1200px;">Sempre disponibile, zero dipendenze esterne. Filtri per livello, dominio, categoria, e query combinate.</div>
+  </div>
+  <div class="footer"><div>DLT Chat Plugin</div><div>11</div></div>
+</section>
+
+<!-- 12 — RULE-BASED -->
+<section data-screen-label="12 Rule-based">
+  <div class="chrome">
+    <div><span class="dot"></span>Analisi</div>
+    <div>08 / Filtri rule-based</div>
+  </div>
+  <div class="pad" style="padding-top: 140px;">
+    <div class="eyebrow">Filtri rule-based</div>
+    <h2 class="slide">Tre dimensioni, una query.</h2>
+
+    <div class="row" style="gap: 32px;">
+      <div class="col">
+        <div class="card">
+          <div class="label">Livello</div>
+          <table class="t" style="margin-top:8px;">
+            <tbody>
+              <tr><td class="mono">error</td><td>ERROR + FATAL</td></tr>
+              <tr><td class="mono">warn</td><td>WARN</td></tr>
+              <tr><td class="mono">info</td><td>INFO</td></tr>
+              <tr><td class="mono">debug</td><td>DEBUG</td></tr>
+              <tr><td class="mono">verbose</td><td>VERBOSE</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="col">
+        <div class="card">
+          <div class="label">Dominio</div>
+          <table class="t" style="margin-top:8px;">
+            <tbody>
+              <tr><td class="mono">carplay</td><td>APID <span class="mono">com.apple.carplay</span><br/>· payload <span class="mono">iap2</span> / <span class="mono">AirPlay</span></td></tr>
+              <tr><td class="mono">androidauto</td><td>APID <span class="mono">CarAppService</span> / <span class="mono">AOAP</span><br/>· payload <span class="mono">USB_ACCESSORY</span> / <span class="mono">AOA</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="col">
+        <div class="card">
+          <div class="label">Categoria</div>
+          <table class="t" style="margin-top:8px;">
+            <tbody>
+              <tr><td class="mono">can</td><td>Bus CAN</td></tr>
+              <tr><td class="mono">security</td><td>Sicurezza</td></tr>
+              <tr><td class="mono">memory</td><td>Memoria</td></tr>
+              <tr><td class="mono">performance</td><td>Performance</td></tr>
+              <tr><td class="mono">diagnostic</td><td>Diagnostica</td></tr>
+              <tr><td class="mono">gps</td><td>GPS</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top: 32px; background: var(--ink); color: var(--bg); border:none;">
+      <div class="label" style="color: oklch(0.65 0.012 240);">Query combinate</div>
+      <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap: 18px; margin-top: 14px; font-family:'JetBrains Mono', monospace; font-size:20px;">
+        <div><span style="color: oklch(0.78 0.14 248);">error can</span><br/><span style="color: oklch(0.7 0.01 240); font-size:14px;">errori CAN bus</span></div>
+        <div><span style="color: oklch(0.78 0.14 248);">warn carplay</span><br/><span style="color: oklch(0.7 0.01 240); font-size:14px;">warning dominio CarPlay</span></div>
+        <div><span style="color: oklch(0.78 0.14 248);">info security timeout</span><br/><span style="color: oklch(0.7 0.01 240); font-size:14px;">info sicurezza + parola libera</span></div>
+        <div><span style="color: oklch(0.78 0.14 248);">debug memory androidauto</span><br/><span style="color: oklch(0.7 0.01 240); font-size:14px;">debug memoria AA</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="footer"><div>DLT Chat Plugin</div><div>12</div></div>
+</section>
+
+<!-- 13 — COMANDI SPECIALI + ERRORI -->
+<section data-screen-label="13 Comandi e categorizzazione">
+  <div class="chrome">
+    <div><span class="dot"></span>Analisi</div>
+    <div>09 / Comandi speciali</div>
+  </div>
+  <div class="pad" style="padding-top: 140px;">
+    <div class="eyebrow">Comandi speciali · categorizzazione errori</div>
+    <h2 class="slide">Comandi che cambiano la lente.</h2>
+
+    <div class="row" style="gap: 32px;">
+      <div class="col">
+        <div class="card">
+          <div class="label">Comandi</div>
+          <table class="t" style="margin-top:8px;">
+            <tbody>
+              <tr><td class="mono">help</td><td>Lista comandi disponibili</td></tr>
+              <tr><td class="mono">summary</td><td>Conteggi livello · top context · domini · range temporale</td></tr>
+              <tr><td class="mono">timeline</td><td>Lista cronologica completa</td></tr>
+              <tr><td class="mono">pattern</td><td>Raggruppa duplicati per payload simile</td></tr>
+              <tr><td class="mono">keywords</td><td>Elenca tutte le keyword di categoria</td></tr>
+              <tr><td class="mono">categories</td><td>Stesso di <span class="mono">keywords</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="col">
+        <div class="card">
+          <div class="label">Categorizzazione errori (7)</div>
+          <div style="margin-top:12px; display:grid; grid-template-columns: 1fr; gap: 12px;">
+            <div style="display:flex; gap: 18px; align-items:baseline;"><span class="tag accent" style="min-width: 160px; text-align:center;">Comunicazione</span><span class="small">timeout · connection refused · link down · handshake failed</span></div>
+            <div style="display:flex; gap: 18px; align-items:baseline;"><span class="tag accent" style="min-width: 160px; text-align:center;">Memoria</span><span class="small">out of memory · allocation failed · heap · stack overflow</span></div>
+            <div style="display:flex; gap: 18px; align-items:baseline;"><span class="tag accent" style="min-width: 160px; text-align:center;">Sicurezza</span><span class="small">auth failed · unauthorized · invalid certificate · TLS / SSL</span></div>
+            <div style="display:flex; gap: 18px; align-items:baseline;"><span class="tag accent" style="min-width: 160px; text-align:center;">Configurazione</span><span class="small">invalid config · missing parameter · wrong version</span></div>
+            <div style="display:flex; gap: 18px; align-items:baseline;"><span class="tag accent" style="min-width: 160px; text-align:center;">Hardware</span><span class="small">hardware fault · sensor failure · I²C · SPI · GPIO</span></div>
+            <div style="display:flex; gap: 18px; align-items:baseline;"><span class="tag accent" style="min-width: 160px; text-align:center;">Timeout</span><span class="small">timeout error · timeout occurred</span></div>
+            <div style="display:flex; gap: 18px; align-items:baseline;"><span class="tag accent" style="min-width: 160px; text-align:center;">Protocollo</span><span class="small">protocol error · malformed · unexpected response</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card bare" style="margin-top: 24px; padding: 24px 32px; border: 1px dashed var(--line-2);">
+      <div class="small" style="font-family:'JetBrains Mono', monospace;">Ricerca libera → tokenize · stop-word filter · intersezione inverted index · regex fallback se 0 keyword.</div>
+    </div>
+  </div>
+  <div class="footer"><div>DLT Chat Plugin</div><div>13</div></div>
+</section>
+
+<!-- 14 — SECTION DIVIDER · AI -->
+<section class="section-divider" data-screen-label="14 Sezione · AI">
+  <div class="chrome">
+    <div><span class="dot"></span>Parte IV</div>
+    <div>AI / LLM</div>
+  </div>
+  <div class="pad" style="display:flex; flex-direction:column; justify-content:center; height:100%;">
+    <div class="eyebrow">Parte 04</div>
+    <h1 class="title" style="color: var(--bg);">AI opzionale,<br/>resilienza obbligatoria.</h1>
+    <div class="lede" style="margin-top:48px; max-width: 1200px;">Ollama, OpenAI, LocalAI, custom. Con circuit breaker, rate limiter, cache LRU e fallback automatico.</div>
+  </div>
+  <div class="footer"><div>DLT Chat Plugin</div><div>14</div></div>
+</section>
+
+<!-- 15 — PROVIDERS -->
+<section data-screen-label="15 Providers LLM">
+  <div class="chrome">
+    <div><span class="dot"></span>AI</div>
+    <div>10 / Provider supportati</div>
+  </div>
+  <div class="pad" style="padding-top: 140px;">
+    <div class="eyebrow">Provider LLM</div>
+    <h2 class="slide">Locale, cloud, o custom — scegli tu.</h2>
+
+    <table class="t" style="margin-top:16px;">
+      <thead><tr><th style="width:200px;">Provider</th><th>Endpoint default</th><th>Richiesta</th><th>Risposta</th></tr></thead>
+      <tbody>
+        <tr><td class="k">Ollama</td><td class="mono">localhost:11434/api/generate</td><td class="mono">{model, prompt, options}</td><td class="mono">{"response":"…"}</td></tr>
+        <tr><td class="k">OpenAI</td><td class="mono">api.openai.com/v1/chat/completions</td><td class="mono">{model, messages[], …}</td><td class="mono">{"choices":[…]}</td></tr>
+        <tr><td class="k">LocalAI</td><td class="mono">localhost:8080/v1/completions</td><td>stile Ollama</td><td>stile Ollama</td></tr>
+        <tr><td class="k">Custom</td><td class="mono">(configurabile)</td><td>Ollama / OpenAI</td><td>Ollama / OpenAI</td></tr>
+      </tbody>
+    </table>
+
+    <div class="row" style="margin-top: 48px; gap: 32px;">
+      <div class="card col">
+        <div class="label">Indicatore stato AI</div>
+        <div class="stack" style="margin-top: 16px;">
+          <div style="display:flex; align-items:center; gap:14px;"><span style="width:14px;height:14px;border-radius:50%;background:var(--ok);"></span><div><strong>AI Online</strong><div class="small">connessione attiva</div></div></div>
+          <div style="display:flex; align-items:center; gap:14px;"><span style="width:14px;height:14px;border-radius:50%;background:var(--warn);"></span><div><strong>AI Offline</strong><div class="small">connessione fallita o cooldown</div></div></div>
+          <div style="display:flex; align-items:center; gap:14px;"><span style="width:14px;height:14px;border-radius:50%;background:var(--muted);"></span><div><strong>Non configurato</strong><div class="small">provider non impostato</div></div></div>
+        </div>
+        <div class="small" style="margin-top:18px;">Refresh ogni 30s · <span class="mono">AI_AVAILABILITY_TTL_MS = 30000</span></div>
+      </div>
+      <div class="card col">
+        <div class="label">Dialog di configurazione</div>
+        <div style="display:grid; grid-template-columns: 140px 1fr; row-gap: 10px; column-gap: 18px; margin-top: 12px; font-size: 20px;">
+          <div class="small">Provider</div><div class="mono">Ollama / OpenAI / LocalAI / Custom</div>
+          <div class="small">Endpoint</div><div class="mono">auto-fill al cambio provider</div>
+          <div class="small">API key</div><div class="mono">solo OpenAI</div>
+          <div class="small">Model</div><div class="mono">qwen2.5:0.5b (default)</div>
+          <div class="small">Max tokens</div><div class="mono">4096</div>
+          <div class="small">Temperature</div><div class="mono">0.7</div>
+          <div class="small">Timeout</div><div class="mono">120 s</div>
+          <div class="small">Azione</div><div><span class="tag accent">Test Connection</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="footer"><div>DLT Chat Plugin</div><div>15</div></div>
+</section>
+
+<!-- 16 — RESILIENZA -->
+<section data-screen-label="16 Resilienza">
+  <div class="chrome">
+    <div><span class="dot"></span>AI</div>
+    <div>11 / Meccanismi di resilienza</div>
+  </div>
+  <div class="pad" style="padding-top: 140px;">
+    <div class="eyebrow">Resilienza</div>
+    <h2 class="slide">L'AI è un plus, non un punto di fallimento.</h2>
+
+    <div class="cb-states" style="margin-bottom: 32px;">
+      <div class="cb-state closed">
+        <div class="name" style="color:var(--ok);">● Closed</div>
+        <div class="h">Normale</div>
+        <div class="small">Richieste passano. Conta i fallimenti consecutivi: alla 5ª → APERTO.</div>
+      </div>
+      <div class="cb-state open">
+        <div class="name" style="color:var(--err);">● Open</div>
+        <div class="h">60 s di cooldown</div>
+        <div class="small">Tutte le richieste rifiutate immediatamente. Scaduto il timer → SEMI-APERTO.</div>
+      </div>
+      <div class="cb-state half">
+        <div class="name" style="color:var(--warn);">● Half-open</div>
+        <div class="h">Probe</div>
+        <div class="small">Una sola richiesta di prova. Successo → CHIUSO · Fallimento → APERTO (reset).</div>
+      </div>
+    </div>
+
+    <div class="row" style="gap: 32px;">
+      <div class="card col">
+        <div class="label">Token bucket · rate limit</div>
+        <div class="big" style="font-size:42px; margin-top:6px;">10 token · 1 / s</div>
+        <div class="desc">Ogni richiesta consuma un token. Se vuoto, la richiesta è rimandata con QTimer fino al refill.</div>
+      </div>
+      <div class="card col">
+        <div class="label">LRU cache</div>
+        <div class="big" style="font-size:42px; margin-top:6px;">10 000 + 1 000</div>
+        <div class="desc">Plugin · 10k entry, evizione LRU. LLM analyzer · 1k entry, half-flush quando pieno.</div>
+      </div>
+      <div class="card col">
+        <div class="label">Fallback automatico</div>
+        <div class="big" style="font-size:42px; margin-top:6px;">rule-based</div>
+        <div class="desc">Se AI offline, breaker aperto o timeout → cade su rule-based. L'utente riceve sempre una risposta.</div>
+      </div>
+    </div>
+  </div>
+  <div class="footer"><div>DLT Chat Plugin</div><div>16</div></div>
+</section>
+
+<!-- 17 — AI FLOW -->
+<section data-screen-label="17 AI flow">
+  <div class="chrome">
+    <div><span class="dot"></span>AI</div>
+    <div>12 / Flusso richiesta AI</div>
+  </div>
+  <div class="pad" style="padding-top: 140px;">
+    <div class="eyebrow">Flusso AI · onAiQuerySubmitted()</div>
+    <h2 class="slide">Cinque uscite, una risposta garantita.</h2>
+
+    <div class="row" style="gap: 48px;">
+      <div class="col" style="flex: 1.1;">
+        <div class="pipe" style="font-size: 17px;">onAiQuerySubmitted(query)
+  │
+  ├─ AI <span style="color:var(--err);">non configurata</span> / offline?
+  │     → fallback rule-based
+  │
+  ├─ Query in <span style="color:var(--accent);">cache</span>?
+  │     → restituisci risultato cached
+  │
+  ├─ Rate limit?
+  │     → attendi con QTimer::singleShot
+  │
+  └─ Invia HTTP POST
+        ├─ <span style="color:var(--ok);">success</span> → parse + cache update
+        └─ <span style="color:var(--err);">failure</span> → circuit breaker, fallback</div>
+      </div>
+      <div class="col">
+        <div class="card">
+          <div class="label">Prompt engineering</div>
+          <ol style="margin: 14px 0 0 0; padding-left: 24px; line-height: 1.7;">
+            <li><strong>Contesto</strong> · descrizione file DLT + totale entry</li>
+            <li><strong>Entry filtrate</strong> · max 100 · <span class="mono">[index:N] ts [lvl] apid ctid | payload</span></li>
+            <li><strong>Extra context</strong> · match da filtri utente</li>
+            <li><strong>Domanda</strong> · query originale</li>
+          </ol>
+        </div>
+        <div class="card" style="margin-top:24px;">
+          <div class="label">Parsing della risposta</div>
+          <ul style="margin: 14px 0 0 0; padding-left: 24px; line-height: 1.7;">
+            <li>Testo principale</li>
+            <li>Riferimenti <span class="mono">[index:N]</span> → click-navigabili</li>
+            <li>Numeri nudi &lt; 10 000 come fallback</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="footer"><div>DLT Chat Plugin</div><div>17</div></div>
+</section>
+
+<!-- 18 — BULK ANALYSIS -->
+<section data-screen-label="18 Bulk analysis">
+  <div class="chrome">
+    <div><span class="dot"></span>AI</div>
+    <div>13 / Bulk analysis</div>
+  </div>
+  <div class="pad" style="padding-top: 140px;">
+    <div class="eyebrow">Bulk analysis</div>
+    <h2 class="slide">Classifica l'intero log in background.</h2>
+
+    <div class="row" style="gap: 32px;">
+      <div class="col" style="flex: 1.1;">
+        <div class="card">
+          <div class="label">Architettura</div>
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 12px;">
+            <div><div style="font-weight:600; font-size: 22px;">DltBulkAnalyzerWorker</div><div class="small mono">QThread · processing async</div></div>
+            <div><div style="font-weight:600; font-size: 22px;">DltBulkAnalyzer</div><div class="small mono">API alto livello · pause / resume / cancel</div></div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top: 24px;">
+          <div class="label">Pipeline</div>
+          <ol style="margin: 14px 0 0 0; padding-left: 24px; line-height: 1.8;">
+            <li>Entry divise in <strong>chunk</strong> (default 100/chunk)</li>
+            <li>Ogni chunk inviato all'LLM con prompt strutturato</li>
+            <li>Risposta parsata: <span class="mono">[INDEX]|CATEGORY|SUMMARY|TAGS</span></li>
+            <li>Aggregazione: lista tag e categorie trovate</li>
+          </ol>
+        </div>
+
+        <div style="display:flex; gap:12px; margin-top: 24px; flex-wrap:wrap;">
+          <span class="tag">Idle</span>
+          <span class="tag accent">Processing</span>
+          <span class="tag">Paused</span>
+          <span class="tag">Completed</span>
+          <span class="tag">Error</span>
+        </div>
+      </div>
+
+      <div class="col">
+        <pre class="code"><span class="c"># Esempio risposta bulk</span>
+<span class="n">[0]</span>|CONNECT|Connection established|connection,handshake
+<span class="n">[1]</span>|AUDIO|Audio focus gained|audio,focus,carplay
+<span class="n">[2]</span>|ERROR|Timeout on iAP2 handshake|timeout,carplay,error
+<span class="n">[3]</span>|SENSOR|Gyro stream started|sensor,gyro,aoap
+<span class="n">[4]</span>|SECURITY|TLS pairing complete|tls,auth,security
+
+<span class="c"># Query post-bulk</span>
+<span class="k">tag:</span>handshake
+<span class="k">category:</span>SECURITY</pre>
+
+        <div class="card" style="margin-top: 24px;">
+          <div class="label">Progress</div>
+          <div style="margin-top:14px; height: 14px; background: var(--bg); border-radius: 999px; border:1px solid var(--line); overflow: hidden;">
+            <div style="width: 62%; height: 100%; background: var(--accent);"></div>
+          </div>
+          <div class="small" style="margin-top:10px; font-family:'JetBrains Mono', monospace;">62% · chunk 31 / 50 · 3 100 entries</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="footer"><div>DLT Chat Plugin</div><div>18</div></div>
+</section>
+
+<!-- 19 — AUTOMOTIVE PARSER -->
+<section data-screen-label="19 Automotive parser">
+  <div class="chrome">
+    <div><span class="dot"></span>Automotive</div>
+    <div>14 / Classificazione</div>
+  </div>
+  <div class="pad" style="padding-top: 140px;">
+    <div class="eyebrow">AutomotiveLogParser</div>
+    <h2 class="slide">Riconosce dominio ed evento, automaticamente.</h2>
+
+    <div class="row" style="gap: 32px;">
+      <div class="col">
+        <div class="card">
+          <div class="label">Domini</div>
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 14px;">
+            <div>
+              <div style="font-weight:600; font-size: 24px;">CarPlay</div>
+              <ul class="mono" style="font-size: 16px; line-height: 1.7; padding-left: 18px;">
+                <li>APID <span style="color: var(--accent);">com.apple.carplay</span></li>
+                <li>payload contiene <span style="color: var(--accent);">iap2</span></li>
+                <li>payload contiene <span style="color: var(--accent);">AirPlay</span></li>
+                <li>payload contiene <span style="color: var(--accent);">CARSIM</span></li>
+              </ul>
+            </div>
+            <div>
+              <div style="font-weight:600; font-size: 24px;">Android Auto</div>
+              <ul class="mono" style="font-size: 16px; line-height: 1.7; padding-left: 18px;">
+                <li>APID <span style="color: var(--accent);">CarAppService</span></li>
+                <li>APID <span style="color: var(--accent);">AOAP</span> / <span style="color: var(--accent);">AndroidAuto</span></li>
+                <li>payload <span style="color: var(--accent);">USB_ACCESSORY</span></li>
+                <li>payload <span style="color: var(--accent);">AOA</span></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top: 24px;">
+          <div class="label">8 preset filtro</div>
+          <div class="chip-row" style="margin-top:14px;">
+            <span class="tag">carplay</span>
+            <span class="tag">androidauto</span>
+            <span class="tag">video_focus</span>
+            <span class="tag">audio_ducking</span>
+            <span class="tag">mdns</span>
+            <span class="tag">sensor_data</span>
+            <span class="tag">auth_errors</span>
+            <span class="tag">session</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="col">
+        <div class="card">
+          <div class="label">Eventi riconosciuti (9)</div>
+          <table class="t" style="margin-top:8px;">
+            <tbody>
+              <tr><td class="mono">video_focus_lost</td><td>video · focus (CarPlay)</td></tr>
+              <tr><td class="mono">audio_ducking</td><td>ducking · audio duck</td></tr>
+              <tr><td class="mono">mdns_handshake</td><td>_apple-mobdev2 · mdns</td></tr>
+              <tr><td class="mono">hid_event</td><td>hid · keyboard · touch</td></tr>
+              <tr><td class="mono">auth_tls</td><td>tls · auth · certificate · pairing</td></tr>
+              <tr><td class="mono">sensor_data</td><td>sensor · gyro · gps · accelerometer</td></tr>
+              <tr><td class="mono">audio_focus</td><td>audio focus · audio manager</td></tr>
+              <tr><td class="mono">session_start</td><td>session start · link established</td></tr>
+              <tr><td class="mono">session_stop</td><td>session stop · disconnect · link down</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="footer"><div>DLT Chat Plugin</div><div>19</div></div>
+</section>
+
+<!-- 20 — USER FILTERS -->
+<section data-screen-label="20 User filters">
+  <div class="chrome">
+    <div><span class="dot"></span>Personalizzazione</div>
+    <div>15 / Filtri utente</div>
+  </div>
+  <div class="pad" style="padding-top: 140px;">
+    <div class="eyebrow">Filtri utente · JSON</div>
+    <h2 class="slide">Regole di evidenziazione su misura.</h2>
+
+    <div class="row" style="gap: 32px;">
+      <div class="col" style="flex: 1.1;">
+        <pre class="code" style="font-size: 18px; padding: 28px 32px;">{
+  <span class="s">"version"</span>: <span class="s">"1.0"</span>,
+  <span class="s">"filters"</span>: [
+    {
+      <span class="s">"label"</span>:   <span class="s">"iAP2 Connection Error"</span>,
+      <span class="s">"pattern"</span>: <span class="s">"iap2.*(error|fail|timeout)"</span>,
+      <span class="s">"color"</span>:   <span class="s">"#FF4444"</span>,
+      <span class="s">"levels"</span>:  [<span class="s">"error"</span>, <span class="s">"fatal"</span>]
+    },
+    {
+      <span class="s">"label"</span>:   <span class="s">"mDNS Handshake"</span>,
+      <span class="s">"pattern"</span>: <span class="s">"mdns|bonjour|_apple-mobdev2"</span>,
+      <span class="s">"color"</span>:   <span class="s">"#4488FF"</span>
+    },
+    {
+      <span class="s">"label"</span>:   <span class="s">"Video Focus Lost"</span>,
+      <span class="s">"pattern"</span>: <span class="s">"video.*focus"</span>,
+      <span class="s">"color"</span>:   <span class="s">"#FF8800"</span>,
+      <span class="s">"domain"</span>:  <span class="s">"carplay"</span>
+    }
+  ]
+}</pre>
+      </div>
+      <div class="col">
+        <div class="card">
+          <div class="label">Campi</div>
+          <table class="t" style="margin-top: 8px;">
+            <tbody>
+              <tr><td class="mono k">label</td><td>nome descrittivo</td><td><span class="tag">obbligatorio</span></td></tr>
+              <tr><td class="mono k">pattern</td><td>regex di match</td><td><span class="tag">obbligatorio</span></td></tr>
+              <tr><td class="mono k">fields</td><td>payload · apid · ctid · ecu</td><td><span class="small">opzionale</span></td></tr>
+              <tr><td class="mono k">color</td><td>hex highlight</td><td><span class="small">#FFFF00</span></td></tr>
+              <tr><td class="mono k">levels</td><td>livelli consentiti</td><td><span class="small">opzionale</span></td></tr>
+              <tr><td class="mono k">domain</td><td>carplay / androidauto</td><td><span class="small">opzionale</span></td></tr>
+              <tr><td class="mono k">enabled</td><td>attivo</td><td><span class="small">default true</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="card" style="margin-top: 24px;">
+          <div class="label">Comportamento</div>
+          <ul style="margin: 12px 0 0 0; padding-left: 22px; line-height: 1.7;">
+            <li>Applicati dopo ogni query</li>
+            <li>Una entry può matchare più filtri — <em>vince l'ultimo</em></li>
+            <li>Path configurato in <span class="mono">dlt_chat_plugin.ini → [Behavior] → userFiltersPath</span></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="footer"><div>DLT Chat Plugin</div><div>20</div></div>
+</section>
+
+<!-- 21 — CSV EXPORT + NAVIGAZIONE -->
+<section data-screen-label="21 CSV Export e navigazione">
+  <div class="chrome">
+    <div><span class="dot"></span>Output</div>
+    <div>16 / Export &amp; navigazione</div>
+  </div>
+  <div class="pad" style="padding-top: 140px;">
+    <div class="eyebrow">Export CSV · navigazione log</div>
+    <h2 class="slide">Dai risultati al foglio, e dall'AI al log.</h2>
+
+    <div class="row" style="gap: 32px;">
+      <div class="col">
+        <div class="card">
+          <div class="label">CSV · due modalità</div>
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 12px;">
+            <div>
+              <div style="font-weight:600; font-size: 22px;">exportToCsv()</div>
+              <div class="small">Esporta solo i risultati visualizzati con la query sorgente.</div>
+            </div>
+            <div>
+              <div style="font-weight:600; font-size: 22px;">exportAllEntries()</div>
+              <div class="small">Esporta tutte le entry caricate nel plugin.</div>
+            </div>
+          </div>
+          <div style="margin-top: 24px;" class="small">UTF-8 · escaping CSV standard · sanitizzazione spazi bianchi</div>
+        </div>
+
+        <div class="card" style="margin-top: 24px;">
+          <div class="label">Colonne</div>
+          <div class="chip-row" style="margin-top: 14px;">
+            <span class="tag">#</span><span class="tag">Index</span><span class="tag">Time</span><span class="tag">Timestamp</span><span class="tag">Level</span>
+            <span class="tag">ECU</span><span class="tag">APID</span><span class="tag">CTID</span><span class="tag">Domain</span><span class="tag">Payload</span><span class="tag">Source Query</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="col">
+        <div class="card">
+          <div class="label">Navigazione log</div>
+          <div class="stack" style="margin-top: 12px;">
+            <div>
+              <div style="font-weight:600; font-size: 22px;">highlightIndices()</div>
+              <div class="small">Setta i marker manuali in DLT Viewer · le entry diventano evidenziate.</div>
+            </div>
+            <div>
+              <div style="font-weight:600; font-size: 22px;">Double-click → scrollToEntry()</div>
+              <div class="small">Trova indice, imposta marker, seleziona l'entry nella vista principale.</div>
+            </div>
+            <div>
+              <div style="font-weight:600; font-size: 22px;">Limiti operativi</div>
+              <div class="row" style="gap: 24px; margin-top: 10px;">
+                <div><div style="font-size:28px; font-weight:600;">1 000</div><div class="small">display cap</div></div>
+                <div><div style="font-size:28px; font-weight:600;">500 000</div><div class="small">entry max</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="footer"><div>DLT Chat Plugin</div><div>21</div></div>
+</section>
+
+<!-- 22 — CONFIGURAZIONE -->
+<section data-screen-label="22 Configurazione">
+  <div class="chrome">
+    <div><span class="dot"></span>Operazioni</div>
+    <div>17 / Configurazione</div>
+  </div>
+  <div class="pad" style="padding-top: 140px;">
+    <div class="eyebrow">Persistenza · dlt_chat_plugin.ini</div>
+    <h2 class="slide">Configurazione semplice, persistente.</h2>
+
+    <div class="row" style="gap: 32px;">
+      <div class="col" style="flex: 1.1;">
+        <pre class="code"><span class="c">[Analyzer]</span>
+type=rule-based
+llmEndpoint=http://localhost:11434/api/generate
+llmApiKey=
+llmModel=qwen2.5:0.5b
+
+<span class="c">[Behavior]</span>
+maxResults=1000
+llmTimeout=120
+highlightColor=#FFFF00
+userFiltersPath=</pre>
+      </div>
+      <div class="col">
+        <table class="t">
+          <thead><tr><th>Chiave</th><th>Default</th></tr></thead>
+          <tbody>
+            <tr><td class="mono">type</td><td class="mono">rule-based</td></tr>
+            <tr><td class="mono">llmEndpoint</td><td class="mono">localhost:11434</td></tr>
+            <tr><td class="mono">llmApiKey</td><td><span class="small">(vuoto)</span></td></tr>
+            <tr><td class="mono">llmModel</td><td class="mono">qwen2.5:0.5b</td></tr>
+            <tr><td class="mono">maxResults</td><td class="mono">1000</td></tr>
+            <tr><td class="mono">llmTimeout</td><td class="mono">120 s</td></tr>
+            <tr><td class="mono">highlightColor</td><td class="mono">#FFFF00</td></tr>
+            <tr><td class="mono">userFiltersPath</td><td><span class="small">(vuoto)</span></td></tr>
+          </tbody>
+        </table>
+        <div class="small" style="margin-top: 18px; font-family:'JetBrains Mono', monospace;">save: saveConfig() su shutdown · load: loadConfig() su avvio.</div>
+      </div>
+    </div>
+  </div>
+  <div class="footer"><div>DLT Chat Plugin</div><div>22</div></div>
+</section>
+
+<!-- 23 — TEST SUITE -->
+<section data-screen-label="23 Test suite">
+  <div class="chrome">
+    <div><span class="dot"></span>Qualità</div>
+    <div>18 / Test suite</div>
+  </div>
+  <div class="pad" style="padding-top: 140px;">
+    <div class="eyebrow">Test suite</div>
+    <h2 class="slide">~55 test case · 5 suite.</h2>
+
+    <div class="row" style="gap: 32px;">
+      <div class="col">
+        <div class="statline">
+          <div class="stat"><div class="v">~55</div><div class="l">test case totali</div></div>
+          <div class="stat"><div class="v">5</div><div class="l">suite</div></div>
+        </div>
+
+        <div class="card" style="margin-top: 32px;">
+          <div class="label">Suite</div>
+          <table class="t" style="margin-top: 8px;">
+            <tbody>
+              <tr><td class="mono">test_rulebasedanalyzer</td><td>17 test</td><td class="small">comandi · filtri · simplifyPayload</td></tr>
+              <tr><td class="mono">test_automotivelogparser</td><td>14 test</td><td class="small">classificazione CarPlay / AA · eventi · preset</td></tr>
+              <tr><td class="mono">test_llmutils</td><td>9 test</td><td class="small">parsing risposta · build prompt · request body</td></tr>
+              <tr><td class="mono">test_dltexport</td><td>7 test</td><td class="small">CSV escaping · sanitizzazione · export full</td></tr>
+              <tr><td class="mono">test_userfiltermanager</td><td>8 test</td><td class="small">load · match domain / level · enabled count</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="col">
+        <pre class="code"><span class="c"># Esecuzione</span>
+$ cd tests
+$ mkdir build && cd build
+$ cmake ..
+$ cmake --build .
+$ ctest
+
+<span class="c"># Output</span>
+Test project /…/dlt-chat-plugin/tests/build
+   Start  1: rule-based-analyzer
+   Start  2: automotive-log-parser
+   Start  3: llm-utils
+   Start  4: dlt-export
+   Start  5: user-filter-manager
+
+100% tests passed, 0 tests failed</pre>
+
+        <div class="card" style="margin-top: 24px;">
+          <div class="label">Build matrix</div>
+          <div class="chip-row" style="margin-top:14px;">
+            <span class="tag">Qt 5.15 +</span>
+            <span class="tag">Qt 6.x</span>
+            <span class="tag">CMake 3.16 +</span>
+            <span class="tag">C++17</span>
+            <span class="tag">Linux</span>
+            <span class="tag">Windows MSVC</span>
+            <span class="tag">Windows MinGW</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="footer"><div>DLT Chat Plugin</div><div>23</div></div>
+</section>
+
+<!-- 24 — SECTION DIVIDER · DEMO -->
+<section class="section-divider" data-screen-label="24 Sezione · Demo">
+  <div class="chrome">
+    <div><span class="dot"></span>Parte V</div>
+    <div>Demo</div>
+  </div>
+  <div class="pad" style="display:flex; flex-direction:column; justify-content:center; height:100%;">
+    <div class="eyebrow">Parte 05</div>
+    <h1 class="title" style="color: var(--bg);">Script di demo<br/>in dieci blocchi.</h1>
+    <div class="lede" style="margin-top:48px; max-width: 1200px;">Da zero al wow in 15 minuti: setup, pulsanti, query combinate, comandi speciali, AI, filtri, export, navigazione e resilienza.</div>
+  </div>
+  <div class="footer"><div>DLT Chat Plugin</div><div>24</div></div>
+</section>
+
+<!-- 25 — DEMO SCRIPT 1/2 -->
+<section data-screen-label="25 Demo script 1">
+  <div class="chrome">
+    <div><span class="dot"></span>Demo</div>
+    <div>19 / Script · parte 1</div>
+  </div>
+  <div class="pad" style="padding-top: 140px;">
+    <div class="eyebrow">Demo · blocchi 1–5</div>
+    <h2 class="slide">Setup, pulsanti, query, comandi, ricerca.</h2>
+
+    <div class="grid" style="grid-template-columns: 1fr 1fr; gap: 24px;">
+      <div class="card">
+        <div class="label">Blocco 01 · 2 min</div>
+        <div style="font-size: 26px; font-weight: 600;">Setup e prima impressione</div>
+        <div class="desc">Aprire DLT Viewer con un log CarPlay + Android Auto. Attivare il pannello Chat Log Assistant. Mostrare la griglia 3×7.</div>
+      </div>
+      <div class="card">
+        <div class="label">Blocco 02 · 3 min</div>
+        <div style="font-size: 26px; font-weight: 600;">Pulsanti rapidi</div>
+        <div class="desc">Errors → Warnings → CarPlay → Android Auto → Summary. <em>"21 pulsanti per le operazioni più comuni, zero digitazione"</em>.</div>
+      </div>
+      <div class="card">
+        <div class="label">Blocco 03 · 2 min</div>
+        <div style="font-size: 26px; font-weight: 600;">Query combinate</div>
+        <div class="desc"><span class="mono">error can</span> · <span class="mono">warn carplay timeout</span>. <em>Livello + dominio + categoria per filtri precisi</em>.</div>
+      </div>
+      <div class="card">
+        <div class="label">Blocco 04 · 3 min</div>
+        <div style="font-size: 26px; font-weight: 600;">Comandi speciali</div>
+        <div class="desc"><span class="mono">timeline</span> · <span class="mono">pattern</span> · <span class="mono">categorizza</span>. Errori classificati in 7 categorie.</div>
+      </div>
+      <div class="card" style="grid-column: span 2;">
+        <div class="label">Blocco 05 · 1 min</div>
+        <div style="font-size: 26px; font-weight: 600;">Ricerca testo libero</div>
+        <div class="desc">Digitare una keyword qualsiasi. Inverted index per risposta immediata, regex fallback se 0 token validi.</div>
+      </div>
+    </div>
+  </div>
+  <div class="footer"><div>DLT Chat Plugin</div><div>25</div></div>
+</section>
+
+<!-- 26 — DEMO SCRIPT 2/2 -->
+<section data-screen-label="26 Demo script 2">
+  <div class="chrome">
+    <div><span class="dot"></span>Demo</div>
+    <div>20 / Script · parte 2</div>
+  </div>
+  <div class="pad" style="padding-top: 140px;">
+    <div class="eyebrow">Demo · blocchi 6–10</div>
+    <h2 class="slide">AI, filtri, export, navigazione, resilienza.</h2>
+
+    <div class="grid" style="grid-template-columns: 1fr 1fr; gap: 24px;">
+      <div class="card">
+        <div class="label">Blocco 06 · 3 min</div>
+        <div style="font-size: 26px; font-weight: 600;">AI / LLM</div>
+        <div class="desc">Aprire dialog AI · provider · Test Connection. Query: <span class="mono">"Find all timeout errors related to iAP2 handshake"</span>. Risposta con indici cliccabili.</div>
+      </div>
+      <div class="card">
+        <div class="label">Blocco 07 · 2 min</div>
+        <div style="font-size: 26px; font-weight: 600;">Filtri utente</div>
+        <div class="desc">Mostrare <span class="mono">automotive_filters_example.json</span> · configurare path · eseguire query · evidenziazione a colori.</div>
+      </div>
+      <div class="card">
+        <div class="label">Blocco 08 · 1 min</div>
+        <div style="font-size: 26px; font-weight: 600;">CSV export</div>
+        <div class="desc">Click su <strong>CSV</strong> dopo una query. Aprire il file. Pronto per condivisione con team validazione.</div>
+      </div>
+      <div class="card">
+        <div class="label">Blocco 09 · 1 min</div>
+        <div style="font-size: 26px; font-weight: 600;">Navigazione</div>
+        <div class="desc">Double-click su un risultato. DLT Viewer salta all'entry corrispondente. <em>Bidirezionale: dalla risposta al log e viceversa</em>.</div>
+      </div>
+      <div class="card" style="grid-column: span 2;">
+        <div class="label">Blocco 10 · 1 min (opzionale)</div>
+        <div style="font-size: 26px; font-weight: 600;">Resilienza AI</div>
+        <div class="desc">Disconnettere Ollama/OpenAI · ripetere una query. Il plugin cade automaticamente su rule-based. <em>"L'AI è un plus, non un punto di fallimento"</em>.</div>
+      </div>
+    </div>
+  </div>
+  <div class="footer"><div>DLT Chat Plugin</div><div>26</div></div>
+</section>
+
+<!-- 27 — FAQ -->
+<section data-screen-label="27 FAQ">
+  <div class="chrome">
+    <div><span class="dot"></span>Closing</div>
+    <div>21 / Domande frequenti</div>
+  </div>
+  <div class="pad" style="padding-top: 140px;">
+    <div class="eyebrow">FAQ</div>
+    <h2 class="slide">Cosa chiedono di solito.</h2>
+
+    <table class="t" style="margin-top: 8px;">
+      <thead><tr><th style="width:540px;">Domanda</th><th>Risposta</th></tr></thead>
+      <tbody>
+        <tr><td class="k">Serve obbligatoriamente un LLM?</td><td>No. L'analisi rule-based è completa e sempre disponibile; l'AI è opzionale.</td></tr>
+        <tr><td class="k">Quali modelli LLM supporta?</td><td>Qualsiasi modello Ollama locale, GPT (OpenAI) o provider compatibile via Custom.</td></tr>
+        <tr><td class="k">Come gestisce file di log grandi?</td><td>Entry limit 500k · display cap 1k · inverted index O(K) per le ricerche.</td></tr>
+        <tr><td class="k">Funziona su Linux e Windows?</td><td>Sì. Qt è multipiattaforma; testato sia su Linux che Windows (MSVC e MinGW).</td></tr>
+        <tr><td class="k">Come si configura l'AI?</td><td>Dialog grafico con Test Connection, oppure file INI <span class="mono">dlt_chat_plugin.ini</span>.</td></tr>
+        <tr><td class="k">Si possono aggiungere filtri custom?</td><td>Sì. File JSON con regex, campi, colori, vincoli per livello e dominio.</td></tr>
+        <tr><td class="k">Come si estende il plugin?</td><td>Implementando <span class="mono">DltAnalyzerInterface</span> — pattern Strategy, nuovo backend, zero modifiche al core.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="footer"><div>DLT Chat Plugin</div><div>27</div></div>
+</section>
+
+<!-- 28 — CHIUSURA -->
+<section data-screen-label="28 Chiusura">
+  <div class="chrome">
+    <div><span class="dot"></span>Grazie</div>
+    <div>Fine</div>
+  </div>
+  <div class="pad" style="display:flex; flex-direction:column; justify-content:center; height:100%;">
+    <div style="max-width: 1300px;">
+      <div class="eyebrow">DLT Chat Plugin · v0.4.0 · MPL-2.0</div>
+      <h1 class="title">Chatta. Filtra.<br/>Esporta. Ripeti.</h1>
+      <div class="lede" style="margin-top: 48px;">
+        Un assistente conversazionale nativo per chi vive nei log automotive — dalla prima ispezione al report finale, senza mai uscire da DLT Viewer.
+      </div>
+      <div style="margin-top: 80px;" class="row">
+        <div class="col">
+          <div class="label small mono" style="letter-spacing:0.14em; text-transform:uppercase; color: var(--muted);">Stack</div>
+          <div style="font-size: 24px; margin-top: 6px;">Qt 5.15+ / 6.x · C++17 · CMake</div>
+        </div>
+        <div class="col">
+          <div class="label small mono" style="letter-spacing:0.14em; text-transform:uppercase; color: var(--muted);">Licenza</div>
+          <div style="font-size: 24px; margin-top: 6px;">MPL-2.0</div>
+        </div>
+        <div class="col">
+          <div class="label small mono" style="letter-spacing:0.14em; text-transform:uppercase; color: var(--muted);">Host</div>
+          <div style="font-size: 24px; margin-top: 6px;">COVESA DLT Viewer plugin</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="hero-mark" style="opacity: 0.6;">
+    <div class="core">END · v0.4</div>
+  </div>
+  <div class="footer"><div>Grazie</div><div>28</div></div>
+</section>
+
+</deck-stage>
+
+</body>
+</html>

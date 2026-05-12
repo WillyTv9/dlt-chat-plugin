@@ -4,6 +4,7 @@
 [![Qt Version](https://img.shields.io/badge/Qt-5.15+%2F6.x-green.svg)](https://www.qt.io/)
 [![DLT Viewer](https://img.shields.io/badge/DLT_Viewer-2.30.0+-orange.svg)](https://github.com/COVESA/dlt-viewer)
 [![Version](https://img.shields.io/badge/Version-0.3.0-blue.svg)](.)
+[![Presentation](https://img.shields.io/badge/📊-Presentation-blue?style=flat&labelColor=555)](https://WillyTv9.github.io/dlt-chat-plugin/)
 
 A chat-based log analysis plugin for COVESA DLT Viewer with rule-based analysis and optional AI (LLM) integration.
 
