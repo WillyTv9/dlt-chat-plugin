@@ -38,6 +38,7 @@ signals:
     void exportRequested(const QString &path, const QList<int> &indices,
                          const QStringList &snippets, const QString &query);
     void exportAllRequested(const QString &path);
+    void userFilterLoadRequested(const QString &path);
 
 private slots:
     void onSendClicked();
@@ -47,6 +48,7 @@ private slots:
     void onExportCsvClicked();
     void onExportAllClicked();
     void onQuickActionClicked();
+    void onFilterLoadClicked();
 
 private:
     QLabel *title;
@@ -63,6 +65,8 @@ private:
     QPushButton *clearButton;
     QPushButton *exportCsvButton;
     QPushButton *exportAllButton;
+    QPushButton *filterLoadButton;
+    QLabel *aiDisclaimer;
     QString lastQuery;
 };
 
