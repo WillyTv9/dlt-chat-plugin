@@ -16,6 +16,8 @@
 #include "dltanalyzerinterface.h"
 #include "dltllmanalyzerinterface.h"
 #include "dltaioptionsdialog.h"
+#include "automotivelogparser.h"
+#include "userfiltermanager.h"
 #include "qdltmessagedecoder.h"
 #include "qdltfile.h"
 
@@ -71,6 +73,7 @@ public:
 
 signals:
     void statusChanged(const QString &text);
+    void onAiAvailabilityChanged(int state, const QString &modelName);
 
 private slots:
     void onQuerySubmitted(const QString &query);
@@ -81,7 +84,7 @@ private slots:
     void onExportRequested(const QString &filePath, const QList<int> &indices, const QStringList &snippets, const QString &query);
     void onExportAllRequested(const QString &filePath);
     void onLlmResultReady(const DltAnalyzerInterface::QueryResult &result, const QString &originalQuery);
-    void onAiAvailabilityChanged(int state, const QString &modelName);
+    void onUserFilterLoadRequested(const QString &path);
 
 private:
     void clearData();
@@ -95,6 +98,11 @@ private:
     void checkAiAvailabilityAsync();
     QStringList extractKeywords(const QString &text) const;
     void setAiState(int state, const QString &modelName = QString());
+    QString buildUserFilterContextHtml() const;
+    int aiAvailabilityBackoffMs() const;
+    QList<int> liveSearch(const QString &query) const;
+    void applyUserFilterHighlights();
+    void updateDomainStatus();
 
     QString errorText;
     DltChat::Form *form;
@@ -105,13 +113,17 @@ private:
 
     QVector<DltAnalyzerInterface::LogEntry> entries;
     QHash<int, int> indexToPos;
-    QMutex entriesMutex;
+    mutable QMutex entriesMutex;
 
     QHash<QString, QSet<int>> invertedIndex;
     QSet<QString> indexStopwords;
 
     QHash<int, int> filterRowMap;
     mutable bool filterRowMapDirty = false;
+
+    UserFilterManager *m_userFilterManager;
+    QHash<int, QColor> m_highlightMap;
+    static constexpr int kMaxDisplayResults = 1000;
 
     DltAnalyzerInterface *m_analyzer;
     DltRuleBasedAnalyzer *m_ruleBasedAnalyzer;
@@ -125,6 +137,9 @@ private:
 
     mutable QMutex m_llmMutex;
     bool m_llmRequestInProgress = false;
+    QElapsedTimer m_llmRequestTimer;
+    int m_aiAvailabilityRetryCount = 0;
+    QHash<QString, DltAnalyzerInterface::QueryResult> m_aiResponseCache;
 };
 
 #endif

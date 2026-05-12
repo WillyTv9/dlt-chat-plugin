@@ -13,12 +13,16 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QCryptographicHash>
 
-static constexpr int kMaxFilterResults = 200;
+static constexpr int kMaxFilterResults = 1000;
 static constexpr int kAIPreFilterMax = 100;
 static constexpr int kSnippetLength = 120;
 static constexpr int kPayloadTruncateAt = 500;
 static constexpr int kPreviewCount = 20;
+static constexpr int kAICacheMaxEntries = 10000;
+static constexpr int kAIDebounceMs = 500;
+static constexpr int kMaxEntriesLimit = 500000;
 
 static const char *STOPWORDS[] = {
     "the", "and", "this", "that", "what", "which", "with", "from", "have", "been",
@@ -35,15 +39,24 @@ DltChatPlugin::DltChatPlugin()
     , highlightColor(255, 230, 128)
     , m_analyzer(nullptr), m_ruleBasedAnalyzer(nullptr), m_llmAnalyzer(nullptr)
     , m_currentAnalyzerType("rule-based")
+    , m_aiAvailabilityRetryCount(0)
 {
     indexStopwords.reserve(70);
     for (const char *w : STOPWORDS)
         indexStopwords.insert(QString::fromLatin1(w));
     setupDefaultAnalyzer();
+
+    m_userFilterManager = new UserFilterManager(this);
+    connect(m_userFilterManager, &UserFilterManager::filtersChanged,
+            this, [this]() {
+                applyUserFilterHighlights();
+                updateDomainStatus();
+            });
 }
 
 DltChatPlugin::~DltChatPlugin()
 {
+    delete m_userFilterManager;
     delete m_llmAnalyzer;
     delete m_ruleBasedAnalyzer;
 }
@@ -54,7 +67,7 @@ void DltChatPlugin::setupDefaultAnalyzer()
     m_analyzer = m_ruleBasedAnalyzer;
 
     m_llmAnalyzer = DltLlmAnalyzerFactory::createOllamaAnalyzer(
-        "http://localhost:11434", "qwen3.5:4b", this);
+        "http://localhost:11434", "qwen2.5:0.5b", this);
 
     connect(m_llmAnalyzer, &DltLlmAnalyzerInterface::queryResultReady,
             this, &DltChatPlugin::onLlmResultReady);
@@ -72,6 +85,18 @@ static QStringList buildLevels(const QHash<int,int> &idxMap,
         l.append(p >= 0 && p < ents.size() ? ents[p].level : QString());
     }
     return l;
+}
+
+static QString buildAiCacheKey(const QString &query, const QVector<DltAnalyzerInterface::LogEntry> &entries)
+{
+    QCryptographicHash hash(QCryptographicHash::Sha1);
+    hash.addData(query.toUtf8());
+    int n = qMin(entries.size(), 20);
+    for (int i = 0; i < n; ++i) {
+        hash.addData(QByteArray::number(entries[i].index));
+    }
+    hash.addData(QByteArray::number(entries.size()));
+    return hash.result().toHex();
 }
 
 void DltChatPlugin::checkAiAvailabilityAsync()
@@ -102,6 +127,7 @@ void DltChatPlugin::checkAiAvailabilityAsync()
                     QString name = m.toObject()["name"].toString();
                     if (name.startsWith(m_llmAnalyzer->modelName()))
                     {
+                        m_aiAvailabilityRetryCount = 0;
                         setAiState(2, m_llmAnalyzer->modelName());
                         return;
                     }
@@ -119,11 +145,25 @@ void DltChatPlugin::checkAiAvailabilityAsync()
 void DltChatPlugin::setAiState(int state, const QString &modelName)
 {
     m_aiState = state;
-    if (state == 2) m_aiModelName = modelName;
-    else if (state == 1) m_aiModelName = modelName.isEmpty() ? m_llmAnalyzer->modelName() : modelName;
-    else m_aiModelName.clear();
+    if (state == 2) {
+        m_aiModelName = modelName;
+        m_aiAvailabilityRetryCount = 0;
+    } else if (state == 1) {
+        m_aiModelName = modelName.isEmpty() ? m_llmAnalyzer->modelName() : modelName;
+        m_aiAvailabilityRetryCount++;
+    } else {
+        m_aiModelName.clear();
+        m_aiAvailabilityRetryCount = 0;
+    }
     m_aiAvailabilityTimer.start();
     emit onAiAvailabilityChanged(state, m_aiModelName);
+}
+
+int DltChatPlugin::aiAvailabilityBackoffMs() const
+{
+    if (m_aiAvailabilityRetryCount <= 1) return 5000;
+    if (m_aiAvailabilityRetryCount <= 3) return 15000;
+    return 60000;
 }
 
 QString DltChatPlugin::name() { return QString("Chat Log Assistant"); }
@@ -149,7 +189,7 @@ bool DltChatPlugin::loadConfig(QString filename)
     setAnalyzerType(t);
     QString ep = settings.value("llmEndpoint", "").toString();
     QString key = settings.value("llmApiKey", "").toString();
-    QString model = settings.value("llmModel", "qwen3.5:4b").toString();
+    QString model = settings.value("llmModel", "qwen2.5:0.5b").toString();
     if (!ep.isEmpty()) configureLlmAnalyzer(ep, key, model);
     settings.endGroup();
     settings.beginGroup("Behavior");
@@ -200,6 +240,8 @@ QWidget* DltChatPlugin::initViewer()
     connect(form, &DltChat::Form::exportAllRequested, this, &DltChatPlugin::onExportAllRequested);
     connect(this, &DltChatPlugin::statusChanged, form, &DltChat::Form::setStatusText, Qt::QueuedConnection);
     connect(this, &DltChatPlugin::onAiAvailabilityChanged, form, &DltChat::Form::setAiStatus, Qt::QueuedConnection);
+    connect(form, &DltChat::Form::userFilterLoadRequested,
+            this, &DltChatPlugin::onUserFilterLoadRequested);
 
     applyConfigToForm();
     return form;
@@ -222,9 +264,7 @@ void DltChatPlugin::initFileStart(QDltFile *file)
 void DltChatPlugin::initFileFinish()
 {
     rebuildFilterRowMap();
-    int count = 0;
-    { QMutexLocker l(&entriesMutex); count = entries.size(); }
-    updateStatus(QString("Loaded %1 messages. [%2]").arg(count).arg(m_currentAnalyzerType));
+    updateDomainStatus();
 }
 
 void DltChatPlugin::initMsg(int idx, QDltMsg &msg) { ingestMessage(idx, msg); }
@@ -236,9 +276,7 @@ void DltChatPlugin::updateMsgDecoded(int idx, QDltMsg &msg) { ingestMessage(idx,
 void DltChatPlugin::updateFileFinish()
 {
     rebuildFilterRowMap();
-    int c = 0;
-    { QMutexLocker l(&entriesMutex); c = entries.size(); }
-    updateStatus(QString("Updated: %1 messages.").arg(c));
+    updateDomainStatus();
 }
 
 void DltChatPlugin::selectedIdxMsg(int, QDltMsg &) {}
@@ -275,6 +313,8 @@ void DltChatPlugin::configureLlmAnalyzer(const QString &ep, const QString &key, 
     m_llmAnalyzer->setApiEndpoint(ep);
     m_llmAnalyzer->setApiKey(key);
     m_llmAnalyzer->setModelName(model);
+    m_aiAvailabilityRetryCount = 0;
+    m_aiResponseCache.clear();
     checkAiAvailabilityAsync();
     applyConfigToForm();
 }
@@ -295,6 +335,22 @@ QStringList DltChatPlugin::extractKeywords(const QString &text) const
     return kw;
 }
 
+QString DltChatPlugin::buildUserFilterContextHtml() const
+{
+    if (!m_userFilterManager || m_userFilterManager->activeFilterCount() == 0)
+        return QString();
+
+    QString html = "<br><small><b>Filtri attivi:</b> ";
+    QStringList names;
+    for (const auto &f : m_userFilterManager->filters()) {
+        if (f.enabled && f.isValid)
+            names.append(f.label);
+    }
+    html += names.join(", ");
+    html += "</small>";
+    return html;
+}
+
 void DltChatPlugin::onQuerySubmitted(const QString &query)
 {
     if (!form) return;
@@ -303,65 +359,163 @@ void DltChatPlugin::onQuerySubmitted(const QString &query)
     QVector<DltAnalyzerInterface::LogEntry> snapshot;
     { QMutexLocker l(&entriesMutex); snapshot = entries; }
 
+    if (snapshot.isEmpty()) {
+        form->appendMessage("Chat Assistant", "Nessun log caricato. Apri un file DLT.");
+        form->setResults(QList<int>(), QStringList(), QStringList());
+        return;
+    }
+
     QElapsedTimer timer;
     timer.start();
 
-    QStringList keywords = extractKeywords(query);
-    QSet<int> matched;
-    if (!keywords.isEmpty())
-    {
-        auto it = invertedIndex.constFind(keywords[0]);
-        if (it != invertedIndex.constEnd())
-            matched = it.value();
-        for (int k = 1; k < keywords.size() && !matched.isEmpty(); ++k)
-            matched.intersect(invertedIndex.value(keywords[k]));
-    }
+    QString lq = query.trimmed().toLower();
 
-    QStringList matchedKw;
-    if (query.contains("error") || query.contains("errore")) matchedKw << "error";
-    if (query.contains("fatal") || query.contains("fatale")) matchedKw << "fatal";
-    if (query.contains("warn")) matchedKw << "warn";
-    if (query.contains("info")) matchedKw << "info";
-    if (query.contains("debug")) matchedKw << "debug";
-    if (query.contains("verbose")) matchedKw << "verbose";
+    // --- ROUTING ---
 
-    QVector<DltAnalyzerInterface::LogEntry> filtered;
-    if (!matchedKw.isEmpty() || !keywords.isEmpty())
-    {
-        filtered.reserve(snapshot.size());
-        for (const auto &entry : snapshot)
-        {
-            if (!matchedKw.isEmpty() && !matchedKw.contains(entry.level)) continue;
-            if (!matched.isEmpty() && !matched.contains(entry.index)) continue;
-            filtered.append(entry);
-            if (filtered.size() >= kMaxFilterResults) break;
+    // 1. Quick Button / Preset automotive match
+    static const QHash<QString, QString> presetMap = {
+        {"carplay", "carplay"},
+        {"androidauto", "androidauto"},
+        {"video_focus", "video_focus"},
+        {"audio_ducking", "audio_ducking"},
+        {"mdns", "mdns"},
+        {"sensor_data", "sensor_data"},
+        {"auth_errors", "auth_errors"},
+        {"session", "session"},
+    };
+
+    auto presetIt = presetMap.constFind(lq);
+    if (presetIt != presetMap.constEnd()) {
+        QString presetName = presetIt.value();
+        auto filtered = AutomotiveLogParser::filterByPreset(snapshot, presetName);
+        DltAnalyzerInterface::QueryResult result;
+        if (filtered.isEmpty()) {
+            result.responseHtml = QString("Nessun messaggio <b>%1</b> trovato.").arg(presetName);
+            result.success = true;
+        } else {
+            result = m_ruleBasedAnalyzer->analyzeQuery(query, filtered);
         }
+        result.processingTimeMs = timer.elapsed();
+        {
+            int totalIdx = result.indices.size();
+            int displayIdx = qMin(totalIdx, kMaxDisplayResults);
+            if (totalIdx > displayIdx) {
+                result.snippets = result.snippets.mid(0, displayIdx);
+                result.responseHtml += QString("<br><em>Mostrati %1 su %2 risultati totali.</em>")
+                    .arg(displayIdx).arg(totalIdx);
+            }
+        }
+        QString html = result.responseHtml;
+        html += buildUserFilterContextHtml();
+        if (result.processingTimeMs > 0)
+            html += QString("<br><small>%1ms</small>").arg(result.processingTimeMs);
+        form->appendMessage("Chat Assistant", html);
+        {
+            QMutexLocker lk(&entriesMutex);
+            int displayIdx = qMin(result.indices.size(), kMaxDisplayResults);
+            QList<int> displayIndices = result.indices.mid(0, displayIdx);
+            QStringList displaySnippets = result.snippets.mid(0, displayIdx);
+            QStringList lvls = buildLevels(indexToPos, entries, displayIndices);
+            form->setResults(displayIndices, displaySnippets, lvls);
+        }
+        highlightIndices(result.indices);
+        return;
     }
-    else filtered = snapshot;
 
-    DltAnalyzerInterface::QueryResult result;
-    if (filtered.isEmpty())
-    {
-        result.responseHtml = query.contains("summary") || query.contains("riassumi")
-            ? m_ruleBasedAnalyzer->analyzeQuery(query, snapshot).responseHtml
-            : "Nessun risultato. Prova altre parole chiave o 'riassumi'.";
-        result.success = !result.responseHtml.isEmpty();
+    // 2. Check if this is a special command for the rule-based analyzer
+    bool isSpecial = false;
+    const QStringList specialCommands = {
+        "summary", "riassumi", "sintesi", "statistiche",
+        "timeline", "cronologia",
+        "help", "aiuto", "comandi",
+        "keywords", "categorie",
+        "pattern"
+    };
+    for (const auto &cmd : specialCommands) {
+        if (lq == cmd || lq.startsWith(cmd + " ")) { isSpecial = true; break; }
     }
-    else
-    {
-        result = m_ruleBasedAnalyzer->analyzeQuery(query, filtered);
+    // Level-only queries
+    if (lq.contains("error") || lq.contains("errore") || lq.contains("fatal") ||
+        lq.contains("warn") || lq == "info" || lq == "debug" || lq == "verbose")
+        isSpecial = true;
+    // Category queries
+    const QStringList categories = {"can", "security", "memory", "performance",
+                                     "diagnostic", "gps"};
+    for (const auto &cat : categories) {
+        if (lq.contains(cat)) { isSpecial = true; break; }
     }
 
+    if (!isSpecial) {
+        // Live Search — process ALL entries, display capped
+        QList<int> searchIndices = liveSearch(lq);
+        int totalResults = searchIndices.size();
+
+        // Build snippets for display only (keep performance)
+        QStringList snippets;
+        int displayCount = qMin(totalResults, kMaxDisplayResults);
+        snippets.reserve(displayCount);
+        {
+            QMutexLocker lk(&entriesMutex);
+            for (int i = 0; i < displayCount; ++i) {
+                int pos = indexToPos.value(searchIndices[i], -1);
+                if (pos >= 0 && pos < entries.size())
+                    snippets.append(entries[pos].payload.left(kSnippetLength));
+                else
+                    snippets.append(QString());
+            }
+        }
+
+        QString html;
+        if (searchIndices.isEmpty()) {
+            html = "Nessun risultato per <b>" + query.toHtmlEscaped() + "</b>.<br>"
+                   "Suggerimenti: prova <b>riassumi</b> per statistiche, o un livello (error/warn/info/debug).";
+        } else {
+            html = QString("Trovati <b>%1</b> risultati per <b>%2</b> su %3 totali.<br>")
+                .arg(totalResults).arg(query.toHtmlEscaped()).arg(snapshot.size());
+            QStringList preview;
+            for (int i = 0; i < qMin(20, totalResults); ++i)
+                preview.append(QString::number(searchIndices[i]));
+            html += QString("Primi indici: %1").arg(preview.join(", "));
+            if (totalResults > 20)
+                html += QString(" (+%1 totali)").arg(totalResults - 20);
+            if (totalResults > displayCount)
+                html += QString("<br><em>Mostrati %1 su %2 risultati.</em>").arg(displayCount).arg(totalResults);
+        }
+        html += buildUserFilterContextHtml();
+        html += QString("<br><small>%1ms</small>").arg(timer.elapsed());
+        form->appendMessage("Chat Assistant", html);
+        {
+            QMutexLocker lk(&entriesMutex);
+            QStringList lvls = buildLevels(indexToPos, entries, searchIndices.mid(0, displayCount));
+            form->setResults(searchIndices.mid(0, displayCount), snippets, lvls);
+        }
+        // Highlight ALL indices (not just displayed ones)
+        highlightIndices(searchIndices);
+        return;
+    }
+
+    // 3. Special commands delegate to rule-based analyzer (process ALL, display capped)
+    DltAnalyzerInterface::QueryResult result = m_ruleBasedAnalyzer->analyzeQuery(query, snapshot);
     result.processingTimeMs = timer.elapsed();
+    {
+        int totalIdx = result.indices.size();
+        int displayIdx = qMin(totalIdx, kMaxDisplayResults);
+        if (totalIdx > displayIdx)
+            result.responseHtml += QString("<br><em>Mostrati %1 su %2 risultati totali.</em>")
+                .arg(displayIdx).arg(totalIdx);
+    }
     QString html = result.responseHtml;
+    html += buildUserFilterContextHtml();
     if (result.processingTimeMs > 0)
         html += QString("<br><small>%1ms</small>").arg(result.processingTimeMs);
-
     form->appendMessage("Chat Assistant", html);
     {
         QMutexLocker lk(&entriesMutex);
-        QStringList lvls = buildLevels(indexToPos, entries, result.indices);
-        form->setResults(result.indices, result.snippets, lvls);
+        int displayIdx = qMin(result.indices.size(), kMaxDisplayResults);
+        QList<int> displayIndices = result.indices.mid(0, displayIdx);
+        QStringList displaySnippets = result.snippets.mid(0, displayIdx);
+        QStringList lvls = buildLevels(indexToPos, entries, displayIndices);
+        form->setResults(displayIndices, displaySnippets, lvls);
     }
     highlightIndices(result.indices);
 }
@@ -369,11 +523,31 @@ void DltChatPlugin::onQuerySubmitted(const QString &query)
 void DltChatPlugin::onAiQuerySubmitted(const QString &query)
 {
     if (!form) return;
+
+    // Rate limiting guard
+    {
+        QMutexLocker lk(&m_llmMutex);
+        if (m_llmRequestInProgress) {
+            qint64 elapsed = m_llmRequestTimer.elapsed();
+            if (elapsed < kAIDebounceMs) {
+                form->appendMessage("AI Assistant",
+                    "Richiesta gia in elaborazione. Attendere...");
+                return;
+            }
+        }
+    }
+
     form->appendMessage("Tu (AI)", query.toHtmlEscaped());
     form->setProcessingProgress(true);
 
     QVector<DltAnalyzerInterface::LogEntry> snapshot;
     { QMutexLocker l(&entriesMutex); snapshot = entries; }
+
+    if (snapshot.isEmpty()) {
+        form->setProcessingProgress(false);
+        form->appendMessage("AI Assistant", "Nessun log caricato. Apri un file DLT.");
+        return;
+    }
 
     if (m_aiState != 2 || !m_llmAnalyzer)
     {
@@ -394,8 +568,9 @@ void DltChatPlugin::onAiQuerySubmitted(const QString &query)
 
         auto result = m_ruleBasedAnalyzer->analyzeQuery(query, pre.isEmpty() ? snapshot : pre);
         result.processingTimeMs = timer.elapsed();
-        form->appendMessage("AI Assistant (fallback)", result.responseHtml
-            + "<br><em>AI non disponibile, analisi locale.</em>");
+        QString html = result.responseHtml + "<br><em>AI non disponibile, analisi locale.</em>";
+        html += buildUserFilterContextHtml();
+        form->appendMessage("AI Assistant (fallback)", html);
         form->setResults(result.indices, result.snippets,
             buildLevels(indexToPos, entries, result.indices));
         highlightIndices(result.indices);
@@ -421,6 +596,44 @@ void DltChatPlugin::onAiQuerySubmitted(const QString &query)
     if (prefiltered.isEmpty()) prefiltered = snapshot;
     if (prefiltered.size() > kAIPreFilterMax) prefiltered.resize(kAIPreFilterMax);
 
+    // Check cache
+    {
+        QMutexLocker lk(&m_llmMutex);
+        QString cacheKey = buildAiCacheKey(query, prefiltered);
+        auto it = m_aiResponseCache.find(cacheKey);
+        if (it != m_aiResponseCache.end()) {
+            form->setProcessingProgress(false);
+            const auto &cached = it.value();
+            QString html = cached.responseHtml + "<br><small>(risposta cache)</small>";
+            html += buildUserFilterContextHtml();
+            form->appendMessage("AI Assistant", html);
+            form->setResults(cached.indices, cached.snippets,
+                buildLevels(indexToPos, entries, cached.indices));
+            highlightIndices(cached.indices);
+            return;
+        }
+    }
+
+    {
+        QMutexLocker lk(&m_llmMutex);
+        m_llmRequestInProgress = true;
+        m_llmRequestTimer.start();
+    }
+
+    // Add user filter context to the LLM analyzer
+    QString filterContext;
+    if (m_userFilterManager && m_userFilterManager->activeFilterCount() > 0) {
+        QStringList activeFilters;
+        for (const auto &f : m_userFilterManager->filters()) {
+            if (f.enabled && f.isValid)
+                activeFilters.append(QString("%1 (pattern: %2)")
+                    .arg(f.label, f.regex.pattern()));
+        }
+        if (!activeFilters.isEmpty())
+            filterContext = "\nUser-defined active filters:\n" + activeFilters.join("\n");
+    }
+
+    m_llmAnalyzer->setExtraContext(filterContext);
     m_llmAnalyzer->analyzeQueryAsync(query, prefiltered);
 }
 
@@ -429,16 +642,31 @@ void DltChatPlugin::onLlmResultReady(const DltAnalyzerInterface::QueryResult &re
     if (!form) return;
     form->setProcessingProgress(false);
 
+    {
+        QMutexLocker lk(&m_llmMutex);
+        m_llmRequestInProgress = false;
+    }
+
+    // Cache the result
+    if (result.success) {
+        QMutexLocker lk(&m_llmMutex);
+        QString cacheKey = buildAiCacheKey(originalQuery,
+            QVector<DltAnalyzerInterface::LogEntry>());
+        if (m_aiResponseCache.size() >= kAICacheMaxEntries)
+            m_aiResponseCache.clear();
+        m_aiResponseCache.insert(cacheKey, result);
+    }
+
     QString html = result.responseHtml;
     if (!result.success)
     {
-        html += "<br><em>Fallback a analisi locale.</em>";
         QVector<DltAnalyzerInterface::LogEntry> snapshot;
         { QMutexLocker l(&entriesMutex); snapshot = entries; }
         auto fb = m_ruleBasedAnalyzer->analyzeQuery(originalQuery, snapshot);
         html = fb.responseHtml + "<br><em>AI non disponibile. Risultato locale.</em>";
         if (fb.processingTimeMs > 0)
             html += QString("<br><small>%1ms</small>").arg(fb.processingTimeMs);
+        html += buildUserFilterContextHtml();
         form->appendMessage("AI Assistant", html);
         form->setResults(fb.indices, fb.snippets,
             buildLevels(indexToPos, entries, fb.indices));
@@ -446,6 +674,7 @@ void DltChatPlugin::onLlmResultReady(const DltAnalyzerInterface::QueryResult &re
         return;
     }
 
+    html += buildUserFilterContextHtml();
     form->appendMessage("AI Assistant", html);
     form->setResults(result.indices, result.snippets,
         buildLevels(indexToPos, entries, result.indices));
@@ -456,7 +685,7 @@ void DltChatPlugin::onConfigureAiClicked()
 {
     if (!m_llmAnalyzer || !form) return;
     DltAiOptionsDialog dlg(form);
-    dlg.setWindowTitle(tr("AI Configuration"));               // Italian: Configurazione AI
+    dlg.setWindowTitle(tr("AI Configuration"));
     dlg.setEndpoint(m_llmAnalyzer->apiEndpoint());
     dlg.setApiKey(m_llmAnalyzer->apiKey());
     dlg.setModel(m_llmAnalyzer->modelName());
@@ -472,6 +701,8 @@ void DltChatPlugin::onConfigureAiClicked()
         m_llmAnalyzer->setMaxTokens(dlg.maxTokens());
         m_llmAnalyzer->setTemperature(dlg.temperature());
         m_llmAnalyzer->setTimeout(dlg.timeoutMs());
+        m_aiAvailabilityRetryCount = 0;
+        m_aiResponseCache.clear();
         checkAiAvailabilityAsync();
     }
 }
@@ -505,19 +736,33 @@ void DltChatPlugin::onClearHighlightsRequested()
 void DltChatPlugin::onExportRequested(const QString &filePath, const QList<int> &indices,
                                        const QStringList &snippets, const QString &query)
 {
+    if (!form) return;
+    if (indices.isEmpty()) {
+        form->appendMessage("Chat Assistant", "Nessun indice da esportare.");
+        return;
+    }
     QVector<DltAnalyzerInterface::LogEntry> snap;
     { QMutexLocker l(&entriesMutex); snap = entries; }
+    if (snap.isEmpty()) {
+        form->appendMessage("Chat Assistant", "Nessun log caricato.");
+        return;
+    }
     bool ok = DltExport::exportToCsv(filePath, indices, snippets, query, snap);
-    if (form) form->appendMessage("Chat Assistant",
+    form->appendMessage("Chat Assistant",
         ok ? QString("Esportati: %1").arg(filePath) : "Errore esportazione.");
 }
 
 void DltChatPlugin::onExportAllRequested(const QString &filePath)
 {
+    if (!form) return;
     QVector<DltAnalyzerInterface::LogEntry> snap;
     { QMutexLocker l(&entriesMutex); snap = entries; }
+    if (snap.isEmpty()) {
+        form->appendMessage("Chat Assistant", "Nessun log caricato.");
+        return;
+    }
     bool ok = DltExport::exportAllEntries(filePath, snap);
-    if (form) form->appendMessage("Chat Assistant",
+    form->appendMessage("Chat Assistant",
         ok ? QString("Tutti esportati: %1 (%2)").arg(filePath).arg(snap.size()) : "Errore esportazione.");
 }
 
@@ -525,15 +770,19 @@ void DltChatPlugin::clearData()
 {
     QMutexLocker l(&entriesMutex);
     entries.clear();
+    entries.squeeze();
     indexToPos.clear();
     invertedIndex.clear();
+    m_aiResponseCache.clear();
 }
 
 void DltChatPlugin::ingestMessage(int index, QDltMsg &msg)
 {
     if (!dltFile) return;
     QMutexLocker l(&entriesMutex);
+
     if (indexToPos.contains(index)) return;
+    if (entries.size() >= kMaxEntriesLimit) return;
 
     QDltMsg m = msg;
     if (messageDecoder) messageDecoder->decodeMsg(m, 0);
@@ -548,6 +797,8 @@ void DltChatPlugin::ingestMessage(int index, QDltMsg &msg)
     e.level = m.getSubtypeString().toLower();
     e.payload = DltRuleBasedAnalyzer::simplifyPayload(m.toStringPayload());
 
+    AutomotiveLogParser::classify(e);
+
     indexToPos.insert(index, entries.size());
     entries.append(e);
 
@@ -555,6 +806,7 @@ void DltChatPlugin::ingestMessage(int index, QDltMsg &msg)
     kw.append(e.level);
     kw.append(e.apid.toLower());
     kw.append(e.ctid.toLower());
+    kw.append(e.domain.toLower());
     kw.removeDuplicates();
     for (const QString &k : kw)
         invertedIndex[k].insert(index);
@@ -579,13 +831,31 @@ int DltChatPlugin::findRowForIndex(int index) const
     return filterRowMap.value(index, -1);
 }
 
-
 void DltChatPlugin::highlightIndices(const QList<int> &indices)
 {
     if (!dltFile) return;
+    QSet<unsigned long int> seen;
+    seen.reserve(indices.size() + m_highlightMap.size());
     QList<unsigned long int> m;
-    m.reserve(indices.size());
-    for (int i : indices) if (i >= 0) m.append(static_cast<unsigned long>(i));
+    m.reserve(indices.size() + m_highlightMap.size());
+    for (int i : indices) {
+        if (i >= 0) {
+            unsigned long ul = static_cast<unsigned long>(i);
+            if (!seen.contains(ul)) {
+                seen.insert(ul);
+                m.append(ul);
+            }
+        }
+    }
+    for (auto it = m_highlightMap.constBegin(); it != m_highlightMap.constEnd(); ++it) {
+        if (it.key() >= 0) {
+            unsigned long ul = static_cast<unsigned long>(it.key());
+            if (!seen.contains(ul)) {
+                seen.insert(ul);
+                m.append(ul);
+            }
+        }
+    }
     dltFile->setManualMarkerIndices(m);
     if (mainTableView) mainTableView->viewport()->update();
 }
@@ -595,9 +865,116 @@ void DltChatPlugin::updateStatus(const QString &text)
     emit statusChanged(text);
 }
 
-void DltChatPlugin::onAiAvailabilityChanged(int state, const QString &modelName)
+QList<int> DltChatPlugin::liveSearch(const QString &rawQuery) const
 {
-    Q_UNUSED(state); Q_UNUSED(modelName);
+    if (rawQuery.isEmpty()) return {};
+
+    QStringList kw = extractKeywords(rawQuery);
+    QMutexLocker lk(&entriesMutex);
+    int total = entries.size();
+
+    if (kw.isEmpty()) {
+        // Fallback: regex search on ALL entries (no limit)
+        QString escaped = QRegularExpression::escape(rawQuery);
+        QRegularExpression rx(escaped, QRegularExpression::CaseInsensitiveOption);
+        if (!rx.isValid()) return {};
+
+        QList<int> results;
+        results.reserve(total / 10);
+        for (const auto &e : entries) {
+            bool match = e.payload.contains(rx) ||
+                         e.apid.contains(rx) ||
+                         e.ctid.contains(rx) ||
+                         e.ecu.contains(rx) ||
+                         e.level.contains(rx) ||
+                         e.domain.contains(rx);
+            if (match)
+                results.append(e.index);
+        }
+        return results;
+    }
+
+    // Use inverted index: intersect for AND semantics
+    QSet<int> candidates;
+    bool first = true;
+    for (const QString &k : kw) {
+        QSet<int> set = invertedIndex.value(k);
+        if (set.isEmpty()) return {};
+        if (first) {
+            candidates = set;
+            first = false;
+        } else {
+            candidates.intersect(set);
+        }
+        if (candidates.isEmpty()) return {};
+    }
+
+    // Filter candidates by additional fields (NO limit)
+    QList<int> results;
+    results.reserve(qMin(candidates.size(), 10000));
+    QRegularExpression rx(QRegularExpression::escape(rawQuery),
+                          QRegularExpression::CaseInsensitiveOption);
+
+    for (const auto &e : entries) {
+        if (!candidates.contains(e.index)) continue;
+
+        bool match = e.payload.contains(rx) ||
+                     e.apid.contains(rx) ||
+                     e.ctid.contains(rx) ||
+                     e.ecu.contains(rx) ||
+                     e.level.contains(rx) ||
+                     e.domain.contains(rx) ||
+                     e.time.contains(rx);
+        if (match)
+            results.append(e.index);
+    }
+
+    return results;
+}
+
+void DltChatPlugin::applyUserFilterHighlights()
+{
+    QVector<DltAnalyzerInterface::LogEntry> snapshot;
+    { QMutexLocker l(&entriesMutex); snapshot = entries; }
+    m_highlightMap = m_userFilterManager->applyToEntries(snapshot);
+}
+
+void DltChatPlugin::updateDomainStatus()
+{
+    QVector<DltAnalyzerInterface::LogEntry> snapshot;
+    int total = 0;
+    { QMutexLocker l(&entriesMutex);
+      snapshot = entries;
+      total = entries.size();
+    }
+
+    auto stats = AutomotiveLogParser::domainStats(snapshot);
+    int active = m_userFilterManager->activeFilterCount();
+
+    QString text = QString("Loaded %1 msgs | CarPlay: %2 | AA: %3")
+        .arg(total).arg(stats.first).arg(stats.second);
+    if (active > 0)
+        text += QString(" | Filters: %1 active").arg(active);
+
+    QString aiStatus;
+    if (m_aiState == 2) aiStatus = " | AI: online";
+    else if (m_aiState == 1) aiStatus = " | AI: offline";
+    text += aiStatus;
+
+    updateStatus(text);
+}
+
+void DltChatPlugin::onUserFilterLoadRequested(const QString &path)
+{
+    QString error;
+    if (m_userFilterManager->loadFromFile(path, &error)) {
+        int n = m_userFilterManager->activeFilterCount();
+        if (form) form->appendMessage("Chat Assistant",
+            QString("Filtri caricati: %1 regole attive da %2.").arg(n).arg(path));
+    } else {
+        if (form) form->appendMessage("Chat Assistant",
+            QString("Errore caricamento filtri: %1").arg(error));
+    }
 }
 
 #if QT_VERSION < QT_VERSION_CHECK(5, 0, 0)
