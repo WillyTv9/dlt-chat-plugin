@@ -111,6 +111,61 @@ QString DltLlmAnalyzerInterface::buildPrompt(const QString &query,
                                              const QVector<LogEntry> &entries,
                                              int maxEntries) const
 {
+    return buildEnhancedPrompt(query, entries, maxEntries, m_extraContext);
+}
+
+QString DltLlmAnalyzerInterface::buildAutomotiveSystemPrompt()
+{
+    return QString(
+        "You are an Automotive SRE (Site Reliability Engineer) specialized in AUTOSAR DLT (Diagnostic Log and Trace) log analysis.\n"
+        "Your role is to act as a colleague providing a reliable second pair of eyes on diagnostic logs.\n\n"
+        "## Domain Expertise\n"
+        "- AUTOSAR DLT protocol, AppID, CtxID, and payload structures\n"
+        "- SOME/IP service discovery and communication timeouts\n"
+        "- CAN bus protocol and network topology\n"
+        "- ECU state machines and power management (PWRM)\n"
+        "- Real-time operating system task scheduling and priorities\n\n"
+        "## Analysis Approach\n"
+        "1. Identify the root cause, not just symptoms\n"
+        "2. Correlate timestamps across ECUs to find communication delays\n"
+        "3. Detect state machine inconsistencies\n"
+        "4. Determine if errors stem from:\n"
+        "   - Network timeouts (SOME/IP)\n"
+        "   - CPU saturation on the ECU\n"
+        "   - Software logic errors or race conditions\n"
+        "   - Physical layer issues (cabling, interference, bus load)\n"
+        "5. Reference specific log entries as [index:N]\n\n"
+        "## Response Style\n"
+        "- Be technical and precise: cite protocols, task priorities, buffer overflows\n"
+        "- Respond in the same language as the user's question\n"
+        "- If the question is unrelated to DLT log analysis, politely explain that you can only help with log analysis\n"
+        "- If enriched function names from .fibex/.xml are not loaded, mention that loading them would improve precision\n"
+        "- Always prioritize RCA (Root Cause Analysis) over summary\n"
+        "- End with the most likely root cause hypothesis when sufficient data is available"
+    );
+}
+
+QString DltLlmAnalyzerInterface::detectProviderType() const
+{
+    if (m_apiEndpoint.contains("openai.com", Qt::CaseInsensitive) ||
+        m_apiEndpoint.contains("azure.com", Qt::CaseInsensitive))
+        return "openai";
+    if (m_apiEndpoint.contains("anthropic.com", Qt::CaseInsensitive) ||
+        m_apiEndpoint.contains("claude", Qt::CaseInsensitive))
+        return "claude";
+    if (m_apiEndpoint.contains("ollama", Qt::CaseInsensitive) ||
+        m_apiEndpoint.contains("11434", Qt::CaseInsensitive))
+        return "ollama";
+    return "openai-compat"; // LocalAI, vLLM, etc.
+}
+
+QString DltLlmAnalyzerInterface::buildEnhancedPrompt(
+    const QString &query,
+    const QVector<LogEntry> &entries,
+    int maxEntries,
+    const QString &extraInfo) const
+{
+    // 1. Build log context section
     QStringList ctx;
     int n = qMin(entries.size(), maxEntries);
     ctx.reserve(n);
@@ -121,15 +176,41 @@ QString DltLlmAnalyzerInterface::buildPrompt(const QString &query,
             .arg(e.index).arg(e.time).arg(e.level.toUpper())
             .arg(e.apid).arg(e.ctid).arg(e.payload));
     }
-    QString extra = m_extraContext.isEmpty() ? QString() :
-        QString("\nAdditional context:\n%1\n").arg(m_extraContext);
 
-    return QString(
-        "You analyze DLT logs. Reference entries as [index:N].\n"
-        "Identify patterns, anomalies, error chains, root causes.\n"
-        "Answer concisely in the user's language.%1\n\n"
-        "LOG (%2 shown):\n%3\n\nQUERY: %4\n\nANSWER:"
-    ).arg(extra).arg(entries.size()).arg(ctx.join("\n")).arg(query);
+    // 2. Build conversation history
+    QString historyText;
+    if (m_conversationManager && !m_conversationManager->isEmpty())
+        historyText = m_conversationManager->formatHistory(3);
+
+    // 3. Build fibex status
+    QString fibexNote;
+    if (!m_fibexLoaded)
+        fibexNote = "\nNote: .fibex/.xml enrichment files not loaded. "
+                    "Function IDs appear as raw identifiers. "
+                    "Load fibex files for more precise analysis.";
+
+    // 4. Build extra context
+    QString extra = extraInfo.isEmpty() ? QString() :
+        QString("\nAdditional context:\n%1\n").arg(extraInfo);
+
+    // 5. Assemble full prompt
+    QStringList sections;
+
+    if (!historyText.isEmpty())
+        sections << historyText;
+
+    sections << QString("LOG (%1 entries shown, sorted by timestamp):\n%2")
+        .arg(entries.size()).arg(ctx.join("\n"));
+
+    if (!fibexNote.isEmpty())
+        sections << fibexNote;
+
+    if (!extra.isEmpty())
+        sections << extra;
+
+    sections << QString("User query: %1").arg(query);
+
+    return sections.join("\n\n");
 }
 
 QByteArray DltLlmAnalyzerInterface::buildRequestBody(const QString &prompt) const
@@ -138,19 +219,32 @@ QByteArray DltLlmAnalyzerInterface::buildRequestBody(const QString &prompt) cons
     json["model"] = m_modelName;
     json["stream"] = false;
 
-    bool isOpenAI = m_apiEndpoint.contains("openai.com") || m_apiEndpoint.contains("azure");
-    if (isOpenAI)
+    QString provider = detectProviderType();
+
+    if (provider == "openai")
     {
         QJsonArray msgs;
-        QJsonObject s; s["role"] = "system"; s["content"] = "You analyze DLT logs. Be concise.";
+        QJsonObject s; s["role"] = "system"; s["content"] = buildAutomotiveSystemPrompt();
         QJsonObject u; u["role"] = "user"; u["content"] = prompt;
         msgs.append(s); msgs.append(u);
         json["messages"] = msgs;
         if (m_maxTokens > 0) { json["max_tokens"] = m_maxTokens; json["temperature"] = m_temperature; }
     }
+    else if (provider == "claude")
+    {
+        QJsonArray msgs;
+        QJsonObject u; u["role"] = "user"; u["content"] = prompt;
+        msgs.append(u);
+        json["messages"] = msgs;
+        json["system"] = buildAutomotiveSystemPrompt();
+        if (m_maxTokens > 0) { json["max_tokens"] = m_maxTokens; }
+        json["temperature"] = m_temperature;
+    }
     else
     {
-        json["prompt"] = prompt;
+        QString fullPrompt = QString("System: %1\n\n%2")
+            .arg(buildAutomotiveSystemPrompt(), prompt);
+        json["prompt"] = fullPrompt;
         if (m_maxTokens > 0)
             json["options"] = QJsonObject{{"num_predict", m_maxTokens}, {"temperature", m_temperature}};
     }
@@ -268,6 +362,10 @@ bool DltLlmAnalyzerInterface::analyzeQueryAsync(const QString &query,
     }
     lock.unlock();
 
+    // Record user query in conversation history
+    if (m_conversationManager)
+        m_conversationManager->addTurn("user", query);
+
     if (entries.isEmpty())
     {
         QueryResult r; r.responseHtml = "Nessun log da analizzare."; r.success = false; r.usedAi = true;
@@ -309,7 +407,7 @@ bool DltLlmAnalyzerInterface::analyzeQueryAsync(const QString &query,
     lockRate.unlock();
 
     int maxEntries = qMin(entries.size(), kLlmMaxEntries);
-    QString prompt = buildPrompt(query, entries, maxEntries);
+    QString prompt = buildEnhancedPrompt(query, entries, maxEntries, m_extraContext);
 
     QUrl url(m_apiEndpoint);
     QNetworkRequest req(url);
@@ -330,6 +428,11 @@ bool DltLlmAnalyzerInterface::analyzeQueryAsync(const QString &query,
 
     connect(reply, &QNetworkReply::finished, this, [this, reply, timer, queryCopy, cacheKeyPtr]() {
         QueryResult r = processReply(reply, *timer);
+
+        // Record conversation turn if manager is set
+        if (r.success && m_conversationManager) {
+            m_conversationManager->addTurn("assistant", r.responseHtml.left(500));
+        }
 
         {
             QMutexLocker lock(&m_circuitMutex);
@@ -401,6 +504,10 @@ DltAnalyzerInterface::QueryResult DltLlmAnalyzerInterface::analyzeQuery(
         }
     }
 
+    // Record user query in conversation history
+    if (m_conversationManager)
+        m_conversationManager->addTurn("user", query);
+
     if (entries.isEmpty())
     {
         r.responseHtml = "Nessun log caricato."; r.processingTimeMs = timer.elapsed();
@@ -455,7 +562,7 @@ DltAnalyzerInterface::QueryResult DltLlmAnalyzerInterface::analyzeQuery(
         }
 
         int n = qMin(entries.size(), 100);
-        QString prompt = buildPrompt(query, entries, n);
+        QString prompt = buildEnhancedPrompt(query, entries, n, m_extraContext);
 
         QUrl url(m_apiEndpoint);
         QNetworkRequest req(url);
@@ -488,6 +595,10 @@ DltAnalyzerInterface::QueryResult DltLlmAnalyzerInterface::analyzeQuery(
         timeoutTimer.stop();
 
         r = processReply(reply, timer);
+        // Record assistant turn if successful
+        if (r.success && m_conversationManager) {
+            m_conversationManager->addTurn("assistant", r.responseHtml.left(500));
+        }
         reply->deleteLater();
 
         if (r.success)

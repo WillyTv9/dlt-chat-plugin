@@ -54,3 +54,5 @@ test_results/
 
 # OS specific
 Thumbs.db
+# User config
+dlt_chat_plugin.ini

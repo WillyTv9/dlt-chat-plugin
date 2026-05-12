@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FIBEX>
+    <APPLICATION>
+        <SHORT-NAME>PWRM_MAIN</SHORT-NAME>
+        <LONG-NAME>Power Management Main</LONG-NAME>
+        <FUNCTION-NAME>PowerStateManager</FUNCTION-NAME>
+        <SIGNAL>WakeUpSignal</SIGNAL>
+        <SIGNAL>SleepRequest</SIGNAL>
+    </APPLICATION>
+    <APPLICATION>
+        <SHORT-NAME>CANIF_RX</SHORT-NAME>
+        <LONG-NAME>CAN Interface Receive</LONG-NAME>
+        <FUNCTION-NAME>CanIf_Receive</FUNCTION-NAME>
+        <SIGNAL>CAN_Frame</SIGNAL>
+    </APPLICATION>
+    <FUNCTION>
+        <SHORT-NAME>SOMEIP_SD</SHORT-NAME>
+    </FUNCTION>
+</FIBEX>

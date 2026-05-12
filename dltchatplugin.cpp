@@ -1,4 +1,5 @@
 #include "dltchatplugin.h"
+#include "temporalcorrelator.h"
 
 #include <QAbstractItemView>
 #include <QDateTime>
@@ -122,6 +123,16 @@ void DltChatPlugin::onBulkFinished(bool success)
     {
         updateStatus("Bulk analysis finished with errors.");
     }
+}
+
+bool DltChatPlugin::loadFibexFile(const QString &filePath, QString *errorOut)
+{
+    bool ok = m_fibexEnricher.loadFile(filePath, errorOut);
+    if (ok && form) {
+        updateStatus(QString("Fibex loaded: %1 (%2 mappings)")
+            .arg(filePath).arg(m_fibexEnricher.mappingCount()));
+    }
+    return ok;
 }
 
 void DltChatPlugin::onBulkError(const QString &error)
@@ -341,8 +352,20 @@ void DltChatPlugin::updateFileFinish()
     updateDomainStatus();
 }
 
-void DltChatPlugin::selectedIdxMsg(int, QDltMsg &) {}
-void DltChatPlugin::selectedIdxMsgDecoded(int, QDltMsg &) {}
+void DltChatPlugin::selectedIdxMsg(int index, QDltMsg &)
+{
+    if (index >= 0) {
+        m_lastSelectedIndices.clear();
+        m_lastSelectedIndices.append(index);
+    }
+}
+void DltChatPlugin::selectedIdxMsgDecoded(int index, QDltMsg &)
+{
+    if (index >= 0) {
+        m_lastSelectedIndices.clear();
+        m_lastSelectedIndices.append(index);
+    }
+}
 
 bool DltChatPlugin::initControl(QDltControl *) { return true; }
 bool DltChatPlugin::initConnections(QStringList) { return true; }
@@ -658,20 +681,22 @@ void DltChatPlugin::onAiQuerySubmitted(const QString &query)
     {
         form->setProcessingProgress(false);
         QElapsedTimer timer; timer.start();
-        QStringList keywords = extractKeywords(query);
-        QVector<DltAnalyzerInterface::LogEntry> pre;
-        if (!keywords.isEmpty())
-        {
-            QSet<int> s = invertedIndex.value(keywords[0]);
-            for (int k = 1; k < keywords.size() && !s.isEmpty(); ++k)
-                s.intersect(invertedIndex.value(keywords[k]));
-            for (const auto &e : snapshot)
-                if (s.contains(e.index)) pre.append(e);
-        }
-        else { pre = snapshot; }
-        if (pre.size() > kAIPreFilterMax) pre.resize(kAIPreFilterMax);
 
-        auto result = m_ruleBasedAnalyzer->analyzeQuery(query, pre.isEmpty() ? snapshot : pre);
+        // Use ContextualExtractor for fallback too
+        ContextualExtractor::ContextConfig fallbackCtx;
+        fallbackCtx.windowBefore = 3;
+        fallbackCtx.windowAfter = 3;
+        fallbackCtx.maxEntries = kAIPreFilterMax;
+        QVector<DltAnalyzerInterface::LogEntry> fallbackCtxEntries;
+        {
+            QMutexLocker lk(&entriesMutex);
+            fallbackCtxEntries = m_contextualExtractor.extractContext(
+                query, snapshot, invertedIndex, m_lastSelectedIndices, fallbackCtx);
+        }
+        if (fallbackCtxEntries.isEmpty())
+            fallbackCtxEntries = snapshot.mid(0, kAIPreFilterMax);
+
+        auto result = m_ruleBasedAnalyzer->analyzeQuery(query, fallbackCtxEntries);
         result.processingTimeMs = timer.elapsed();
         QString html = result.responseHtml + "<br><em>AI non disponibile, analisi locale.</em>";
         html += buildUserFilterContextHtml();
@@ -682,29 +707,29 @@ void DltChatPlugin::onAiQuerySubmitted(const QString &query)
         return;
     }
 
-    QStringList keywords = extractKeywords(query);
-    QVector<DltAnalyzerInterface::LogEntry> prefiltered;
-    if (!keywords.isEmpty())
-    {
-        QSet<int> s = invertedIndex.value(keywords[0]);
-        for (int k = 1; k < keywords.size() && !s.isEmpty(); ++k)
-            s.intersect(invertedIndex.value(keywords[k]));
+    // ContextualExtractor: intelligently extract relevant context with CtxID window
+    ContextualExtractor::ContextConfig ctxConfig;
+    ctxConfig.windowBefore = 5;
+    ctxConfig.windowAfter = 5;
+    ctxConfig.maxEntries = kAIPreFilterMax;
 
-        for (const auto &e : snapshot)
-        {
-            if (s.contains(e.index) || keywords.isEmpty())
-                prefiltered.append(e);
-            if (prefiltered.size() >= kMaxFilterResults) break;
-        }
+    QVector<DltAnalyzerInterface::LogEntry> contextualContext;
+    {
+        QMutexLocker lk(&entriesMutex);
+        contextualContext = m_contextualExtractor.extractContext(
+            query, snapshot, invertedIndex, m_lastSelectedIndices, ctxConfig);
     }
 
-    if (prefiltered.isEmpty()) prefiltered = snapshot;
-    if (prefiltered.size() > kAIPreFilterMax) prefiltered.resize(kAIPreFilterMax);
+    // Fallback: use recent entries if no context matches
+    if (contextualContext.isEmpty()) {
+        int takeN = qMin(snapshot.size(), kAIPreFilterMax);
+        contextualContext = snapshot.mid(snapshot.size() - takeN, takeN);
+    }
 
     // Check cache
     {
         QMutexLocker lk(&m_llmMutex);
-        QString cacheKey = buildAiCacheKey(query, prefiltered);
+        QString cacheKey = buildAiCacheKey(query, contextualContext);
         auto it = m_aiResponseCache.find(cacheKey);
         if (it != m_aiResponseCache.end()) {
             form->setProcessingProgress(false);
@@ -725,6 +750,33 @@ void DltChatPlugin::onAiQuerySubmitted(const QString &query)
         m_llmRequestTimer.start();
     }
 
+    // Enrich entries with Fibex data if available
+    if (m_fibexEnricher.isLoaded()) {
+        m_fibexEnricher.enrichAll(contextualContext);
+        m_llmAnalyzer->setFibexLoaded(true);
+    } else {
+        m_llmAnalyzer->setFibexLoaded(false);
+    }
+
+    // Wire conversation manager for multi-turn context
+    if (!m_llmAnalyzer->conversationManager()) {
+        m_llmAnalyzer->setConversationManager(&m_conversationManager);
+    }
+
+    // Temporal correlation analysis
+    QString temporalContext;
+    {
+        TemporalCorrelator correlator;
+        TemporalCorrelator::CorrelationConfig tcConfig;
+        tcConfig.windowMs = 50;
+        tcConfig.minEntriesPerWindow = 2;
+        tcConfig.maxCorrelations = 3;
+        temporalContext = correlator.analyze(contextualContext, tcConfig);
+        if (correlator.hasCorrelations()) {
+            temporalContext = "\n" + temporalContext;
+        }
+    }
+
     // Add user filter context to the LLM analyzer
     QString filterContext;
     if (m_userFilterManager && m_userFilterManager->activeFilterCount() > 0) {
@@ -738,8 +790,17 @@ void DltChatPlugin::onAiQuerySubmitted(const QString &query)
             filterContext = "\nUser-defined active filters:\n" + activeFilters.join("\n");
     }
 
-    m_llmAnalyzer->setExtraContext(filterContext);
-    m_llmAnalyzer->analyzeQueryAsync(query, prefiltered);
+    // Combine user filter context + temporal correlation
+    QString combinedExtra;
+    if (!filterContext.isEmpty() && !temporalContext.isEmpty())
+        combinedExtra = filterContext + "\n" + temporalContext;
+    else if (!filterContext.isEmpty())
+        combinedExtra = filterContext;
+    else if (!temporalContext.isEmpty())
+        combinedExtra = temporalContext;
+
+    m_llmAnalyzer->setExtraContext(combinedExtra);
+    m_llmAnalyzer->analyzeQueryAsync(query, contextualContext);
 }
 
 void DltChatPlugin::onLlmResultReady(const DltAnalyzerInterface::QueryResult &result, const QString &originalQuery)

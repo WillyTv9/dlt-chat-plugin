@@ -2,6 +2,7 @@
 #define DLLMANALYZERINTERFACE_H
 
 #include "dltanalyzerinterface.h"
+#include "conversationmanager.h"
 
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
@@ -68,12 +69,26 @@ public:
     bool analyzeQueryAsync(const QString &query, const QVector<LogEntry> &entries);
     void setExtraContext(const QString &context) { m_extraContext = context; }
 
+    // Conversation management
+    void setConversationManager(ConversationManager *mgr) { m_conversationManager = mgr; }
+    ConversationManager *conversationManager() const { return m_conversationManager; }
+
+    // Fibex status hint for the prompt
+    void setFibexLoaded(bool loaded) { m_fibexLoaded = loaded; }
+    bool fibexLoaded() const { return m_fibexLoaded; }
+
     // Utility methods exposed for testing
     QString parseLlmResponse(const QString &response) const;
     QList<int> extractIndicesFromText(const QString &text) const;
     QString buildPrompt(const QString &query,
                         const QVector<LogEntry> &entries,
                         int maxEntries) const;
+    QString buildEnhancedPrompt(const QString &query,
+                                const QVector<LogEntry> &entries,
+                                int maxEntries,
+                                const QString &extraInfo = QString()) const;
+    static QString buildAutomotiveSystemPrompt();
+    QString detectProviderType() const;
     QByteArray buildRequestBody(const QString &prompt) const;
 
 signals:
@@ -130,6 +145,8 @@ private:
     mutable qint64 m_lastAvailabilityCheck = 0;
     static constexpr int AVAILABILITY_TTL_MS = 30000;
     QString m_extraContext;
+    ConversationManager *m_conversationManager = nullptr;
+    bool m_fibexLoaded = false;
 };
 
 class DltLlmAnalyzerFactory : public QObject

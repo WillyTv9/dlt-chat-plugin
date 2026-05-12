@@ -17,12 +17,15 @@
 #include "dltllmanalyzerinterface.h"
 #include "dltaioptionsdialog.h"
 #include "automotivelogparser.h"
+#include "contextualextractor.h"
+#include "conversationmanager.h"
+#include "fibexenricher.h"
 #include "userfiltermanager.h"
 #include "dltbulkanalyzer.h"
 #include "qdltmessagedecoder.h"
 #include "qdltfile.h"
 
-#define DLT_CHAT_PLUGIN_VERSION "0.4.0"
+#define DLT_CHAT_PLUGIN_VERSION "0.5.0"
 
 class DltChatPlugin : public QObject, QDLTPluginInterface, QDltPluginViewerInterface, QDltPluginControlInterface
 {
@@ -71,6 +74,8 @@ public:
     void setAnalyzerType(const QString &type);
     QString currentAnalyzerType() const;
     void configureLlmAnalyzer(const QString &endpoint, const QString &apiKey, const QString &model);
+    bool loadFibexFile(const QString &filePath, QString *errorOut = nullptr);
+    bool isFibexLoaded() const { return m_fibexEnricher.isLoaded(); }
 
 signals:
     void statusChanged(const QString &text);
@@ -133,6 +138,12 @@ private:
     DltRuleBasedAnalyzer *m_ruleBasedAnalyzer;
     DltLlmAnalyzerInterface *m_llmAnalyzer;
     QString m_currentAnalyzerType;
+
+    // Contextual AI support
+    ContextualExtractor m_contextualExtractor;
+    ConversationManager m_conversationManager;
+    FibexEnricher m_fibexEnricher;
+    QList<int> m_lastSelectedIndices;
 
     DltBulkAnalyzer *m_bulkAnalyzer;
     bool m_bulkAnalysisEnabled;

@@ -16,6 +16,10 @@ private slots:
     void testParsePlainTextResponse();
     void testBuildPrompt();
     void testBuildRequestBody();
+    void testAutomotiveSystemPrompt();
+    void testEnhancedPromptWithHistory();
+    void testEnhancedPromptWithExtraInfo();
+    void testDetectProviderType();
 };
 
 #endif

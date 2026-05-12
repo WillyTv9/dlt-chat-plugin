@@ -14,15 +14,15 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
 if(NOT DEFINED QT_PREFIX)
-    find_package(Qt6 QUIET COMPONENTS Core Gui Widgets Network)
+    find_package(Qt6 QUIET COMPONENTS Core Gui Widgets Network Xml)
     if(Qt6_FOUND)
         set(QT_PREFIX Qt6)
     else()
-        find_package(Qt5 REQUIRED COMPONENTS Core Gui Widgets Network)
+        find_package(Qt5 REQUIRED COMPONENTS Core Gui Widgets Network Xml)
         set(QT_PREFIX Qt5)
     endif()
 else()
-    find_package(${QT_PREFIX} REQUIRED COMPONENTS Core Gui Widgets Network)
+    find_package(${QT_PREFIX} REQUIRED COMPONENTS Core Gui Widgets Network Xml)
 endif()
 
 # Find qdlt (DLT Viewer SDK) - must be before target_link_libraries
@@ -32,6 +32,10 @@ find_package(qdlt REQUIRED)
 add_library(dltchatplugin MODULE
     dltchatplugin.cpp
     chatform.cpp
+    contextualextractor.cpp
+    conversationmanager.cpp
+    fibexenricher.cpp
+    temporalcorrelator.cpp
     dltexport.cpp
     dltanalyzerinterface.cpp
     dltllmanalyzerinterface.cpp
@@ -50,6 +54,7 @@ target_link_libraries(dltchatplugin
     ${QT_PREFIX}::Gui
     ${QT_PREFIX}::Widgets
     ${QT_PREFIX}::Network
+    ${QT_PREFIX}::Xml
 )
 
 set_target_properties(dltchatplugin PROPERTIES
