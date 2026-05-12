@@ -142,7 +142,7 @@ Launch DLT Viewer, enable the plugin via **Settings > Plugin Settings > Chat Log
 
 ## Usage / Utilizzo
 
-### Quick Action Buttons / Bottoni Rapidi (14)
+### Quick Action Buttons / Bottoni Rapidi (21)
 
 | English | Italiano | Description |
 |---------|----------|-------------|
@@ -159,6 +159,7 @@ Launch DLT Viewer, enable the plugin via **Settings > Plugin Settings > Chat Log
 | Summary | Summary | Show log statistics |
 | Timeline | Timeline | Show chronological entry list |
 | GPS | GPS | Find GPS/navigation messages |
+| Categorizza | Categorizza | Classify errors by category |
 | Help | Help | Show available commands |
 
 ### AI Query
@@ -185,11 +186,10 @@ Example `dlt_chat_plugin.ini`:
 type=rule-based
 llmEndpoint=http://localhost:11434/api/generate
 llmApiKey=
-llmModel=qwen3.5:4b
+llmModel=qwen2.5:0.5b
+bulkAnalysisEnabled=false
 
 [Behavior]
-maxResults=200
-llmTimeout=30000
 highlightColor=#FFE680
 ```
 
