@@ -116,12 +116,15 @@ QString DltLlmAnalyzerInterface::buildPrompt(const QString &query,
             .arg(e.index).arg(e.time).arg(e.level.toUpper())
             .arg(e.apid).arg(e.ctid).arg(e.payload));
     }
+    QString extra = m_extraContext.isEmpty() ? QString() :
+        QString("\nAdditional context:\n%1\n").arg(m_extraContext);
+
     return QString(
         "You analyze DLT logs. Reference entries as [index:N].\n"
         "Identify patterns, anomalies, error chains, root causes.\n"
-        "Answer concisely in the user's language.\n\n"
-        "LOG (%1 shown):\n%2\n\nQUERY: %3\n\nANSWER:"
-    ).arg(entries.size()).arg(ctx.join("\n")).arg(query);
+        "Answer concisely in the user's language.%1\n\n"
+        "LOG (%2 shown):\n%3\n\nQUERY: %4\n\nANSWER:"
+    ).arg(extra).arg(entries.size()).arg(ctx.join("\n")).arg(query);
 }
 
 QByteArray DltLlmAnalyzerInterface::buildRequestBody(const QString &prompt) const

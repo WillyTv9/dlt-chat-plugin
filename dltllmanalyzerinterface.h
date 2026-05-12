@@ -63,6 +63,7 @@ public:
     bool testConnection(QString *errorMessage = nullptr);
 
     void analyzeQueryAsync(const QString &query, const QVector<LogEntry> &entries);
+    void setExtraContext(const QString &context) { m_extraContext = context; }
 
 signals:
     void apiEndpointChanged(const QString &endpoint);
@@ -95,6 +96,7 @@ private:
     mutable bool m_availabilityVerified = false;
     mutable qint64 m_lastAvailabilityCheck = 0;
     static constexpr int AVAILABILITY_TTL_MS = 30000;
+    QString m_extraContext;
 };
 
 class DltLlmAnalyzerFactory : public QObject
