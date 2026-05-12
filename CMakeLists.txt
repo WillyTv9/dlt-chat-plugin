@@ -25,6 +25,10 @@ else()
     find_package(${QT_PREFIX} REQUIRED COMPONENTS Core Gui Widgets Network)
 endif()
 
+# Find qdlt (DLT Viewer SDK) - must be before target_link_libraries
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}")
+find_package(qdlt REQUIRED)
+
 add_library(dltchatplugin MODULE
     dltchatplugin.cpp
     chatform.cpp
@@ -32,6 +36,8 @@ add_library(dltchatplugin MODULE
     dltanalyzerinterface.cpp
     dltllmanalyzerinterface.cpp
     dltaioptionsdialog.cpp
+    automotivelogparser.cpp
+    userfiltermanager.cpp
 )
 
 target_compile_definitions(dltchatplugin PRIVATE

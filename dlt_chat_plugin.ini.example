@@ -26,3 +26,6 @@ llmModel=qwen3.5:4b
 maxResults=200
 llmTimeout=30000
 highlightColor=#FFE680
+
+# Percorso file JSON con filtri utente (opzionale)
+userFiltersPath=

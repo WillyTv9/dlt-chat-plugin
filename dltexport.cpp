@@ -49,7 +49,7 @@ bool DltExport::exportToCsv(const QString &filePath,
     out.setCodec("UTF-8");
 #endif
 
-    out << generateCsvRow({"#", "Index", "Time", "Timestamp", "Level", "ECU", "APID", "CTID", "Payload", "Source Query"}) << "\n";
+    out << generateCsvRow({"#", "Index", "Time", "Timestamp", "Level", "ECU", "APID", "CTID", "Domain", "Payload", "Source Query"}) << "\n";
 
     QHash<int, DltAnalyzerInterface::LogEntry> entryMap;
     for (const auto &e : entries)
@@ -69,6 +69,7 @@ bool DltExport::exportToCsv(const QString &filePath,
             it != entryMap.constEnd() ? it->ecu : QString(),
             it != entryMap.constEnd() ? it->apid : QString(),
             it != entryMap.constEnd() ? it->ctid : QString(),
+            it != entryMap.constEnd() ? it->domain : QString(),
             snippets[i],
             query
         };
@@ -96,7 +97,7 @@ bool DltExport::exportAllEntries(const QString &filePath,
     out.setCodec("UTF-8");
 #endif
 
-    out << generateCsvRow({"Index", "Time", "Timestamp", "Level", "ECU", "APID", "CTID", "Payload"}) << "\n";
+    out << generateCsvRow({"Index", "Time", "Timestamp", "Level", "ECU", "APID", "CTID", "Domain", "Payload"}) << "\n";
 
     for (const DltAnalyzerInterface::LogEntry &entry : entries)
     {
@@ -108,6 +109,7 @@ bool DltExport::exportAllEntries(const QString &filePath,
             entry.ecu,
             entry.apid,
             entry.ctid,
+            entry.domain,
             entry.payload
         })) << "\n";
     }

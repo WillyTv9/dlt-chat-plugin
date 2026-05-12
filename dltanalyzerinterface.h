@@ -23,6 +23,8 @@ public:
         QString ctid;
         QString level;
         QString payload;
+        QString domain;   // "carplay" | "androidauto" | "generic"
+        QString event;    // "video_focus_lost" | "audio_ducking" | ...
     };
 
     struct QueryResult

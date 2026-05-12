@@ -1,5 +1,5 @@
-#ifndef DLLTEXPORT_H
-#define DLLTEXPORT_H
+#ifndef DLTEXPORT_H
+#define DLTEXPORT_H
 
 #include <QString>
 #include <QStringList>
