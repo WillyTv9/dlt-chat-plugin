@@ -38,7 +38,11 @@ DltAiOptionsDialog::DltAiOptionsDialog(QWidget *parent)
     m_apiKey = new QLineEdit(this);
     m_apiKey->setEchoMode(QLineEdit::Password);
     m_apiKey->setPlaceholderText(tr("Not required (Ollama/LocalAI)")); // Italian: Non richiesta (Ollama/LocalAI)
-    m_model = new QLineEdit("qwen3.5:4b", this);
+    m_model = new QLineEdit("qwen2.5:0.5b", this);
+    m_modelHint = new QLabel(tr("Suggerito: qwen2.5:0.5b (~500MB) per uso locale leggero. "
+                               "Installare con: ollama pull qwen2.5:0.5b"), this);
+    m_modelHint->setStyleSheet("font-size: 9px; color: #888; font-style: italic;");
+    m_modelHint->setWordWrap(true);
     m_maxTokens = new QSpinBox(this);
     m_maxTokens->setRange(64, 8192);
     m_maxTokens->setValue(1000);
@@ -60,7 +64,8 @@ DltAiOptionsDialog::DltAiOptionsDialog(QWidget *parent)
     form->addRow(tr("Provider:"), m_provider);
     form->addRow(tr("Endpoint:"), m_endpoint);
     form->addRow(tr("API Key:"), m_apiKey);
-    form->addRow(tr("Model:"), m_model);                      // Italian: Modello
+    form->addRow(tr("Model:"), m_model);
+    form->addRow("", m_modelHint);                            // Italian: Modello
     form->addRow(tr("Max Tokens:"), m_maxTokens);
     form->addRow(tr("Temperature:"), m_temperature);          // Italian: Temperatura
     form->addRow(tr("Timeout:"), m_timeout);

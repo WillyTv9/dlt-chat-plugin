@@ -51,6 +51,7 @@ private:
     QSpinBox *m_timeout;
     QPushButton *m_testBtn;
     QLabel *m_statusLabel;
+    QLabel *m_modelHint;
 };
 
 #endif
