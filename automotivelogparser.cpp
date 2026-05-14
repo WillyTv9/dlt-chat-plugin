@@ -52,7 +52,8 @@ void AutomotiveLogParser::classify(DltAnalyzerInterface::LogEntry &entry)
         isCarPlay = true;
 
     if (!isCarPlay && (payload.contains("iap2", Qt::CaseInsensitive) ||
-                       payload.contains("AirPlay")))
+                       payload.contains("AirPlay") ||
+                       payload.contains("_carplay._tcp", Qt::CaseInsensitive)))
         isCarPlay = true;
 
     if (isCarPlay) {

@@ -11,6 +11,7 @@
 #include "test_llmutils.h"
 #include "test_dltexport.h"
 #include "test_userfiltermanager.h"
+
 int main(int argc, char *argv[]) {
     QCoreApplication app(argc, argv);
     TestRuleBasedAnalyzer t1; TestAutomotiveLogParser t2; TestContextualExtractor t3;

@@ -272,7 +272,7 @@ void TestRuleBasedAnalyzer::testNoMatch()
     auto result = analyzer.analyzeQuery("zzz_nonexistent_zzz", entries);
     QVERIFY(result.success);
     QVERIFY(result.indices.isEmpty());
-    QVERIFY(result.responseHtml.contains("Nessun risultato"));
+    QVERIFY(result.responseHtml.contains("Nessun messaggio"));
 }
 
 void TestRuleBasedAnalyzer::testSimplifyPayload()
