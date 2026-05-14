@@ -67,7 +67,7 @@ bool DltLlmAnalyzerInterface::isAvailable() const
             QJsonArray models = doc.object()["models"].toArray();
             for (const auto &m : models)
             {
-                if (m.toObject()["name"].toString().startsWith(m_modelName))
+                if (m.toObject()["name"].toString().contains(m_modelName, Qt::CaseInsensitive))
                 {
                     m_availabilityVerified = true;
                     reply->deleteLater();
@@ -137,12 +137,14 @@ QString DltLlmAnalyzerInterface::buildAutomotiveSystemPrompt()
         "   - Physical layer issues (cabling, interference, bus load)\n"
         "5. Reference specific log entries as [index:N]\n\n"
         "## Response Style\n"
-        "- Be technical and precise: cite protocols, task priorities, buffer overflows\n"
-        "- Respond in the same language as the user's question\n"
-        "- If the question is unrelated to DLT log analysis, politely explain that you can only help with log analysis\n"
-        "- If enriched function names from .fibex/.xml are not loaded, mention that loading them would improve precision\n"
-        "- Always prioritize RCA (Root Cause Analysis) over summary\n"
-        "- End with the most likely root cause hypothesis when sufficient data is available"
+        "- Be conversational, direct, and helpful. Do NOT use forced step-by-step reasoning formats (e.g., 'Step 1:', 'Step 2:').\n"
+        "- Never end your response with a math-solver conclusion box like '\\boxed{}'.\n"
+        "- Be technical and precise: cite protocols, task priorities, buffer overflows when relevant.\n"
+        "- Respond in the same language as the user's question.\n"
+        "- If the question is simple (like asking for an average or a count), just provide the answer directly without over-analyzing.\n"
+        "- Reference specific log entries as [index:N].\n"
+        "- If enriched function names from .fibex/.xml are not loaded, mention that loading them would improve precision.\n"
+        "- Prioritize Root Cause Analysis over summary only when investigating actual errors."
     );
 }
 
