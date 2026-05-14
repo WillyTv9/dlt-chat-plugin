@@ -55,7 +55,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq libqt6serialport6-dev
+          sudo apt-get install -y -qq libqt6serialport6-dev libcups2-dev
 
       - name: Build qdlt from source (Linux)
         if: runner.os == 'Linux'
