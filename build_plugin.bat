@@ -48,7 +48,11 @@ if %errorlevel% neq 0 (
 popd
 echo.
 echo [SUCCESS] Plugin compiled successfully!
-echo Output: build\Release\dltchatplugin.dll ^(MSVC^) / build\libdltchatplugin.dll ^(MinGW^)
+echo Output: build\src\host_interface\dltchatplugin.dll
+echo.
+echo.
+echo To create distribution bundle, run:
+echo   cmake --build build --target dist
 echo.
 echo Copy to DLT Viewer plugins folder:
 echo   %%LOCALAPPDATA%%\Programs\dlt-viewer\plugins\

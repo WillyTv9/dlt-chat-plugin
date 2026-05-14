@@ -57,3 +57,37 @@ test_results/
 Thumbs.db
 # User config
 dlt_chat_plugin.ini
+
+# Vendor downloaded sources
+vendor/_deps/
+vendor/_build/
+vendor/downloads/
+
+# Generated CMake files
+cmake_install.cmake
+CMakeCache.txt
+CMakeFiles/
+
+# Generated version header
+generated/
+
+# IDE
+.qt/
+.vs/
+*.user
+*.suo
+
+# Qt installation (local SDK, 300MB+ — never stash/include)
+6.7.3/
+
+# Installer logs
+aqtinstall.log
+
+# Git hooks (local developer setup, not repo policy)
+.githooks/
+
+# Generated documentation (slide deck from external tool)
+docs/
+
+# Release artifacts
+dltchatplugin-*.zip

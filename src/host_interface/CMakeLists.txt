@@ -1,0 +1,38 @@
+add_library(dltchatplugin MODULE
+    plugin_entry.cpp
+    chatform.cpp
+    dltaioptionsdialog.cpp
+)
+
+target_include_directories(dltchatplugin
+    PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}"
+)
+
+target_link_libraries(dltchatplugin
+    PRIVATE
+        dltchat_app_logic
+        qdlt
+    PUBLIC
+        ${QT_PREFIX}::Gui
+        ${QT_PREFIX}::Widgets
+        ${QT_PREFIX}::Network
+        ${QT_PREFIX}::Xml
+)
+
+target_compile_definitions(dltchatplugin PRIVATE
+    PLUGIN_INTERFACE_VERSION="1.0.1"
+)
+
+set_target_properties(dltchatplugin PROPERTIES
+    VERSION ${PROJECT_VERSION}
+    SOVERSION ${PROJECT_VERSION_MAJOR}
+    PREFIX ""
+)
+
+if(NOT MSVC)
+    target_compile_options(dltchatplugin PRIVATE -fvisibility=hidden)
+endif()
+
+if(COMMAND add_plugin)
+    add_plugin(dltchatplugin)
+endif()

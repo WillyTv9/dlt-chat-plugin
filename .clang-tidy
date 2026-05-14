@@ -1,0 +1,21 @@
+Checks: >
+    clang-diagnostic-*,
+    clang-analyzer-*,
+    cppcoreguidelines-no-malloc,
+    cppcoreguidelines-owning-memory,
+    cppcoreguidelines-prefer-member-initializer,
+    cppcoreguidelines-special-member-functions,
+    modernize-*,
+    performance-*,
+    readability-*,
+    bugprone-*,
+    -modernize-use-trailing-return-type,
+    -readability-identifier-length
+
+CheckOptions:
+  readability-function-cognitive-complexity.Threshold: 50
+  performance-unnecessary-value-param.IndicateIteratorOperations: false
+
+HeaderFilterRegex: '.*\.h$'
+FormatStyle: file
+WarningsAsErrors: '*'

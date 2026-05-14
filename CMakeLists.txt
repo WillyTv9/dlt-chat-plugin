@@ -1,14 +1,16 @@
 cmake_minimum_required(VERSION 3.16)
 project(dltchatplugin
-    VERSION 0.5.0
+    VERSION 0.7.0
     DESCRIPTION "Chat Log Assistant plugin for DLT Viewer"
     LANGUAGES CXX
 )
 
+# ── C++ Standard ──────────────────────────────────────────────────
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+# ── Qt Framework ──────────────────────────────────────────────────
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
@@ -25,43 +27,56 @@ else()
     find_package(${QT_PREFIX} REQUIRED COMPONENTS Core Gui Widgets Network Xml)
 endif()
 
-# Find qdlt (DLT Viewer SDK) - must be before target_link_libraries
+# ── DLT Viewer SDK ────────────────────────────────────────────────
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}")
 find_package(qdlt REQUIRED)
 
-add_library(dltchatplugin MODULE
-    dltchatplugin.cpp
-    chatform.cpp
-    contextualextractor.cpp
-    conversationmanager.cpp
-    fibexenricher.cpp
-    temporalcorrelator.cpp
-    dltexport.cpp
-    dltanalyzerinterface.cpp
-    dltllmanalyzerinterface.cpp
-    dltbulkanalyzer.cpp
-    dltaioptionsdialog.cpp
-    automotivelogparser.cpp
-    userfiltermanager.cpp
+# ── Compiler Warnings ─────────────────────────────────────────────
+include(cmake/compiler_warnings.cmake)
+
+# ── Sanitizers (Debug only) ──────────────────────────────────────
+if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT MSVC)
+    option(DLT_ENABLE_ASAN "Enable AddressSanitizer" OFF)
+    if(DLT_ENABLE_ASAN)
+        add_compile_options(-fsanitize=address -fsanitize=undefined)
+        add_link_options(-fsanitize=address -fsanitize=undefined)
+    endif()
+endif()
+
+# ── Clang-Tidy ─────────────────────────────────────────────────────
+find_program(CLANG_TIDY clang-tidy)
+if(CLANG_TIDY)
+    set_target_properties(dltchatplugin PROPERTIES
+        CXX_CLANG_TIDY "${CLANG_TIDY};--config-file=${CMAKE_CURRENT_SOURCE_DIR}/.clang-tidy"
+    )
+    message(STATUS "clang-tidy found: ${CLANG_TIDY}")
+else()
+    message(STATUS "clang-tidy not found — skipping static analysis")
+endif()
+
+# ── Versioned Build ───────────────────────────────────────────────
+include(cmake/GetGitHash.cmake)
+get_git_hash(DLTCHAT_GIT_HASH)
+string(TIMESTAMP DLTCHAT_BUILD_TIMESTAMP UTC)
+
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/dltchat_version.h.in"
+    "${CMAKE_BINARY_DIR}/generated/dltchat_version.h"
+    @ONLY
 )
 
-target_compile_definitions(dltchatplugin PRIVATE
-    PLUGIN_INTERFACE_VERSION="1.0.1"
-)
+# ── Source Tree ───────────────────────────────────────────────────
+add_subdirectory(src)
 
-target_link_libraries(dltchatplugin
-    qdlt
-    ${QT_PREFIX}::Gui
-    ${QT_PREFIX}::Widgets
-    ${QT_PREFIX}::Network
-    ${QT_PREFIX}::Xml
-)
+# ── Tests (optional) ─────────────────────────────────────────────
+option(DLTCHAT_BUILD_TESTS "Build unit tests" OFF)
+if(DLTCHAT_BUILD_TESTS)
+    enable_testing()
+    add_subdirectory(tests)
+endif()
 
-set_target_properties(dltchatplugin PROPERTIES
-    VERSION ${PROJECT_VERSION}
-    SOVERSION ${PROJECT_VERSION_MAJOR}
-)
-
-if(COMMAND add_plugin)
-    add_plugin(dltchatplugin)
+# ── Packaging (optional) ──────────────────────────────────────────
+option(DLTCHAT_BUILD_DIST "Build distribution package" OFF)
+if(DLTCHAT_BUILD_DIST)
+    add_subdirectory(dist)
 endif()

@@ -1,0 +1,2 @@
+add_subdirectory(app_logic)
+add_subdirectory(host_interface)

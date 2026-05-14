@@ -1,0 +1,15 @@
+#pragma once
+
+#if defined(_MSC_VER)
+#  define DLTCHAT_EXPORT __declspec(dllexport)
+#  define DLTCHAT_IMPORT __declspec(dllimport)
+#  define DLTCHAT_HIDDEN
+#elif defined(__GNUC__) || defined(__clang__)
+#  define DLTCHAT_EXPORT __attribute__((visibility("default")))
+#  define DLTCHAT_IMPORT __attribute__((visibility("default")))
+#  define DLTCHAT_HIDDEN __attribute__((visibility("hidden")))
+#else
+#  define DLTCHAT_EXPORT
+#  define DLTCHAT_IMPORT
+#  define DLTCHAT_HIDDEN
+#endif

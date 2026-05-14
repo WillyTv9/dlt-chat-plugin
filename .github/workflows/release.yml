@@ -70,7 +70,7 @@ jobs:
           echo "QDLT_ROOT=$PWD/install" >> $GITHUB_ENV
 
       - name: Configure CMake
-        run: cmake -B build -DCMAKE_BUILD_TYPE=Release
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DDLTCHAT_BUILD_DIST=ON
 
       - name: Build
         run: cmake --build build --config Release --parallel
@@ -84,16 +84,20 @@ jobs:
         working-directory: build_tests
         run: ctest --output-on-failure
 
+      - name: Build Distribution Bundle
+        run: cmake --build build --target dist
+
       - name: Create Release Archive
         shell: pwsh
         run: |
           $version = "${{ github.ref_name }}"
+          $distDir = "build/dist/dltchatplugin"
           if ("${{ runner.os }}" -eq "Windows") {
             $archive = "dltchatplugin-$version-win64.zip"
-            Compress-Archive -Path build/Release/dltchatplugin.dll, README.md, LICENSE, dlt_chat_plugin.ini.example, automotive_filters_example.json -DestinationPath $archive
+            Compress-Archive -Path "$distDir/*" -DestinationPath $archive
           } else {
             $archive = "dltchatplugin-$version-linux64.tar.gz"
-            tar czf $archive -C build libdltchatplugin.so README.md LICENSE dlt_chat_plugin.ini.example automotive_filters_example.json
+            tar czf $archive -C "$distDir" .
           }
           echo "archive=$archive" | Out-File -FilePath $env:GITHUB_ENV -Append
 

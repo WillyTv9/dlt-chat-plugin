@@ -1,0 +1,46 @@
+{
+  "version": "1.0",
+  "description": "CarPlay/AA custom filters example",
+  "filters": [
+    {
+      "label": "iAP2 Connection Error",
+      "pattern": "ERROR_0x[0-9A-Fa-f]+",
+      "fields": ["payload"],
+      "color": "#ef5350",
+      "level": ["error", "fatal"],
+      "domain": "carplay",
+      "enabled": true
+    },
+    {
+      "label": "mDNS Handshake",
+      "pattern": "_carplay\\._tcp|_androidauto\\._tcp",
+      "fields": ["payload", "apid"],
+      "color": "#42a5f5",
+      "enabled": true
+    },
+    {
+      "label": "Video Focus Lost",
+      "pattern": "Video Focus.*lost|focusLost",
+      "fields": ["payload"],
+      "color": "#ffa726",
+      "domain": "carplay",
+      "enabled": true
+    },
+    {
+      "label": "Sensor Data Rate",
+      "pattern": "sensorEvent.*Hz|VehicleSpeed",
+      "fields": ["payload"],
+      "color": "#66bb6a",
+      "domain": "androidauto",
+      "enabled": true
+    },
+    {
+      "label": "Audio Ducking",
+      "pattern": "Audio.*Duck|audioFocus",
+      "fields": ["payload"],
+      "color": "#ab47bc",
+      "domain": "carplay",
+      "enabled": true
+    }
+  ]
+}

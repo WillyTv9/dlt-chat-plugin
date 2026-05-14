@@ -1,0 +1,9 @@
+# Ignore downloaded sources
+_build/
+_deps/
+downloads/
+
+# But keep CMakeLists.txt and metadata
+!CMakeLists.txt
+!.gitignore
+!cmake/
