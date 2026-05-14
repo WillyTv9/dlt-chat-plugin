@@ -3,14 +3,16 @@
 
 #include <QObject>
 #include <QVector>
-#include "dltanalyzerinterface.h"
+#include "dltchat/analyzer_interface.h"
 
 class TestDltExport : public QObject
 {
     Q_OBJECT
 
 private:
-    QVector<DltAnalyzerInterface::LogEntry> makeEntries() const;
+    QVector<dltchat::DltAnalyzerInterface::LogEntry> makeEntries() const;
+    static QString generateCsvRow(const QStringList &fields);
+    static QStringList sanitizeFields(const QStringList &fields);
 
 private slots:
     void testCsvRowGeneration();

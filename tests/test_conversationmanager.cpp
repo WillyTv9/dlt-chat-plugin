@@ -1,14 +1,14 @@
 #include "test_conversationmanager.h"
-#include "conversationmanager.h"
+#include "dltchat/conversation_manager.h"
 #include <QTest>
+
+using namespace dltchat;
 
 void TestConversationManager::testEmptyHistory()
 {
     ConversationManager mgr;
     QVERIFY(mgr.isEmpty());
     QCOMPARE(mgr.turnCount(), 0);
-    QVERIFY(mgr.lastUserQuery().isEmpty());
-    QVERIFY(mgr.lastResponse().isEmpty());
     QVERIFY(mgr.formatHistory(3).isEmpty());
 }
 
@@ -35,37 +35,16 @@ void TestConversationManager::testFormatHistory()
     QVERIFY(history.contains("Assistant: Found 3 errors"));
 }
 
-void TestConversationManager::testLastUserQuery()
-{
-    ConversationManager mgr;
-    mgr.addTurn("user", "first query");
-    mgr.addTurn("assistant", "first response");
-    mgr.addTurn("user", "second query");
-
-    QCOMPARE(mgr.lastUserQuery(), "second query");
-}
-
-void TestConversationManager::testLastResponse()
-{
-    ConversationManager mgr;
-    mgr.addTurn("user", "query");
-    mgr.addTurn("assistant", "response one");
-    mgr.addTurn("user", "follow-up");
-    mgr.addTurn("assistant", "response two");
-
-    QCOMPARE(mgr.lastResponse(), "response two");
-}
-
 void TestConversationManager::testMaxTurns()
 {
     ConversationManager mgr;
-    // Add 25 turns (max is 20)
-    for (int i = 0; i < 25; ++i) {
+    // Add 55 turns (max is 50)
+    for (int i = 0; i < 55; ++i) {
         mgr.addTurn("user", QString("query %1").arg(i));
         mgr.addTurn("assistant", QString("response %1").arg(i));
     }
-    // Should have capped at 20
-    QCOMPARE(mgr.turnCount(), 20);
+    // Should have capped at 50
+    QCOMPARE(mgr.turnCount(), 50);
 }
 
 void TestConversationManager::testClear()

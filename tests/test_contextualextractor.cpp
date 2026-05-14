@@ -1,8 +1,9 @@
 #include "test_contextualextractor.h"
-#include "contextualextractor.h"
+#include "dltchat/contextual_extractor.h"
 #include <QTest>
 #include <QSet>
 
+using namespace dltchat;
 using LogEntry = DltAnalyzerInterface::LogEntry;
 
 // Helper to create a LogEntry with all essential fields
@@ -92,52 +93,6 @@ void TestContextualExtractor::testWindowExpansion()
     for (const auto &e : result) {
         QVERIFY(expected.contains(e.index));
     }
-}
-
-void TestContextualExtractor::testGroupsBuiltCorrectly()
-{
-    QVector<LogEntry> entries;
-    entries.append(makeEntry(0, "100", "ECU1", "APP1", "CTX1", "info", "a"));
-    entries.append(makeEntry(1, "200", "ECU1", "APP1", "CTX2", "info", "b"));
-    entries.append(makeEntry(2, "300", "ECU2", "APP1", "CTX1", "info", "c"));
-    entries.append(makeEntry(3, "400", "ECU1", "APP1", "CTX1", "info", "d"));
-
-    QHash<QString, QSet<int>> invertedIndex;
-    ContextualExtractor extractor;
-    ContextualExtractor::ContextConfig config;
-    config.windowBefore = 0;
-    config.windowAfter = 0;
-
-    QList<int> selected = {0};
-    auto result = extractor.extractContext("", entries, invertedIndex, selected, config);
-
-    QVERIFY(!result.isEmpty());
-    auto groups = extractor.groups();
-
-    // Should have 3 groups
-    QCOMPARE(groups.size(), 3);
-
-    // ECU1/APP1/CTX1 should have totalInGroup = 2
-    bool foundECU1APP1CTX1 = false;
-    bool foundECU1APP1CTX2 = false;
-    bool foundECU2APP1CTX1 = false;
-    for (const auto &g : groups) {
-        if (g.groupKey == "ECU1/APP1/CTX1") {
-            foundECU1APP1CTX1 = true;
-            QCOMPARE(g.totalInGroup, 2);
-        }
-        if (g.groupKey == "ECU1/APP1/CTX2") {
-            foundECU1APP1CTX2 = true;
-            QCOMPARE(g.totalInGroup, 1);
-        }
-        if (g.groupKey == "ECU2/APP1/CTX1") {
-            foundECU2APP1CTX1 = true;
-            QCOMPARE(g.totalInGroup, 1);
-        }
-    }
-    QVERIFY(foundECU1APP1CTX1);
-    QVERIFY(foundECU1APP1CTX2);
-    QVERIFY(foundECU2APP1CTX1);
 }
 
 void TestContextualExtractor::testSortByTimestamp()

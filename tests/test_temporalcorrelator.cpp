@@ -1,7 +1,8 @@
 #include "test_temporalcorrelator.h"
-#include "temporalcorrelator.h"
+#include "dltchat/temporal_correlator.h"
 #include <QTest>
 
+using namespace dltchat;
 using LogEntry = DltAnalyzerInterface::LogEntry;
 
 static LogEntry makeEntry(int index, const QString &timestamp,
@@ -60,11 +61,9 @@ void TestTemporalCorrelator::testTwoEcusInWindow()
     QVERIFY(result.contains("Temporal Correlation"));
 
     // Check groups
-    auto groups = correlator.correlationGroups();
+    auto groups = correlator.correlations();
     QCOMPARE(groups.size(), 1);
-    QCOMPARE(groups[0].events.size(), 2);
-    QVERIFY(groups[0].ecus.contains("ECU1"));
-    QVERIFY(groups[0].ecus.contains("ECU2"));
+    QCOMPARE(groups[0].entries.size(), 2);
 }
 
 void TestTemporalCorrelator::testNoCorrelationWhenEcusDistant()

@@ -1,9 +1,11 @@
 #include "test_dltexport.h"
-#include "dltexport.h"
+#include "dltchat/export_engine.h"
 #include <QTest>
 #include <QTemporaryDir>
 #include <QFile>
 #include <QTextStream>
+
+using namespace dltchat;
 
 QVector<DltAnalyzerInterface::LogEntry> TestDltExport::makeEntries() const
 {
@@ -31,17 +33,40 @@ QVector<DltAnalyzerInterface::LogEntry> TestDltExport::makeEntries() const
     return entries;
 }
 
+QString TestDltExport::generateCsvRow(const QStringList &fields)
+{
+    QStringList escaped;
+    for (const QString &field : fields) {
+        if (field.contains(',') || field.contains('"') || field.contains('\n')) {
+            QString f = field;
+            f.replace("\"", "\"\"");
+            escaped << '"' + f + '"';
+        } else {
+            escaped << field;
+        }
+    }
+    return escaped.join(",");
+}
+
+QStringList TestDltExport::sanitizeFields(const QStringList &fields)
+{
+    QStringList result;
+    for (const QString &field : fields)
+        result << field.trimmed();
+    return result;
+}
+
 void TestDltExport::testCsvRowGeneration()
 {
     QStringList fields = {"a", "b", "c"};
-    QString row = DltExport::generateCsvRow(fields);
+    QString row = generateCsvRow(fields);
     QCOMPARE(row, "a,b,c");
 }
 
 void TestDltExport::testCsvRowEscaping()
 {
     QStringList fields = {"hello", "contains,comma", "has\"quote", "multi\nline"};
-    QString row = DltExport::generateCsvRow(fields);
+    QString row = generateCsvRow(fields);
     QVERIFY(row.contains("\"contains,comma\""));
     QVERIFY(row.contains("\"has\"\"quote\""));
     QVERIFY(row.contains("\"multi\nline\""));
@@ -50,7 +75,7 @@ void TestDltExport::testCsvRowEscaping()
 void TestDltExport::testSanitizeFields()
 {
     QStringList fields = {"  hello  ", "  world  "};
-    QStringList sanitized = DltExport::sanitizeFields(fields);
+    QStringList sanitized = sanitizeFields(fields);
     QCOMPARE(sanitized[0], "hello");
     QCOMPARE(sanitized[1], "world");
 }

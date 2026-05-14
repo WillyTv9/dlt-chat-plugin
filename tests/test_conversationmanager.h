@@ -11,8 +11,6 @@ private slots:
     void testEmptyHistory();
     void testAddTurn();
     void testFormatHistory();
-    void testLastUserQuery();
-    void testLastResponse();
     void testMaxTurns();
     void testClear();
 };

@@ -1,6 +1,8 @@
 #include "test_rulebasedanalyzer.h"
 #include <QTest>
 
+using namespace dltchat;
+
 QVector<DltAnalyzerInterface::LogEntry> TestRuleBasedAnalyzer::makeSampleEntries() const
 {
     QVector<DltAnalyzerInterface::LogEntry> entries;

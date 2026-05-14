@@ -3,15 +3,15 @@
 
 #include <QObject>
 #include <QVector>
-#include "dltanalyzerinterface.h"
+#include "dltchat/analyzer_interface.h"
 
 class TestRuleBasedAnalyzer : public QObject
 {
     Q_OBJECT
 
 private:
-    QVector<DltAnalyzerInterface::LogEntry> makeSampleEntries() const;
-    QVector<DltAnalyzerInterface::LogEntry> makeAutoEntries() const;
+    QVector<dltchat::DltAnalyzerInterface::LogEntry> makeSampleEntries() const;
+    QVector<dltchat::DltAnalyzerInterface::LogEntry> makeAutoEntries() const;
 
 private slots:
     void testEmptyEntries();

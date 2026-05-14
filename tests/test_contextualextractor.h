@@ -11,7 +11,6 @@ private slots:
     void testExtractContextWithSelectedIndices();
     void testExtractContextNoQueryReturnsEmpty();
     void testWindowExpansion();
-    void testGroupsBuiltCorrectly();
     void testSortByTimestamp();
     void testMaxEntriesLimit();
     void testMultipleCtxGroups();

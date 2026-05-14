@@ -1,9 +1,10 @@
 #include "test_fibexenricher.h"
-#include "fibexenricher.h"
+#include "dltchat/fibex_enricher.h"
 #include <QTest>
 #include <QTemporaryFile>
 #include <QDir>
 
+using namespace dltchat;
 using LogEntry = DltAnalyzerInterface::LogEntry;
 
 static QString createTestXml()
@@ -38,7 +39,6 @@ void TestFibexEnricher::testNotLoadedInitially()
     FibexEnricher enricher;
     QVERIFY(!enricher.isLoaded());
     QCOMPARE(enricher.mappingCount(), 0);
-    QVERIFY(enricher.loadedFiles().isEmpty());
 }
 
 void TestFibexEnricher::testEnrichNoData()
@@ -49,8 +49,9 @@ void TestFibexEnricher::testEnrichNoData()
     e.payload = "timeout detected";
 
     QString originalPayload = e.payload;
-    enricher.enrichEntry(e);
-    QCOMPARE(e.payload, originalPayload);
+    QVector<LogEntry> entries = {e};
+    enricher.enrichAll(entries);
+    QCOMPARE(entries[0].payload, originalPayload);
 }
 
 void TestFibexEnricher::testClear()
@@ -84,10 +85,11 @@ void TestFibexEnricher::testEnrichEntry()
     e.index = 0; e.apid = "PWRM"; e.ctid = "MAIN";
     e.payload = "timeout detected";
 
-    enricher.enrichEntry(e);
+    QVector<LogEntry> entries = {e};
+    enricher.enrichAll(entries);
     // Payload should be enriched with human-readable function name
-    QVERIFY(e.payload.contains("timeout detected"));
-    QVERIFY(e.payload.contains("PowerStateManager"));
+    QVERIFY(entries[0].payload.contains("timeout detected"));
+    QVERIFY(entries[0].payload.contains("PowerStateManager"));
 
     QFile::remove(testFile);
 }

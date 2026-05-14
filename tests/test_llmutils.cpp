@@ -1,9 +1,12 @@
 #include "test_llmutils.h"
-#include "dltllmanalyzerinterface.h"
+#include "dltchat/llm_analyzer_interface.h"
 #include <QTest>
+
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+
+using namespace dltchat;
 
 void TestLlmUtils::testExtractIndicesWithTag()
 {

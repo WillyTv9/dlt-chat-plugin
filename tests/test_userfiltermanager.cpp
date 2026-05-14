@@ -1,6 +1,8 @@
 #include "test_userfiltermanager.h"
-#include "userfiltermanager.h"
+#include "dltchat/user_filter_manager.h"
 #include <QTest>
+
+using namespace dltchat;
 #include <QFile>
 #include <QTextStream>
 #include <QJsonDocument>
@@ -124,7 +126,7 @@ void TestUserFilterManager::testClear()
     mgr.loadFromFile(createSampleFilterFile(dir));
     QCOMPARE(mgr.filters().size(), 2);
 
-    mgr.clear();
+    mgr.clearFilters();
     QCOMPARE(mgr.filters().size(), 0);
     QCOMPARE(mgr.activeFilterCount(), 0);
 }

@@ -1,7 +1,9 @@
 #include "test_automotivelogparser.h"
-#include "automotivelogparser.h"
+#include "dltchat/automotive_log_parser.h"
 #include <QTest>
 #include <QPair>
+
+using namespace dltchat;
 
 void TestAutomotiveLogParser::testClassifyCarPlayByApid()
 {
@@ -151,7 +153,7 @@ void TestAutomotiveLogParser::testFilterByPresetAuthErrors()
 
 void TestAutomotiveLogParser::testAvailablePresets()
 {
-    QStringList presets = AutomotiveLogParser::availablePresets();
+    QHash<QString, QStringList> presets = AutomotiveLogParser::availablePresets();
     QVERIFY(presets.contains("carplay"));
     QVERIFY(presets.contains("androidauto"));
     QVERIFY(presets.contains("video_focus"));

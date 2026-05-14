@@ -3,14 +3,14 @@
 
 #include <QObject>
 #include <QVector>
-#include "dltanalyzerinterface.h"
+#include "dltchat/analyzer_interface.h"
 
 class TestAutomotiveLogParser : public QObject
 {
     Q_OBJECT
 
 private:
-    QVector<DltAnalyzerInterface::LogEntry> makeTestEntries() const;
+    QVector<dltchat::DltAnalyzerInterface::LogEntry> makeTestEntries() const;
 
 private slots:
     void testClassifyCarPlayByApid();
