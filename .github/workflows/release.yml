@@ -7,7 +7,12 @@ on:
 
 jobs:
   release:
-    runs-on: windows-latest
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+      fail-fast: false
+
+    runs-on: ${{ matrix.os }}
 
     steps:
       - uses: actions/checkout@v4
@@ -16,25 +21,50 @@ jobs:
         uses: jurplel/install-qt-action@v4
         with:
           version: "6.7"
-          modules: qtnetwork qtxml
 
-      - name: Cache DLT Viewer SDK
-        id: cache-dlt
+      # === WINDOWS: scarica SDK dal release 7z ===
+      - name: Cache DLT Viewer SDK (Windows)
+        if: runner.os == 'Windows'
+        id: cache-dlt-win
         uses: actions/cache@v4
         with:
           path: ~/dlt-viewer-sdk
-          key: windows-dlt-viewer-sdk-v2.30.0
+          key: windows-dlt-sdk-2.30.0
 
-      - name: Download DLT Viewer SDK
-        if: steps.cache-dlt.outputs.cache-hit != 'true'
+      - name: Download DLT Viewer SDK (Windows)
+        if: runner.os == 'Windows' && steps.cache-dlt-win.outputs.cache-hit != 'true'
         shell: pwsh
         run: |
-          $url = "https://github.com/COVESA/dlt-viewer/releases/download/v2.30.0/dlt-viewer-2.30.0-win64.zip"
-          mkdir -Force ~/dlt-viewer-sdk | Out-Null
-          curl -sL $url -o ~/dlt-viewer-sdk/sdk.zip
-          Expand-Archive -Path ~/dlt-viewer-sdk/sdk.zip -DestinationPath ~/dlt-viewer-sdk -Force
-          $sdkPath = Get-ChildItem -Path ~/dlt-viewer-sdk -Directory | Select-Object -First 1
-          echo "QDLT_ROOT=$sdkPath" | Out-File -FilePath $env:GITHUB_ENV -Append
+          $url = "https://github.com/COVESA/dlt-viewer/releases/download/2.30.0/DLTViewer-2.30.0-STABLE-qt6.8.3-r1318_msvc2022_x64-win64.7z"
+          mkdir -Force ~/dlt-viewer-sdk/dlttmp | Out-Null
+          curl -sL $url -o ~/dlt-viewer-sdk/dlttmp/sdk.7z
+          & "C:\Program Files\7-Zip\7z.exe" x ~/dlt-viewer-sdk/dlttmp/sdk.7z -o"~/dlt-viewer-sdk" -y
+          Remove-Item -Recurse -Force ~/dlt-viewer-sdk/dlttmp
+
+      - name: Set QDLT_ROOT (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $sdkDir = Get-ChildItem ~/dlt-viewer-sdk -Directory | Select-Object -First 1
+          echo "QDLT_ROOT=$($sdkDir.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      # === LINUX: compila qdlt da sorgente ===
+      - name: Install Linux Dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libqt6serialport6-dev
+
+      - name: Build qdlt from source (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          git clone --branch 2.30.0 --depth 1 https://github.com/COVESA/dlt-viewer.git /tmp/dlt-viewer
+          cd /tmp/dlt-viewer
+          mkdir build && cd build
+          cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=$PWD/install
+          cmake --build . --target qdlt --parallel $(nproc)
+          cmake --install .
+          echo "QDLT_ROOT=$PWD/install" >> $GITHUB_ENV
 
       - name: Configure CMake
         run: cmake -B build -DCMAKE_BUILD_TYPE=Release
@@ -55,8 +85,13 @@ jobs:
         shell: pwsh
         run: |
           $version = "${{ github.ref_name }}"
-          $archive = "dltchatplugin-$version-win64.zip"
-          Compress-Archive -Path build/Release/dltchatplugin.dll, README.md, LICENSE, dlt_chat_plugin.ini.example, automotive_filters_example.json -DestinationPath $archive
+          if ("${{ runner.os }}" -eq "Windows") {
+            $archive = "dltchatplugin-$version-win64.zip"
+            Compress-Archive -Path build/Release/dltchatplugin.dll, README.md, LICENSE, dlt_chat_plugin.ini.example, automotive_filters_example.json -DestinationPath $archive
+          } else {
+            $archive = "dltchatplugin-$version-linux64.tar.gz"
+            tar czf $archive -C build libdltchatplugin.so README.md LICENSE dlt_chat_plugin.ini.example automotive_filters_example.json
+          }
           echo "archive=$archive" | Out-File -FilePath $env:GITHUB_ENV -Append
 
       - name: Create GitHub Release
@@ -66,10 +101,10 @@ jobs:
           body: |
             ## ${{ github.ref_name }}
 
-            See [CHANGELOG](ARCHITECTURE.md) for details.
+            See [ARCHITECTURE.md](ARCHITECTURE.md) for details.
 
             ### Included
-            - `dltchatplugin.dll` - Plugin binary for DLT Viewer 2.30.0+
+            - `dltchatplugin.dll` / `libdltchatplugin.so` - Plugin binary for DLT Viewer 2.30.0+
             - `README.md` - Build and usage guide
             - `LICENSE` - MPL 2.0 license
             - `dlt_chat_plugin.ini.example` - Example configuration

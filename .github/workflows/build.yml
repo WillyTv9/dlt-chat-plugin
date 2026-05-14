@@ -22,54 +22,56 @@ jobs:
         uses: jurplel/install-qt-action@v4
         with:
           version: "6.7"
-          modules: qtnetwork qtxml
 
-      - name: Cache DLT Viewer SDK
-        id: cache-dlt
+      # === WINDOWS: scarica SDK dal release 7z ===
+      - name: Cache DLT Viewer SDK (Windows)
+        if: runner.os == 'Windows'
+        id: cache-dlt-win
         uses: actions/cache@v4
         with:
-          path: |
-            ~/dlt-viewer-sdk
-          key: ${{ runner.os }}-dlt-viewer-sdk-v2.30.0
+          path: ~/dlt-viewer-sdk
+          key: windows-dlt-sdk-2.30.0
 
-      - name: Download DLT Viewer SDK
-        if: steps.cache-dlt.outputs.cache-hit != 'true'
+      - name: Download DLT Viewer SDK (Windows)
+        if: runner.os == 'Windows' && steps.cache-dlt-win.outputs.cache-hit != 'true'
         shell: pwsh
         run: |
-          $repo = "COVESA/dlt-viewer"
-          $tag = "v2.30.0"
-          if ("${{ runner.os }}" -eq "Windows") {
-            $asset = "dlt-viewer-2.30.0-win64.zip"
-          } else {
-            $asset = "dlt-viewer-2.30.0-ubuntu-22.04.tar.gz"
-          }
-          $url = "https://github.com/$repo/releases/download/$tag/$asset"
-          Write-Host "Downloading $url"
-          mkdir -Force ~/dlt-viewer-sdk | Out-Null
-          curl -sL $url -o ~/dlt-viewer-sdk/$asset
+          $url = "https://github.com/COVESA/dlt-viewer/releases/download/2.30.0/DLTViewer-2.30.0-STABLE-qt6.8.3-r1318_msvc2022_x64-win64.7z"
+          mkdir -Force ~/dlt-viewer-sdk/dlttmp | Out-Null
+          curl -sL $url -o ~/dlt-viewer-sdk/dlttmp/sdk.7z
+          & "C:\Program Files\7-Zip\7z.exe" x ~/dlt-viewer-sdk/dlttmp/sdk.7z -o"~/dlt-viewer-sdk" -y
+          Remove-Item -Recurse -Force ~/dlt-viewer-sdk/dlttmp
 
-      - name: Setup DLT Viewer SDK (Windows)
+      - name: Set QDLT_ROOT (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          Expand-Archive -Path ~/dlt-viewer-sdk/*.zip -DestinationPath ~/dlt-viewer-sdk -Force
-          $sdkPath = Get-ChildItem -Path ~/dlt-viewer-sdk -Directory | Select-Object -First 1
-          echo "QDLT_ROOT=$sdkPath" | Out-File -FilePath $env:GITHUB_ENV -Append
+          $sdkDir = Get-ChildItem ~/dlt-viewer-sdk -Directory | Select-Object -First 1
+          echo "QDLT_ROOT=$($sdkDir.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
 
-      - name: Setup DLT Viewer SDK (Linux)
+      # === LINUX: compila qdlt da sorgente ===
+      - name: Install Linux Dependencies
         if: runner.os == 'Linux'
         run: |
-          tar xzf ~/dlt-viewer-sdk/*.tar.gz -C ~/dlt-viewer-sdk/
-          sdkPath=$(ls -d ~/dlt-viewer-sdk/*/ | head -1)
-          echo "QDLT_ROOT=$sdkPath" >> $GITHUB_ENV
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libqt6serialport6-dev
+
+      - name: Build qdlt from source (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          git clone --branch 2.30.0 --depth 1 https://github.com/COVESA/dlt-viewer.git /tmp/dlt-viewer
+          cd /tmp/dlt-viewer
+          mkdir build && cd build
+          cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=$PWD/install
+          cmake --build . --target qdlt --parallel $(nproc)
+          cmake --install .
+          echo "QDLT_ROOT=$PWD/install" >> $GITHUB_ENV
 
       - name: Configure CMake
-        run: |
-          cmake -B build -DCMAKE_BUILD_TYPE=Release
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release
 
       - name: Build
-        run: |
-          cmake --build build --config Release --parallel
+        run: cmake --build build --config Release --parallel
 
       - name: Build Tests
         run: |
@@ -78,8 +80,7 @@ jobs:
 
       - name: Run Tests
         working-directory: build_tests
-        run: |
-          ctest --output-on-failure
+        run: ctest --output-on-failure
 
       - name: Upload Plugin Artifact
         uses: actions/upload-artifact@v4
