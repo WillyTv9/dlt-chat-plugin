@@ -129,6 +129,7 @@ private:
         QDateTime timestamp;
     };
     QHash<QString, CacheEntry> m_responseCache;
+    QList<QString> m_cacheAccessOrder;
     static constexpr int CACHE_MAX_SIZE = 1000;
     QMutex m_cacheMutex;
 

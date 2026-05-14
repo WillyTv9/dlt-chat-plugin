@@ -204,7 +204,7 @@ bool DltBulkAnalyzerWorker::processChunk(int chunkIndex,
 
 DltBulkAnalyzer::DltBulkAnalyzer(QObject *parent)
     : QObject(parent)
-    , m_worker(new DltBulkAnalyzerWorker(this))
+    , m_worker(new DltBulkAnalyzerWorker(nullptr))
 {
     connect(m_worker, &DltBulkAnalyzerWorker::progressChanged,
             this, &DltBulkAnalyzer::onWorkerProgress);
@@ -212,18 +212,19 @@ DltBulkAnalyzer::DltBulkAnalyzer(QObject *parent)
             this, &DltBulkAnalyzer::onWorkerFinished);
     connect(m_worker, &DltBulkAnalyzerWorker::errorOccurred,
             this, &DltBulkAnalyzer::onWorkerError);
-    connect(m_worker, &DltBulkAnalyzerWorker::finished,
-            m_worker, &QObject::deleteLater);
 }
 
 DltBulkAnalyzer::~DltBulkAnalyzer()
 {
     cancelAnalysis();
+    delete m_worker;
+    m_worker = nullptr;
 }
 
 void DltBulkAnalyzer::setAnalyzer(DltAnalyzerInterface *analyzer)
 {
-    m_worker->configure(analyzer);
+    if (m_worker)
+        m_worker->configure(analyzer);
 }
 
 void DltBulkAnalyzer::startBulkAnalysis(const QVector<DltAnalyzerInterface::LogEntry> &logs,
@@ -252,7 +253,9 @@ void DltBulkAnalyzer::resumeAnalysis()
 
 void DltBulkAnalyzer::cancelAnalysis()
 {
+    if (!m_worker) return;
     m_worker->cancel();
+    m_worker->wait(5000);
 }
 
 bool DltBulkAnalyzer::isRunning() const
@@ -355,10 +358,6 @@ QSet<QString> DltBulkAnalyzer::getAllCategories() const
     }
 
     return allCategories;
-}
-
-void DltBulkAnalyzer::clearCache()
-{
 }
 
 void DltBulkAnalyzer::onWorkerProgress(double progress, int processed, int total)

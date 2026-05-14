@@ -111,8 +111,6 @@ public:
     QSet<QString> getAllTags() const;
     QSet<QString> getAllCategories() const;
 
-    void clearCache();
-
 signals:
     void progressUpdated(double progress, int processed, int total);
     void analysisFinished(bool success);

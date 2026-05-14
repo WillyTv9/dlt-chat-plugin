@@ -1,0 +1,91 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+      fail-fast: false
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: "6.7"
+          modules: qtnetwork qtxml
+
+      - name: Cache DLT Viewer SDK
+        id: cache-dlt
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/dlt-viewer-sdk
+          key: ${{ runner.os }}-dlt-viewer-sdk-v2.30.0
+
+      - name: Download DLT Viewer SDK
+        if: steps.cache-dlt.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          $repo = "COVESA/dlt-viewer"
+          $tag = "v2.30.0"
+          if ("${{ runner.os }}" -eq "Windows") {
+            $asset = "dlt-viewer-2.30.0-win64.zip"
+          } else {
+            $asset = "dlt-viewer-2.30.0-ubuntu-22.04.tar.gz"
+          }
+          $url = "https://github.com/$repo/releases/download/$tag/$asset"
+          Write-Host "Downloading $url"
+          mkdir -Force ~/dlt-viewer-sdk | Out-Null
+          curl -sL $url -o ~/dlt-viewer-sdk/$asset
+
+      - name: Setup DLT Viewer SDK (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Expand-Archive -Path ~/dlt-viewer-sdk/*.zip -DestinationPath ~/dlt-viewer-sdk -Force
+          $sdkPath = Get-ChildItem -Path ~/dlt-viewer-sdk -Directory | Select-Object -First 1
+          echo "QDLT_ROOT=$sdkPath" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Setup DLT Viewer SDK (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          tar xzf ~/dlt-viewer-sdk/*.tar.gz -C ~/dlt-viewer-sdk/
+          sdkPath=$(ls -d ~/dlt-viewer-sdk/*/ | head -1)
+          echo "QDLT_ROOT=$sdkPath" >> $GITHUB_ENV
+
+      - name: Configure CMake
+        run: |
+          cmake -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: |
+          cmake --build build --config Release --parallel
+
+      - name: Build Tests
+        run: |
+          cmake -B build_tests -S tests
+          cmake --build build_tests --config Release
+
+      - name: Run Tests
+        working-directory: build_tests
+        run: |
+          ctest --output-on-failure
+
+      - name: Upload Plugin Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dltchatplugin-${{ runner.os }}
+          path: |
+            build/Release/dltchatplugin.dll
+            build/libdltchatplugin.so
+          if-no-files-found: ignore

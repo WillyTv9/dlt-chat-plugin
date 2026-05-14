@@ -378,6 +378,8 @@ bool DltLlmAnalyzerInterface::analyzeQueryAsync(const QString &query,
         QMutexLocker lockCache(&m_cacheMutex);
         if (m_responseCache.contains(cacheKey))
         {
+            m_cacheAccessOrder.removeAll(cacheKey);
+            m_cacheAccessOrder.append(cacheKey);
             CacheEntry entry = m_responseCache.value(cacheKey);
             QueryResult r = entry.result;
             r.processingTimeMs = 0;
@@ -398,6 +400,7 @@ bool DltLlmAnalyzerInterface::analyzeQueryAsync(const QString &query,
         int waitMs = static_cast<int>((1.0 - m_rateLimiter.tokens) / m_rateLimiter.refillRate * 1000);
         lockRate.unlock();
 
+        // Re-enters the full method after wait, which re-checks tokens correctly
         QTimer::singleShot(waitMs, this, [this, query, entries]() {
             analyzeQueryAsync(query, entries);
         });
@@ -457,12 +460,16 @@ bool DltLlmAnalyzerInterface::analyzeQueryAsync(const QString &query,
             QMutexLocker lock(&m_cacheMutex);
             if (m_responseCache.size() >= CACHE_MAX_SIZE)
             {
-                QList<QString> keys = m_responseCache.keys();
-                for (int i = 0; i < keys.size() / 2; ++i)
+                int removeCount = m_cacheAccessOrder.size() / 2;
+                for (int i = 0; i < removeCount; ++i)
                 {
-                    m_responseCache.remove(keys[i]);
+                    m_responseCache.remove(m_cacheAccessOrder[i]);
                 }
+                m_cacheAccessOrder.erase(m_cacheAccessOrder.begin(),
+                                         m_cacheAccessOrder.begin() + removeCount);
             }
+            m_cacheAccessOrder.removeAll(*cacheKeyPtr);
+            m_cacheAccessOrder.append(*cacheKeyPtr);
             CacheEntry entry;
             entry.result = r;
             entry.timestamp = QDateTime::currentDateTime();
@@ -519,6 +526,8 @@ DltAnalyzerInterface::QueryResult DltLlmAnalyzerInterface::analyzeQuery(
         QMutexLocker lock(&m_cacheMutex);
         if (m_responseCache.contains(cacheKey))
         {
+            m_cacheAccessOrder.removeAll(cacheKey);
+            m_cacheAccessOrder.append(cacheKey);
             CacheEntry entry = m_responseCache.value(cacheKey);
             r = entry.result;
             r.processingTimeMs = 0;
@@ -526,6 +535,8 @@ DltAnalyzerInterface::QueryResult DltLlmAnalyzerInterface::analyzeQuery(
         }
     }
 
+    // NOTE: This sync path runs in a worker QThread (called from BulkAnalyzerWorker),
+    // so QThread::sleep() blocks the worker thread, not the UI.
     {
         QMutexLocker lock(&m_rateLimiter.mutex);
         qint64 now = QDateTime::currentMSecsSinceEpoch();
@@ -607,12 +618,16 @@ DltAnalyzerInterface::QueryResult DltLlmAnalyzerInterface::analyzeQuery(
                 QMutexLocker lock(&m_cacheMutex);
                 if (m_responseCache.size() >= CACHE_MAX_SIZE)
                 {
-                    QList<QString> keys = m_responseCache.keys();
-                    for (int i = 0; i < keys.size() / 2; ++i)
+                    int removeCount = m_cacheAccessOrder.size() / 2;
+                    for (int i = 0; i < removeCount; ++i)
                     {
-                        m_responseCache.remove(keys[i]);
+                        m_responseCache.remove(m_cacheAccessOrder[i]);
                     }
+                    m_cacheAccessOrder.erase(m_cacheAccessOrder.begin(),
+                                             m_cacheAccessOrder.begin() + removeCount);
                 }
+                m_cacheAccessOrder.removeAll(cacheKey);
+                m_cacheAccessOrder.append(cacheKey);
                 CacheEntry entry;
                 entry.result = r;
                 entry.timestamp = QDateTime::currentDateTime();

@@ -1,0 +1,77 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  release:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: "6.7"
+          modules: qtnetwork qtxml
+
+      - name: Cache DLT Viewer SDK
+        id: cache-dlt
+        uses: actions/cache@v4
+        with:
+          path: ~/dlt-viewer-sdk
+          key: windows-dlt-viewer-sdk-v2.30.0
+
+      - name: Download DLT Viewer SDK
+        if: steps.cache-dlt.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          $url = "https://github.com/COVESA/dlt-viewer/releases/download/v2.30.0/dlt-viewer-2.30.0-win64.zip"
+          mkdir -Force ~/dlt-viewer-sdk | Out-Null
+          curl -sL $url -o ~/dlt-viewer-sdk/sdk.zip
+          Expand-Archive -Path ~/dlt-viewer-sdk/sdk.zip -DestinationPath ~/dlt-viewer-sdk -Force
+          $sdkPath = Get-ChildItem -Path ~/dlt-viewer-sdk -Directory | Select-Object -First 1
+          echo "QDLT_ROOT=$sdkPath" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Configure CMake
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --config Release --parallel
+
+      - name: Build Tests
+        run: |
+          cmake -B build_tests -S tests
+          cmake --build build_tests --config Release
+
+      - name: Run Tests
+        working-directory: build_tests
+        run: ctest --output-on-failure
+
+      - name: Create Release Archive
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}"
+          $archive = "dltchatplugin-$version-win64.zip"
+          Compress-Archive -Path build/Release/dltchatplugin.dll, README.md, LICENSE, dlt_chat_plugin.ini.example, automotive_filters_example.json -DestinationPath $archive
+          echo "archive=$archive" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ github.ref_name }}
+          body: |
+            ## ${{ github.ref_name }}
+
+            See [CHANGELOG](ARCHITECTURE.md) for details.
+
+            ### Included
+            - `dltchatplugin.dll` - Plugin binary for DLT Viewer 2.30.0+
+            - `README.md` - Build and usage guide
+            - `LICENSE` - MPL 2.0 license
+            - `dlt_chat_plugin.ini.example` - Example configuration
+            - `automotive_filters_example.json` - Example user filters
+          files: ${{ env.archive }}

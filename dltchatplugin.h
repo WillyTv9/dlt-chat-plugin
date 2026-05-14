@@ -41,35 +41,35 @@ public:
     DltChatPlugin();
     ~DltChatPlugin();
 
-    QString name();
-    QString pluginVersion();
-    QString pluginInterfaceVersion();
-    QString description();
-    QString error();
-    bool loadConfig(QString filename);
-    bool saveConfig(QString filename);
-    QStringList infoConfig();
+    QString name() override;
+    QString pluginVersion() override;
+    QString pluginInterfaceVersion() override;
+    QString description() override;
+    QString error() override;
+    bool loadConfig(QString filename) override;
+    bool saveConfig(QString filename) override;
+    QStringList infoConfig() override;
 
-    QWidget* initViewer();
-    void initFileStart(QDltFile *file);
-    void initFileFinish();
-    void initMsg(int index, QDltMsg &msg);
-    void initMsgDecoded(int index, QDltMsg &msg);
-    void updateFileStart();
-    void updateMsg(int index, QDltMsg &msg);
-    void updateMsgDecoded(int index, QDltMsg &msg);
-    void updateFileFinish();
-    void selectedIdxMsg(int index, QDltMsg &msg);
-    void selectedIdxMsgDecoded(int index, QDltMsg &msg);
+    QWidget* initViewer() override;
+    void initFileStart(QDltFile *file) override;
+    void initFileFinish() override;
+    void initMsg(int index, QDltMsg &msg) override;
+    void initMsgDecoded(int index, QDltMsg &msg) override;
+    void updateFileStart() override;
+    void updateMsg(int index, QDltMsg &msg) override;
+    void updateMsgDecoded(int index, QDltMsg &msg) override;
+    void updateFileFinish() override;
+    void selectedIdxMsg(int index, QDltMsg &msg) override;
+    void selectedIdxMsgDecoded(int index, QDltMsg &msg) override;
 
-    bool initControl(QDltControl *control);
-    bool initConnections(QStringList list);
-    bool controlMsg(int index, QDltMsg &msg);
-    bool stateChanged(int index, QDltConnection::QDltConnectionState connectionState, QString hostname);
-    bool autoscrollStateChanged(bool enabled);
-    void initMessageDecoder(QDltMessageDecoder* pMessageDecoder);
-    void initMainTableView(QTableView* pTableView);
-    void configurationChanged();
+    bool initControl(QDltControl *control) override;
+    bool initConnections(QStringList list) override;
+    bool controlMsg(int index, QDltMsg &msg) override;
+    bool stateChanged(int index, QDltConnection::QDltConnectionState connectionState, QString hostname) override;
+    bool autoscrollStateChanged(bool enabled) override;
+    void initMessageDecoder(QDltMessageDecoder* pMessageDecoder) override;
+    void initMainTableView(QTableView* pTableView) override;
+    void configurationChanged() override;
 
     void setAnalyzerType(const QString &type);
     QString currentAnalyzerType() const;
@@ -149,6 +149,7 @@ private:
     bool m_bulkAnalysisEnabled;
     bool m_bulkAnalysisInProgress;
     void startBulkAnalysis();
+    QVector<DltAnalyzerInterface::LogEntry> m_lastAiContext;
 
     int m_aiState = 0;
     QString m_aiModelName;
@@ -156,6 +157,7 @@ private:
     static constexpr int AI_AVAILABILITY_TTL_MS = 30000;
 
     mutable QMutex m_llmMutex;
+    mutable QMutex m_aiCacheMutex;
     bool m_llmRequestInProgress = false;
     QElapsedTimer m_llmRequestTimer;
     int m_aiAvailabilityRetryCount = 0;

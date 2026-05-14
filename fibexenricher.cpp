@@ -147,30 +147,6 @@ void FibexEnricher::parseFibexFile(const QString &path)
             entry.valid = true;
             m_enrichmentMap.insert(key, entry);
         }
-
-        if (!shortName.isEmpty()) {
-            // Try to extract APID_CTID from short name or use as-is
-            // Format could be "APP_CTX" or "APID/CTX" or just "AppName"
-            QString normalized = shortName.toUpper();
-            QString apid, ctid;
-
-            static QRegularExpression sepRe("[/_]");
-            QStringList parts = normalized.split(sepRe);
-            if (parts.size() >= 2) {
-                apid = parts[0];
-                ctid = parts.mid(1).join("_");
-            } else {
-                apid = normalized;
-                ctid = "MAIN";
-            }
-
-            QString key = QString("%1_%2").arg(apid, ctid);
-            EnrichmentEntry entry;
-            entry.functionName = longName.isEmpty() ? shortName : longName;
-            entry.signalNames = sigList;
-            entry.valid = true;
-            m_enrichmentMap.insert(key, entry);
-        }
     }
 
     // Also look for FUNCTION nodes

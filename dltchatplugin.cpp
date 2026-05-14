@@ -728,7 +728,7 @@ void DltChatPlugin::onAiQuerySubmitted(const QString &query)
 
     // Check cache
     {
-        QMutexLocker lk(&m_llmMutex);
+        QMutexLocker lk(&m_aiCacheMutex);
         QString cacheKey = buildAiCacheKey(query, contextualContext);
         auto it = m_aiResponseCache.find(cacheKey);
         if (it != m_aiResponseCache.end()) {
@@ -800,6 +800,7 @@ void DltChatPlugin::onAiQuerySubmitted(const QString &query)
         combinedExtra = temporalContext;
 
     m_llmAnalyzer->setExtraContext(combinedExtra);
+    m_lastAiContext = contextualContext;
     m_llmAnalyzer->analyzeQueryAsync(query, contextualContext);
 }
 
@@ -815,9 +816,9 @@ void DltChatPlugin::onLlmResultReady(const DltAnalyzerInterface::QueryResult &re
 
     // Cache the result
     if (result.success) {
-        QMutexLocker lk(&m_llmMutex);
+        QMutexLocker lk(&m_aiCacheMutex);
         QString cacheKey = buildAiCacheKey(originalQuery,
-            QVector<DltAnalyzerInterface::LogEntry>());
+            m_lastAiContext);
         if (m_aiResponseCache.size() >= kAICacheMaxEntries)
             m_aiResponseCache.clear();
         m_aiResponseCache.insert(cacheKey, result);

@@ -12,7 +12,7 @@ if not exist build (
     exit /b 1
 )
 
-cd build
+pushd build
 
 where ninja >nul 2>nul
 if %errorlevel% equ 0 (
@@ -20,6 +20,7 @@ if %errorlevel% equ 0 (
     cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release
     if %errorlevel% neq 0 (
         echo [ERROR] CMake configuration failed
+        popd
         pause
         exit /b 1
     )
@@ -30,6 +31,7 @@ if %errorlevel% equ 0 (
     if %errorlevel% neq 0 (
         echo [ERROR] CMake configuration failed
         echo Ensure you run from "Developer Command Prompt for VS 2022"
+        popd
         pause
         exit /b 1
     )
@@ -37,11 +39,13 @@ if %errorlevel% equ 0 (
 )
 
 if %errorlevel% neq 0 (
+    popd
     echo [ERROR] Build failed
     pause
     exit /b 1
 )
 
+popd
 echo.
 echo [SUCCESS] Plugin compiled successfully!
 echo Output: build\Release\dltchatplugin.dll ^(MSVC^) / build\libdltchatplugin.dll ^(MinGW^)
