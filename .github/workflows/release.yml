@@ -35,11 +35,13 @@ jobs:
         if: runner.os == 'Windows' && steps.cache-dlt-win.outputs.cache-hit != 'true'
         shell: pwsh
         run: |
+          $sdkDir = "$HOME/dlt-viewer-sdk"
+          $tmpDir = "$sdkDir/dlttmp"
           $url = "https://github.com/COVESA/dlt-viewer/releases/download/2.30.0/DLTViewer-2.30.0-STABLE-qt6.8.3-r1318_msvc2022_x64-win64.7z"
-          mkdir -Force ~/dlt-viewer-sdk/dlttmp | Out-Null
-          curl -sL $url -o ~/dlt-viewer-sdk/dlttmp/sdk.7z
-          & "C:\Program Files\7-Zip\7z.exe" x ~/dlt-viewer-sdk/dlttmp/sdk.7z -o"~/dlt-viewer-sdk" -y
-          Remove-Item -Recurse -Force ~/dlt-viewer-sdk/dlttmp
+          mkdir -Force $tmpDir | Out-Null
+          curl.exe -sL $url -o "$tmpDir/sdk.7z"
+          & "C:\Program Files\7-Zip\7z.exe" x "$tmpDir/sdk.7z" -o"$sdkDir" -y
+          Remove-Item -Recurse -Force $tmpDir
 
       - name: Set QDLT_ROOT (Windows)
         if: runner.os == 'Windows'
@@ -61,7 +63,7 @@ jobs:
           git clone --branch 2.30.0 --depth 1 https://github.com/COVESA/dlt-viewer.git /tmp/dlt-viewer
           cd /tmp/dlt-viewer
           mkdir build && cd build
-          cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=$PWD/install
+          cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=$PWD/install -DDLT_VIEWER=OFF -DDLT_PARSER=OFF
           cmake --build . --target qdlt --parallel $(nproc)
           cmake --install .
           echo "QDLT_ROOT=$PWD/install" >> $GITHUB_ENV
