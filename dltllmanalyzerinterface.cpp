@@ -5,6 +5,7 @@
 #include <QEventLoop>
 #include <QRandomGenerator>
 #include <QThread>
+#include <algorithm>
 
 static constexpr int kLlmMaxEntries = 100;
 static constexpr int kMaxRetries = 3;
@@ -323,6 +324,7 @@ QList<int> DltLlmAnalyzerInterface::extractIndicesFromText(const QString &text) 
             if (n < 10000 && !indices.contains(n)) indices.append(n);
         }
     }
+    std::sort(indices.begin(), indices.end());
     return indices;
 }
 

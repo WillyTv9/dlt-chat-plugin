@@ -275,6 +275,7 @@ DltAnalyzerInterface::QueryResult DltRuleBasedAnalyzer::analyzeInternal(
             html += QString("<br><b>Non categorizzati:</b> %1 messaggi<br>")
                 .arg(uncategorized.size());
 
+        std::sort(r.indices.begin(), r.indices.end());
         r.responseHtml = html;
         return r;
     }
@@ -312,6 +313,7 @@ DltAnalyzerInterface::QueryResult DltRuleBasedAnalyzer::analyzeInternal(
                 }
             }
         }
+        std::sort(r.indices.begin(), r.indices.end());
         if (dupCount == 0)
             r.responseHtml = "Nessun pattern di messaggi ripetuti trovato. Ogni messaggio appare una sola volta.";
         else
@@ -327,6 +329,14 @@ DltAnalyzerInterface::QueryResult DltRuleBasedAnalyzer::analyzeInternal(
     QStringList domainFilter = extractDomains(lq);
     QStringList matchKeywords = extractCategoryKeywords(lq);
 
+    // If a domain is detected (e.g. "carplay"), also use it as a keyword
+    // so entries containing the word in payload/apid/ctid are found even
+    // if AutomotiveLogParser did not classify them under that domain.
+    if (!domainFilter.isEmpty() && matchKeywords.isEmpty()) {
+        for (const auto &d : domainFilter)
+            matchKeywords.append(d);
+    }
+
     bool isSimpleLevel = levelFilter.size() == 1 && matchKeywords.isEmpty() && domainFilter.isEmpty();
 
     QSet<int> matchedSet;
@@ -335,7 +345,19 @@ DltAnalyzerInterface::QueryResult DltRuleBasedAnalyzer::analyzeInternal(
     for (const auto &e : entries)
     {
         if (!levelFilter.isEmpty() && !levelFilter.contains(e.level)) continue;
-        if (!domainFilter.isEmpty() && !domainFilter.contains(e.domain)) continue;
+        // Domain check: match either domain field OR keyword in payload/apid/ctid
+        if (!domainFilter.isEmpty()) {
+            bool domainHit = domainFilter.contains(e.domain);
+            if (!domainHit) {
+                for (const auto &d : domainFilter) {
+                    if (e.payload.contains(d, Qt::CaseInsensitive) ||
+                        e.apid.contains(d, Qt::CaseInsensitive) ||
+                        e.ctid.contains(d, Qt::CaseInsensitive))
+                    { domainHit = true; break; }
+                }
+            }
+            if (!domainHit) continue;
+        }
 
         if (isSimpleLevel && levelFilter.size() == 1)
         {
@@ -345,7 +367,7 @@ DltAnalyzerInterface::QueryResult DltRuleBasedAnalyzer::analyzeInternal(
             continue;
         }
 
-        if (!matchKeywords.isEmpty())
+        if (!matchKeywords.isEmpty() && domainFilter.isEmpty())
         {
             bool hit = false;
             for (const auto &kw : matchKeywords)
@@ -365,6 +387,7 @@ DltAnalyzerInterface::QueryResult DltRuleBasedAnalyzer::analyzeInternal(
     }
 
     r.indices = QList<int>(matchedSet.begin(), matchedSet.end());
+    std::sort(r.indices.begin(), r.indices.end());
     r.snippets = matchedSnip;
 
     if (r.indices.isEmpty())
