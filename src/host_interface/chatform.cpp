@@ -1,6 +1,8 @@
 #include "chatform.h"
 #include "results_model.h"
+#include "dltchat/category_registry.h"
 
+#include <QCompleter>
 #include <QCoreApplication>
 #include <QFileDialog>
 #include <QGridLayout>
@@ -11,6 +13,7 @@
 #include <QMap>
 #include <QProgressBar>
 #include <QPushButton>
+#include <QScrollArea>
 #include <QTextBrowser>
 #include <QVBoxLayout>
 #include <QScrollBar>
@@ -18,6 +21,7 @@
 #include <QFont>
 #include <QPalette>
 #include <QMessageBox>
+#include <QStringListModel>
 
 namespace DltChat {
 
@@ -216,6 +220,16 @@ Form::Form(QWidget *parent)
     input->setStyleSheet(QString(
         "QLineEdit{padding:4px;border:1px solid %1;border-radius:4px;background:%2;color:%3;}"
     ).arg(midS).arg(bgS).arg(fgS));
+    {
+        const QStringList completions =
+            dltchat::CategoryRegistry::instance().allCompletionStrings();
+        auto *model = new QStringListModel(completions, this);
+        auto *completer = new QCompleter(model, this);
+        completer->setCaseSensitivity(Qt::CaseInsensitive);
+        completer->setFilterMode(Qt::MatchContains);
+        completer->setMaxVisibleItems(20);
+        input->setCompleter(completer);
+    }
     aiInput->setPlaceholderText(tr("Ask the AI..."));
     aiInput->setMaxLength(kMaxInputLength);
     aiInput->setStyleSheet(input->styleSheet());
@@ -224,61 +238,50 @@ Form::Form(QWidget *parent)
     aiProgress->setFixedHeight(4);
     aiProgress->hide();
 
-    // Quick actions - 4x7 grid (26 buttons)
     QGroupBox *quickBox = new QGroupBox(tr("Quick Actions"), this);
-    QGridLayout *ql = new QGridLayout();
+    auto *quickScroll = new QScrollArea(this);
+    quickScroll->setWidgetResizable(true);
+    quickScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    quickScroll->setMaximumHeight(220);
+    auto *quickInner = new QWidget(quickScroll);
+    QGridLayout *ql = new QGridLayout(quickInner);
     ql->setSpacing(2);
+    ql->setContentsMargins(2, 2, 2, 2);
 
-    struct BtnDef {
-        const char *text;
-        const char *tip;
-        BtnColors (*getColors)(bool);
+    auto pickColors = [&](int row) -> BtnColors (*)(bool) {
+        if (row == 0) return errorColors;
+        if (row == 6) return automotiveColors;
+        if (row >= 7) return analysisColors;
+        return systemColors;
     };
 
-    auto addBtn = [&](const char *text, const char *tip, int row, int col,
-                       BtnColors (*getColors)(bool)) {
-        auto *b = makeBtn(tr(text), tr(tip), this);
-        auto c = getColors(dark);
+    const auto &quickActions = dltchat::CategoryRegistry::instance().quickActions();
+    for (const auto &qa : quickActions) {
+        BtnColors (*colorFn)(bool) = pickColors(qa.row);
+        if (qa.query == QLatin1String("warn")) colorFn = warnColors;
+        else if (qa.query == QLatin1String("info")) colorFn = infoColors;
+        else if (qa.query == QLatin1String("debug")) colorFn = debugColors;
+        else if (qa.query == QLatin1String("verbose")) colorFn = verboseColors;
+        else if (qa.row == 6) colorFn = automotiveColors;
+        else if (qa.row >= 7) colorFn = analysisColors;
+        else if (qa.query == QLatin1String("help")
+                 || qa.query == QLatin1String("categorizza")) colorFn = helpColors;
+
+        auto *b = makeBtn(tr(qa.label.toUtf8().constData()),
+                          tr("Filter: %1").arg(qa.query), quickInner);
+        auto c = colorFn(dark);
         applyBtnStyle(b, dark, c.bg, c.fg, c.hover);
         connect(b, &QPushButton::clicked, this, &Form::onQuickActionClicked);
-        ql->addWidget(b, row, col);
-    };
+        ql->addWidget(b, qa.row, qa.col);
+        m_quickActionQueries.insert(b, qa.query);
+    }
 
-    // Row 0: Level filters
-    addBtn("Errors",      "Errors and fatals",        0, 0, errorColors);
-    addBtn("Warnings",    "Warning messages",         0, 1, warnColors);
-    addBtn("Info",        "Informational messages",   0, 2, infoColors);
-    addBtn("Debug",       "Debug messages",           0, 3, debugColors);
-    addBtn("Verbose",     "Verbose messages",         0, 4, verboseColors);
-
-    // Row 1: Category filters + help
-    addBtn("CAN",         "CAN bus messages",         1, 0, systemColors);
-    addBtn("Security",    "Auth and security",        1, 1, systemColors);
-    addBtn("Memory",      "Memory issues",            1, 2, systemColors);
-    addBtn("Performance", "Timeouts and delays",      1, 3, systemColors);
-    addBtn("Diagnostic",  "DTC diagnostics",          1, 4, systemColors);
-    addBtn("GPS",         "Navigation and GPS",       1, 5, systemColors);
-    addBtn("Categories",  "Show available categories",1, 6, analysisColors);
-
-    // Row 2: Automotive presets
-    addBtn("CarPlay",     "CarPlay session events",   2, 0, automotiveColors);
-    addBtn("AndroidAuto", "Android Auto events",      2, 1, automotiveColors);
-    addBtn("Focus",       "Video Focus Lost",         2, 2, automotiveColors);
-    addBtn("Ducking",     "Audio Ducking events",     2, 3, automotiveColors);
-    addBtn("mDNS",        "mDNS Handshake events",    2, 4, automotiveColors);
-    addBtn("Sensor",      "Vehicle Sensor Data",      2, 5, automotiveColors);
-    addBtn("Auth Errors", "Authentication errors",    2, 6, automotiveColors);
-
-    // Row 3: Analysis + commands
-    addBtn("Session",     "Session start/stop events",3, 0, automotiveColors);
-    addBtn("Pattern",     "Repeated messages",        3, 1, analysisColors);
-    addBtn("Summary",     "Log statistics",           3, 2, analysisColors);
-    addBtn("Timeline",    "Chronological order",      3, 3, analysisColors);
-    addBtn("Categorizza", "Classify errors by category",3,4, helpColors);
-    addBtn("Help",        "Show available commands",  3, 5, helpColors);
-    addBtn("Keywords",    "Show available keywords",  3, 6, analysisColors);
-
-    quickBox->setLayout(ql);
+    quickInner->setLayout(ql);
+    quickScroll->setWidget(quickInner);
+    auto *quickOuter = new QVBoxLayout();
+    quickOuter->setContentsMargins(0, 0, 0, 0);
+    quickOuter->addWidget(quickScroll);
+    quickBox->setLayout(quickOuter);
 
     // Header: title + AI status + config button
     QHBoxLayout *hh = new QHBoxLayout();
@@ -517,25 +520,11 @@ void Form::onQuickActionClicked()
     auto *btn = qobject_cast<QPushButton*>(sender());
     if (!btn) return;
 
-    static QMap<QString, QString> map;
-    if (map.isEmpty()) {
-        map = {
-            {tr("Errors"),"error"},{tr("Warnings"),"warn"},{tr("Info"),"info"},{tr("Debug"),"debug"},
-            {tr("Verbose"),"verbose"},
-            {tr("CAN"),"can"},{tr("Security"),"security"},{tr("Memory"),"memory"},
-            {tr("Performance"),"performance"},{tr("Diagnostic"),"diagnostic"},{tr("GPS"),"gps"},
-            {tr("Categories"),"categories"},
-            {tr("Pattern"),"pattern"},{tr("Summary"),"summary"},{tr("Timeline"),"timeline"},
-            {tr("Categorizza"),"categorizza"},{tr("Help"),"help"},
-            {tr("CarPlay"),"carplay"},{tr("AndroidAuto"),"androidauto"},
-            {tr("Focus"),"video_focus"},{tr("Ducking"),"audio_ducking"},
-            {tr("mDNS"),"mdns"},{tr("Sensor"),"sensor_data"},
-            {tr("Auth Errors"),"auth_errors"},{tr("Session"),"session"},
-            {tr("Keywords"),"keywords"},
-        };
+    const QString q = m_quickActionQueries.value(btn);
+    if (!q.isEmpty()) {
+        input->setText(q);
+        onSendClicked();
     }
-    QString q = map.value(btn->text());
-    if (!q.isEmpty()) { input->setText(q); onSendClicked(); }
 }
 
 QString Form::roleLabel(MessageRole role)
