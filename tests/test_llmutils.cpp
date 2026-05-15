@@ -122,7 +122,7 @@ void TestLlmUtils::testAutomotiveSystemPrompt()
     QVERIFY(prompt.contains("AUTOSAR DLT"));
     QVERIFY(prompt.contains("SOME/IP"));
     QVERIFY(prompt.contains("root cause"));
-    QVERIFY(prompt.contains("RCA"));
+    QVERIFY(prompt.contains("Root Cause Analysis"));
     QVERIFY(prompt.contains("[index:N]"));
     QVERIFY(prompt.contains("CAN bus"));
 }
@@ -144,7 +144,7 @@ void TestLlmUtils::testEnhancedPromptWithHistory()
     entries.append(e);
 
     QString prompt = analyzer.buildEnhancedPrompt("Why did it happen?", entries, 5);
-    QVERIFY(prompt.contains("Previous conversation:"));
+    QVERIFY(prompt.contains("Conversation history:"));
     QVERIFY(prompt.contains("Show errors"));
     QVERIFY(prompt.contains("Found timeout"));
     QVERIFY(prompt.contains("User query: Why did it happen?"));
@@ -201,10 +201,14 @@ void TestLlmUtils::testBuildRequestBody()
     QVERIFY(doc.isObject());
     QJsonObject obj = doc.object();
     QCOMPARE(obj["model"].toString(), "test-model");
-    // Ollama: prompt should contain system prefix
-    QString promptStr = obj["prompt"].toString();
-    QVERIFY(promptStr.contains("Automotive SRE"));
-    QVERIFY(promptStr.contains("Test prompt"));
+    // Ollama: now uses /api/chat messages format with a native system role
+    QVERIFY(obj.contains("messages"));
+    QJsonArray ollamaMsgs = obj["messages"].toArray();
+    QCOMPARE(ollamaMsgs.size(), 2);
+    QCOMPARE(ollamaMsgs[0].toObject()["role"].toString(), "system");
+    QVERIFY(ollamaMsgs[0].toObject()["content"].toString().contains("Automotive SRE"));
+    QCOMPARE(ollamaMsgs[1].toObject()["role"].toString(), "user");
+    QVERIFY(ollamaMsgs[1].toObject()["content"].toString().contains("Test prompt"));
     QVERIFY(obj["stream"].isBool());
     QCOMPARE(obj["stream"].toBool(), false);
     QVERIFY(obj.contains("options"));

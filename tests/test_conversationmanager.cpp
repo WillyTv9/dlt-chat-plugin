@@ -30,9 +30,9 @@ void TestConversationManager::testFormatHistory()
     mgr.addTurn("assistant", "Found 3 errors");
 
     QString history = mgr.formatHistory(3);
-    QVERIFY(history.contains("Previous conversation:"));
-    QVERIFY(history.contains("User: Show me errors"));
-    QVERIFY(history.contains("Assistant: Found 3 errors"));
+    QVERIFY(history.contains("Conversation history:"));
+    QVERIFY(history.contains("user: Show me errors"));
+    QVERIFY(history.contains("assistant: Found 3 errors"));
 }
 
 void TestConversationManager::testMaxTurns()
