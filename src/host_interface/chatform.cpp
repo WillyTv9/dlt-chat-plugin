@@ -1,4 +1,5 @@
 #include "chatform.h"
+#include "results_model.h"
 
 #include <QCoreApplication>
 #include <QFileDialog>
@@ -6,7 +7,7 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
-#include <QListWidget>
+#include <QListView>
 #include <QMap>
 #include <QProgressBar>
 #include <QPushButton>
@@ -161,7 +162,7 @@ Form::Form(QWidget *parent)
     , aiStatusLabel(new QLabel(this))
     , configButton(new QPushButton(QString::fromUtf8("\u2699"), this))
     , history(new QTextBrowser(this))
-    , resultsList(new QListWidget(this))
+    , resultsList(new QListView(this))
     , input(new QLineEdit(this))
     , sendButton(new QPushButton(tr("Send"), this))
     , aiInput(new QLineEdit(this))
@@ -205,12 +206,15 @@ Form::Form(QWidget *parent)
     ).arg(bgS).arg(fgS).arg(midS));
 
     resultsList->setSelectionMode(QAbstractItemView::SingleSelection);
+    m_resultsModel = new dltchat::ResultsModel(this);
+    resultsList->setModel(m_resultsModel);
+    resultsList->setUniformItemSizes(true);
     resultsList->setStyleSheet(QString(
-        "QListWidget{background:%1;color:%2;border:1px solid %3;border-radius:4px;}"
+        "QAbstractItemView{background:%1;color:%2;border:1px solid %3;border-radius:4px;}"
         "QListWidget::item{padding:2px 4px;}"
-        "QListWidget::item:selected{background:%4;color:%5;}"
+        "QAbstractItemView::item:selected{background:%4;color:%5;}"
     ).arg(bgS).arg(fgS).arg(midS).arg(hlS).arg(palette().color(QPalette::HighlightedText).name()));
-    resultsList->setMaximumHeight(180);
+
 
     input->setPlaceholderText(tr("Ask about logs..."));
     input->setMaxLength(kMaxInputLength);
@@ -332,7 +336,7 @@ Form::Form(QWidget *parent)
     connect(aiSendButton, &QPushButton::clicked, this, &Form::onAiSendClicked);
     connect(aiInput, &QLineEdit::returnPressed, this, &Form::onAiSendClicked);
     connect(configButton, &QPushButton::clicked, this, &Form::configureAiClicked);
-    connect(resultsList, &QListWidget::itemActivated, this, &Form::onResultActivated);
+    connect(resultsList, &QListView::clicked, this, &Form::onResultActivated);
     connect(clearButton, &QPushButton::clicked, this, &Form::onClearClicked);
     connect(exportCsvButton, &QPushButton::clicked, this, &Form::onExportCsvClicked);
     connect(exportAllButton, &QPushButton::clicked, this, &Form::onExportAllClicked);
@@ -378,29 +382,24 @@ void Form::appendMessage(const QString &author, const QString &html)
 void Form::setResults(const QList<int> &indices, const QStringList &snippets,
                       const QStringList &levels)
 {
-    resultsList->clear();
-    if (indices.isEmpty()) return;
+    if (indices.isEmpty()) {
+        m_resultsModel->clearResults();
+        return;
+    }
 
-    resultsList->setUpdatesEnabled(false);
     bool dk = palette().color(QPalette::Window).lightness() < 128;
-    int n = qMin(indices.size(), snippets.size());
+    int n = indices.size();
 
-    resultsList->setMaximumHeight(qMin(n * 20 + 4, 400));
-
+    QList<QColor> colors;
+    colors.reserve(n);
     for (int i = 0; i < n; ++i)
     {
         QString lvl = i < levels.size() ? levels[i] : QString();
-        QString col;
-        if (lvl == "error" || lvl == "fatal") col = dk ? "#ef5350" : "#d32f2f";
-        else if (lvl == "warn") col = dk ? "#ffa726" : "#e65100";
-        else col = dk ? "#e0e0e0" : "#424242";
-
-        auto *item = new QListWidgetItem(resultsList);
-        item->setText(QString("%1: %2").arg(indices[i]).arg(snippets[i]));
-        item->setData(Qt::UserRole, indices[i]);
-        if (!lvl.isEmpty()) item->setForeground(QColor(col));
+        if (lvl == "error" || lvl == "fatal") colors.append(QColor(dk ? "#ef5350" : "#d32f2f"));
+        else if (lvl == "warn") colors.append(QColor(dk ? "#ffa726" : "#e65100"));
+        else colors.append(QColor(dk ? "#e0e0e0" : "#424242"));
     }
-    resultsList->setUpdatesEnabled(true);
+    m_resultsModel->setResults(indices, snippets, levels, colors);
 }
 
 void Form::setAiStatus(int state, const QString &modelName)
@@ -459,21 +458,21 @@ void Form::onAiSendClicked() {
     emit aiQuerySubmitted(q);
 }
 
-void Form::onResultActivated(QListWidgetItem *item) {
-    if (!item) return;
-    bool ok = false;
-    int idx = item->data(Qt::UserRole).toInt(&ok);
-    if (ok) emit indexActivated(idx);
+void Form::onResultActivated(const QModelIndex &index) {
+    if (!index.isValid()) return;
+    int idx = index.data(dltchat::ResultsModel::IndexRole).toInt();
+    emit indexActivated(idx);
 }
 
 void Form::onClearClicked() {
-    if (resultsList->count() > 0) {
+    if (m_resultsModel->rowCount() > 0) {
         emit clearHighlightsRequested();
     }
 }
 
 void Form::exportResultsToCsv(const QString &def) {
-    if (resultsList->count() == 0) {
+    int total = m_resultsModel->rowCount();
+    if (total == 0) {
         appendMessage("Chat Assistant", tr("No results to export. Run a query first."));
         return;
     }
@@ -485,13 +484,14 @@ void Form::exportResultsToCsv(const QString &def) {
     if (fp.isEmpty()) return;
 
     QList<int> idx; QStringList snip;
-    idx.reserve(resultsList->count());
-    snip.reserve(resultsList->count());
-    for (int i = 0; i < resultsList->count(); ++i) {
-        auto *item = resultsList->item(i);
-        if (!item) continue;
-        bool ok = false; int n = item->data(Qt::UserRole).toInt(&ok);
-        if (ok) { idx.append(n); snip.append(item->text()); }
+    idx.reserve(total);
+    snip.reserve(total);
+    for (int i = 0; i < total; ++i) {
+        QModelIndex mi = m_resultsModel->index(i);
+        int n = mi.data(dltchat::ResultsModel::IndexRole).toInt();
+        QString s = mi.data(dltchat::ResultsModel::SnippetRole).toString();
+        idx.append(n);
+        snip.append(s);
     }
     emit exportRequested(fp, idx, snip, lastQuery);
 }
@@ -544,3 +544,5 @@ void Form::onQuickActionClicked()
 }
 
 } // namespace DltChat
+
+

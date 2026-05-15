@@ -2,9 +2,10 @@
 #define CHATFORM_H
 
 #include <QWidget>
-#include <QListWidget>
+#include <QListView>
 #include <QStringList>
 
+#include "results_model.h"
 class QLabel;
 class QTextBrowser;
 class QLineEdit;
@@ -43,7 +44,7 @@ signals:
 private slots:
     void onSendClicked();
     void onAiSendClicked();
-    void onResultActivated(QListWidgetItem *item);
+    void onResultActivated(const QModelIndex &index);
     void onClearClicked();
     void onExportCsvClicked();
     void onExportAllClicked();
@@ -56,7 +57,7 @@ private:
     QLabel *aiStatusLabel;
     QPushButton *configButton;
     QTextBrowser *history;
-    QListWidget *resultsList;
+    QListView *resultsList;
     QLineEdit *input;
     QPushButton *sendButton;
     QLineEdit *aiInput;
@@ -67,6 +68,7 @@ private:
     QPushButton *exportAllButton;
     QPushButton *filterLoadButton;
     QLabel *aiDisclaimer;
+    dltchat::ResultsModel *m_resultsModel;
     QString lastQuery;
 };
 
