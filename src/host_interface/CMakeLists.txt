@@ -1,6 +1,7 @@
 add_library(dltchatplugin MODULE
     plugin_entry.cpp
     chatform.cpp
+    results_model.cpp
     dltaioptionsdialog.cpp
 )
 
@@ -36,3 +37,4 @@ endif()
 if(COMMAND add_plugin)
     add_plugin(dltchatplugin)
 endif()
+
