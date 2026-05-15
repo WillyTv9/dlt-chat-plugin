@@ -34,6 +34,8 @@ jobs:
           mkdir dist
           find artifacts -name "*.zip" -exec cp {} dist/ \;
           find artifacts -name "*.tar.gz" -exec cp {} dist/ \;
+          find artifacts -name "*.dll" -exec cp {} dist/ \;
+          find artifacts -name "*.so" -exec cp {} dist/ \;
           ls -R dist
 
       - name: Get Changelog Entry

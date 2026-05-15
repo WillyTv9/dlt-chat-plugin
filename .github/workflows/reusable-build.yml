@@ -83,8 +83,8 @@ jobs:
           git clone --branch 2.30.0 --depth 1 https://github.com/COVESA/dlt-viewer.git /tmp/dlt-viewer-src
           mkdir -p /tmp/dlt-viewer-src/build
           cd /tmp/dlt-viewer-src/build
-          cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/tmp/dlt-viewer-install -DDLT_VIEWER=OFF -DDLT_PARSER=OFF
-          cmake --build . --target qdlt --parallel $(nproc)
+          cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/tmp/dlt-viewer-install
+          cmake --build . --parallel $(nproc)
           cmake --install . --prefix /tmp/dlt-viewer-install
 
       - name: Set QDLT_ROOT (Linux)
@@ -134,5 +134,5 @@ jobs:
             dltchatplugin-*.zip
             dltchatplugin-*.tar.gz
             build/src/host_interface/Release/dltchatplugin.dll
-            build/src/host_interface/libdltchatplugin.so
+            build/src/host_interface/dltchatplugin.so
           if-no-files-found: warn
