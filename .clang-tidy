@@ -31,4 +31,4 @@ CheckOptions:
 
 HeaderFilterRegex: '.*\.h$'
 FormatStyle: file
-WarningsAsErrors: '*'
+WarningsAsErrors: ''

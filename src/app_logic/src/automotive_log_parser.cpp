@@ -21,6 +21,7 @@ void AutomotiveLogParser::classify(DltAnalyzerInterface::LogEntry &entry)
     // CarPlay detection
     if (entry.apid.contains("carplay", Qt::CaseInsensitive) ||
         entry.apid.contains("apple", Qt::CaseInsensitive) ||
+        payloadContains(entry, "carplay") ||
         payloadContains(entry, "iap2") ||
         payloadContains(entry, "airplay"))
     {
@@ -29,7 +30,8 @@ void AutomotiveLogParser::classify(DltAnalyzerInterface::LogEntry &entry)
             entry.event = "video_focus_lost";
         else if (payloadContains(entry, "audio") && payloadContains(entry, "duck"))
             entry.event = "audio_ducking";
-        else if (payloadContains(entry, "mdns") || payloadContains(entry, "dns-sd"))
+        else if (payloadContains(entry, "mdns") || payloadContains(entry, "dns-sd") ||
+                 payloadContains(entry, "_tcp"))
             entry.event = "mdns_handshake";
         else if (payloadContains(entry, "hid"))
             entry.event = "hid_event";
@@ -83,7 +85,9 @@ QVector<DltAnalyzerInterface::LogEntry> AutomotiveLogParser::filterByPreset(
             results.append(e);
         else if (presetName == "sensor_data" && e.event == "sensor_data")
             results.append(e);
-        else if (presetName == "auth_errors" && e.event.contains("auth", Qt::CaseInsensitive))
+        else if (presetName == "auth_errors" &&
+                 (e.event.contains("auth", Qt::CaseInsensitive) ||
+                  e.level.compare("error", Qt::CaseInsensitive) == 0))
             results.append(e);
         else if (presetName == "session" && (e.event == "session_start" || e.event == "session_stop"))
             results.append(e);

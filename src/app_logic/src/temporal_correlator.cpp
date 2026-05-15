@@ -6,6 +6,43 @@
 
 namespace dltchat {
 
+// Parses a DLT timestamp into milliseconds. Supports "HH:MM:SS.frac",
+// "<seconds>.<fraction>", and a plain integer count of milliseconds.
+// Returns -1 when the string cannot be interpreted.
+static qint64 parseTimestampMs(const QString &timestamp)
+{
+    const QString s = timestamp.trimmed();
+    if (s.isEmpty())
+        return -1;
+
+    if (s.contains(':'))
+    {
+        const QStringList parts = s.split(':');
+        if (parts.size() != 3)
+            return -1;
+        bool hOk = false;
+        bool mOk = false;
+        bool sOk = false;
+        const qint64 hh = parts[0].toLongLong(&hOk);
+        const qint64 mm = parts[1].toLongLong(&mOk);
+        const double ss = parts[2].toDouble(&sOk);
+        if (!hOk || !mOk || !sOk)
+            return -1;
+        return ((hh * 3600) + (mm * 60)) * 1000 + static_cast<qint64>(ss * 1000.0);
+    }
+
+    if (s.contains('.'))
+    {
+        bool ok = false;
+        const double seconds = s.toDouble(&ok);
+        return ok ? static_cast<qint64>(seconds * 1000.0) : -1;
+    }
+
+    bool ok = false;
+    const qint64 ms = s.toLongLong(&ok);
+    return ok ? ms : -1;
+}
+
 QString TemporalCorrelator::analyze(
     const QVector<DltAnalyzerInterface::LogEntry> &entries,
     const CorrelationConfig &config)
@@ -21,9 +58,8 @@ QString TemporalCorrelator::analyze(
 
     for (const auto &entry : sorted)
     {
-        bool tsOk = false;
-        qint64 ts = entry.timestamp.toLongLong(&tsOk);
-        if (!tsOk)
+        qint64 ts = parseTimestampMs(entry.timestamp);
+        if (ts < 0)
         {
             ts = static_cast<qint64>(&entry - &sorted[0]);
         }

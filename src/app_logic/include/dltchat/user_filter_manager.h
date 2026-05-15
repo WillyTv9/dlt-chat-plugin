@@ -19,6 +19,7 @@ struct UserFilterRule {
     QStringList fields;
     QColor color;
     QStringList levels;
+    QString domain;
     bool enabled = true;
     bool isValid = false;
     QRegularExpression regex;

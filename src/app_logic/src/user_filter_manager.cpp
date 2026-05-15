@@ -33,6 +33,12 @@ bool UserFilterManager::loadFromFile(const QString &path, QString *error)
     }
 
     QJsonObject root = doc.object();
+    if (!root.contains("version"))
+    {
+        if (error) *error = QStringLiteral("Missing required 'version' field");
+        return false;
+    }
+
     QJsonArray arr = root["filters"].toArray();
     m_filters = parseFilters(arr);
     emit filtersChanged();
@@ -87,11 +93,10 @@ QHash<int, QColor> UserFilterManager::applyToEntries(
 
             if (match)
             {
-                if (!filter.levels.isEmpty())
-                {
-                    if (!filter.levels.contains(entry.level))
-                        continue;
-                }
+                if (!filter.levels.isEmpty() && !filter.levels.contains(entry.level))
+                    continue;
+                if (!filter.domain.isEmpty() && filter.domain != entry.domain)
+                    continue;
                 highlights[entry.index] = filter.color;
             }
         }
@@ -163,6 +168,8 @@ QVector<UserFilterRule> UserFilterManager::parseFilters(const QJsonArray &arr) c
         for (const auto &l : levels)
             rule.levels.append(l.toString());
 
+        rule.domain = obj["domain"].toString();
+
         rule.color = QColor(obj["color"].toString("#FF0000"));
 
         rule.regex = QRegularExpression(rule.pattern,
@@ -194,6 +201,9 @@ QJsonArray UserFilterManager::serializeFilters() const
         for (const auto &l : rule.levels)
             levels.append(l);
         obj["level"] = levels;
+
+        if (!rule.domain.isEmpty())
+            obj["domain"] = rule.domain;
 
         arr.append(obj);
     }

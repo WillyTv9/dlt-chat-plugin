@@ -32,9 +32,11 @@ void FibexEnricher::enrichAll(QVector<DltAnalyzerInterface::LogEntry> &entries) 
 
     for (auto &entry : entries)
     {
-        QString enriched = enrich(entry.payload);
-        if (enriched != entry.payload)
-            entry.payload = enriched;
+        auto it = m_mappings.constFind(entry.apid + "_" + entry.ctid);
+        if (it == m_mappings.constEnd())
+            it = m_mappings.constFind(entry.apid);
+        if (it != m_mappings.constEnd() && !entry.payload.contains(it.value()))
+            entry.payload += QString(" /* %1 */").arg(it.value());
     }
 }
 
@@ -62,35 +64,53 @@ bool FibexEnricher::parseXmlFile(const QString &filePath, QString *errorOut)
     }
 
     QXmlStreamReader xml(&file);
-    QString currentId;
-    QString currentName;
+    QString shortName;
+    QString functionName;
+    QString longName;
+    bool inBlock = false;
 
     while (!xml.atEnd() && !xml.hasError())
     {
         QXmlStreamReader::TokenType token = xml.readNext();
+        const QString name = xml.name().toString().toUpper();
 
         if (token == QXmlStreamReader::StartElement)
         {
-            if (xml.name().toString() == "FUNCTION" || xml.name().toString() == "function")
+            if (name == "APPLICATION" || name == "FUNCTION")
             {
-                currentId = xml.attributes().value("id").toString();
-                if (currentId.isEmpty())
-                    currentId = xml.attributes().value("ID").toString();
+                inBlock = true;
+                shortName.clear();
+                functionName.clear();
+                longName.clear();
             }
-            else if (xml.name().toString() == "SHORT-NAME" || xml.name().toString() == "short-name" ||
-                     xml.name().toString() == "SHORT_NAME")
+            else if (inBlock && (name == "SHORT-NAME" || name == "SHORT_NAME"))
             {
-                currentName = xml.readElementText();
+                shortName = xml.readElementText().trimmed();
+            }
+            else if (inBlock && name == "FUNCTION-NAME")
+            {
+                functionName = xml.readElementText().trimmed();
+            }
+            else if (inBlock && name == "LONG-NAME")
+            {
+                longName = xml.readElementText().trimmed();
             }
         }
         else if (token == QXmlStreamReader::EndElement)
         {
-            if ((xml.name().toString() == "FUNCTION" || xml.name().toString() == "function") &&
-                !currentId.isEmpty() && !currentName.isEmpty())
+            if (name == "APPLICATION" || name == "FUNCTION")
             {
-                m_mappings[currentId] = currentName;
-                currentId.clear();
-                currentName.clear();
+                if (!shortName.isEmpty())
+                {
+                    QString value = functionName;
+                    if (value.isEmpty())
+                        value = longName.isEmpty() ? shortName : longName;
+                    m_mappings[shortName] = value;
+                }
+                inBlock = false;
+                shortName.clear();
+                functionName.clear();
+                longName.clear();
             }
         }
     }
