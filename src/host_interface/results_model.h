@@ -4,10 +4,16 @@
 #include <QAbstractListModel>
 #include <QList>
 #include <QStringList>
-#include <QVector>
-#include <QHash>
+#include <QColor>
+#include <functional>
 
 namespace dltchat {
+
+struct LogEntryData {
+    QString snippet;
+    QString level;
+    QColor color;
+};
 
 class ResultsModel : public QAbstractListModel
 {
@@ -20,13 +26,13 @@ public:
         ColorRole
     };
 
+    typedef std::function<LogEntryData(int logIndex)> DataFetcher;
+
     explicit ResultsModel(QObject *parent = nullptr);
 
-    void setResults(const QList<int> &indices,
-                    const QStringList &snippets,
-                    const QStringList &levels,
-                    const QList<QColor> &colors);
+    void setDataFetcher(DataFetcher fetcher) { m_fetcher = fetcher; }
 
+    void setResults(const QList<int> &indices);
     void clearResults();
 
     int rowCount(const QModelIndex &parent = QModelIndex()) const override;
@@ -36,9 +42,7 @@ public:
 
 private:
     QList<int> m_indices;
-    QStringList m_snippets;
-    QStringList m_levels;
-    QList<QColor> m_colors;
+    DataFetcher m_fetcher;
 };
 
 } // namespace dltchat

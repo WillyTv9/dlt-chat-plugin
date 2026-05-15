@@ -132,7 +132,6 @@ private:
 
     dltchat::UserFilterManager *m_userFilterManager;
     QHash<int, QColor> m_highlightMap;
-    static constexpr int kMaxDisplayResults = 10000000;
 
     dltchat::DltAnalyzerInterface *m_analyzer;
     dltchat::DltRuleBasedAnalyzer *m_ruleBasedAnalyzer;

@@ -31,8 +31,8 @@ public:
     void appendMessage(const QString &author, const QString &html);
     void appendMessage(MessageRole role, const QString &html);
     static QString roleLabel(MessageRole role);
-    void setResults(const QList<int> &indices, const QStringList &snippets,
-                    const QStringList &levels = QStringList());
+    void setResults(const QList<int> &indices);
+    void setDataFetcher(dltchat::ResultsModel::DataFetcher fetcher) { if (m_resultsModel) m_resultsModel->setDataFetcher(fetcher); }
     void setAiStatus(int state, const QString &modelName = QString());
 
 public slots:

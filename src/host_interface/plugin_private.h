@@ -14,8 +14,6 @@ struct DltChatPluginPrivate
 
     QHash<int, int> filterRowMap;
     mutable bool filterRowMapDirty = false;
-    static constexpr int kMaxDisplayResults = 10000000;
-
     dltchat::DltAnalyzerInterface *m_analyzer = nullptr;
     dltchat::DltRuleBasedAnalyzer *m_ruleBasedAnalyzer;
     dltchat::DltLlmAnalyzerInterface *m_llmAnalyzer;

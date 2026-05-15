@@ -5,6 +5,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <algorithm>
+#include <QtConcurrent>
 
 namespace dltchat {
 
@@ -418,12 +419,13 @@ bool CategoryRegistry::isSpecialCommand(const QString &query) const
     return false;
 }
 
+
 QVector<DltAnalyzerInterface::LogEntry> CategoryRegistry::filterEntries(
     const QVector<DltAnalyzerInterface::LogEntry> &entries,
     const ResolvedQuery &resolved) const
 {
-    QVector<DltAnalyzerInterface::LogEntry> results;
-    results.reserve(entries.size() / 4);
+    if (entries.isEmpty())
+        return {};
 
     auto levelOk = [&](const DltAnalyzerInterface::LogEntry &e) {
         if (resolved.levelFilter.isEmpty())
@@ -441,6 +443,8 @@ QVector<DltAnalyzerInterface::LogEntry> CategoryRegistry::filterEntries(
         return entryMatchesAnyFilter(e, resolved.extraFilters);
     };
 
+    std::function<bool(const DltAnalyzerInterface::LogEntry&)> filterFn;
+
     switch (resolved.kind) {
     case ResolvedQuery::Kind::ProjectionEvent: {
         ProjectionEventDef ev;
@@ -452,48 +456,42 @@ QVector<DltAnalyzerInterface::LogEntry> CategoryRegistry::filterEntries(
                 break;
             }
         }
-        if (!found)
-            break;
-        for (const auto &e : entries) {
-            if (entryMatchesProjectionEvent(e, ev))
-                results.append(e);
-        }
+        if (!found) return {};
+        filterFn = [this, ev](const DltAnalyzerInterface::LogEntry &e) {
+            return entryMatchesProjectionEvent(e, ev);
+        };
         break;
     }
     case ResolvedQuery::Kind::Category:
     case ResolvedQuery::Kind::CategoryById: {
         const CategoryDef *cat = categoryById(resolved.categoryId);
-        if (!cat)
-            break;
-        for (const auto &e : entries) {
-            if (!levelOk(e) || !extraOk(e))
-                continue;
-            if (entryMatchesCategory(e, *cat))
-                results.append(e);
-        }
+        if (!cat) return {};
+        filterFn = [this, cat, levelOk, extraOk](const DltAnalyzerInterface::LogEntry &e) {
+            return levelOk(e) && extraOk(e) && entryMatchesCategory(e, *cat);
+        };
         break;
     }
     case ResolvedQuery::Kind::CombinedFilter: {
-        for (const auto &e : entries) {
+        filterFn = [this, resolved, levelOk, extraOk](const DltAnalyzerInterface::LogEntry &e) {
             if (!levelOk(e) || !extraOk(e))
-                continue;
-            bool catHit = resolved.categoryIds.isEmpty();
+                return false;
+            if (resolved.categoryIds.isEmpty())
+                return true;
             for (const auto &cid : resolved.categoryIds) {
                 const CategoryDef *cat = categoryById(cid);
-                if (cat && entryMatchesCategory(e, *cat)) {
-                    catHit = true;
-                    break;
-                }
+                if (cat && entryMatchesCategory(e, *cat))
+                    return true;
             }
-            if (catHit)
-                results.append(e);
-        }
+            return false;
+        };
         break;
     }
     default:
-        break;
+        return {};
     }
 
+    QVector<DltAnalyzerInterface::LogEntry> results = QtConcurrent::blockingFiltered(entries, filterFn);
+    
     std::sort(results.begin(), results.end(),
               [](const auto &a, const auto &b) { return a.index < b.index; });
     return results;

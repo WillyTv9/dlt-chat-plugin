@@ -2,6 +2,7 @@
 build/
 build_tests/
 build-*/
+build_plugin/
 build_msvc_*/
 cmake-build-*/
 out/
@@ -108,3 +109,4 @@ docs/
 # Release artifacts
 dltchatplugin-*.zip
 dltchatplugin-*.tar.gz
+releases.json
