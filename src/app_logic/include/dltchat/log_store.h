@@ -35,8 +35,6 @@ public:
     QSet<QString> stopwords() const { return m_stopwords; }
     void setStopwords(const QSet<QString> &sw) { m_stopwords = sw; }
 
-    static constexpr int kMaxEntries = 500000;
-
 private:
     QVector<LogEntry> m_entries;
     QHash<int, int> m_indexToPos;

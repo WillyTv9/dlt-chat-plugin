@@ -8,7 +8,6 @@ namespace dltchat {
 void LogStore::append(const LogEntry &entry)
 {
     QMutexLocker lock(&m_mutex);
-    if (m_entries.size() >= kMaxEntries) return;
     m_entries.append(entry);
 }
 
