@@ -104,21 +104,23 @@ jobs:
         shell: bash
         run: cmake --build build --config Release --parallel
 
+      - name: Deploy Qt runtime (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          WIN_DEPLOY_QT="${QT_ROOT_DIR}/bin/windeployqt.exe"
+          if [ -f "$WIN_DEPLOY_QT" ]; then
+            "$WIN_DEPLOY_QT" --no-translations --no-system-d3d-compiler --no-opengl-sw \
+              build/tests/Release/tests.exe
+          fi
+
       - name: Run Tests
         shell: bash
         run: |
           if [ "${{ runner.os }}" == "Windows" ]; then
-            export PATH="${QT_ROOT_DIR}/bin;${PATH}"
-            export QT_PLUGIN_PATH="${QT_ROOT_DIR}/plugins"
-            WIN_DEPLOY_QT="${QT_ROOT_DIR}/bin/windeployqt.exe"
-            if [ -f "$WIN_DEPLOY_QT" ]; then
-              "$WIN_DEPLOY_QT" --no-translations --no-system-d3d-compiler --no-opengl-sw \
-                build/tests/Release/tests.exe
-            fi
-            build/tests/Release/tests.exe
             ctest --test-dir build -C Release --output-on-failure --verbose
           else
-            ctest --test-dir build --output-on-failure
+            ctest --test-dir build --output-on-failure --verbose
           fi
 
       - name: Stage binary artifact
