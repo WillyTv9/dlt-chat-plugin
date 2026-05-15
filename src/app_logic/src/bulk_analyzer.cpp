@@ -185,11 +185,6 @@ private:
 
 DltBulkAnalyzer::DltBulkAnalyzer(QObject *parent)
     : QObject(parent)
-    , m_worker(nullptr)
-    , m_workerThread(nullptr)
-    , m_running(false)
-    , m_hasCompleted(false)
-    , m_llmAnalyzer(nullptr)
 {
 }
 

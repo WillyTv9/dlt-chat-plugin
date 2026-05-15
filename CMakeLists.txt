@@ -16,7 +16,7 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
 if(NOT DEFINED QT_PREFIX)
-    find_package(Qt6 QUIET COMPONENTS Core Gui Widgets Network Xml)
+    find_package(Qt6 QUIET COMPONENTS Core Gui Widgets Network Xml Concurrent)
     if(Qt6_FOUND)
         set(QT_PREFIX Qt6)
     else()
@@ -24,7 +24,7 @@ if(NOT DEFINED QT_PREFIX)
         set(QT_PREFIX Qt5)
     endif()
 else()
-    find_package(${QT_PREFIX} REQUIRED COMPONENTS Core Gui Widgets Network Xml)
+    find_package(${QT_PREFIX} REQUIRED COMPONENTS Core Gui Widgets Network Xml Concurrent)
 endif()
 
 # ── DLT Viewer SDK ────────────────────────────────────────────────

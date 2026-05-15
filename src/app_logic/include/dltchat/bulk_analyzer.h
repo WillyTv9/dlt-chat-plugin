@@ -56,12 +56,12 @@ private slots:
     void onWorkerError(const QString &error);
 
 private:
-    DltBulkAnalyzerWorker *m_worker;
-    QThread *m_workerThread;
-    QVector<DltAnalyzerInterface::LogEntry> m_entries;
+    DltBulkAnalyzerWorker *m_worker = nullptr;
+    QThread *m_workerThread = nullptr;
     DltLlmAnalyzerInterface *m_llmAnalyzer = nullptr;
     QHash<int, BulkAnalysisResult> m_resultsCache;
-    bool m_running;
+    QVector<DltAnalyzerInterface::LogEntry> m_entries;
+    bool m_running = false;
     bool m_hasCompleted = false;
     mutable QMutex m_mutex;
 };

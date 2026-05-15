@@ -146,18 +146,6 @@ void DltChatPlugin::onBulkError(const QString &error)
     updateStatus(QString("Bulk analysis error: %1").arg(error));
 }
 
-static QStringList buildLevels(const QHash<int,int> &idxMap,
-                                const QVector<DltAnalyzerInterface::LogEntry> &ents,
-                                const QList<int> &indices)
-{
-    QStringList l; l.reserve(indices.size());
-    for (int idx : indices) {
-        int p = idxMap.value(idx, -1);
-        l.append(p >= 0 && p < ents.size() ? ents[p].level : QString());
-    }
-    return l;
-}
-
 static QString buildAiCacheKey(const QString &query, const QVector<DltAnalyzerInterface::LogEntry> &entries)
 {
     QCryptographicHash hash(QCryptographicHash::Sha1);
@@ -600,16 +588,23 @@ void DltChatPlugin::onQuerySubmitted(const QString &query)
 
     if (!isSpecial) {
         QList<int> searchIndices = liveSearch(lq);
-        int totalResults = searchIndices.size();
 
-            form->setResults(searchIndices);
+        form->setResults(searchIndices);
         highlightIndices(searchIndices);
         return;
     }
 
     // 3. Special commands delegate to rule-based analyzer
+    {
+        DltAnalyzerInterface::QueryResult result = m_ruleBasedAnalyzer->analyzeQuery(lq, snapshot);
+        result.processingTimeMs = timer.elapsed();
+        QString html = result.responseHtml;
+        html += buildUserFilterContextHtml();
+        html += QString("<br><small>%1ms</small>").arg(result.processingTimeMs);
+        form->appendMessage("Chat Assistant", html);
         form->setResults(result.indices);
-    highlightIndices(result.indices);
+        highlightIndices(result.indices);
+    }
 }
 
 void DltChatPlugin::onAiQuerySubmitted(const QString &query)
@@ -999,7 +994,6 @@ QList<int> DltChatPlugin::liveSearch(const QString &rawQuery) const
 
     QStringList kw = extractKeywords(rawQuery);
     QMutexLocker lk(&entriesMutex);
-    int total = entries.size();
 
     if (kw.isEmpty()) {
         QList<int> results;
