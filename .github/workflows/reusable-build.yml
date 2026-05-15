@@ -93,6 +93,7 @@ jobs:
 
       # === BUILD PLUGIN ===
       - name: Configure CMake
+        shell: bash
         run: |
           cmake -B build \
             -DCMAKE_BUILD_TYPE=Release \
@@ -100,6 +101,7 @@ jobs:
             -DDLTCHAT_BUILD_DIST=${{ inputs.build_dist && 'ON' || 'OFF' }}
 
       - name: Build
+        shell: bash
         run: cmake --build build --config Release --parallel
 
       - name: Run Tests
