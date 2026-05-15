@@ -566,8 +566,7 @@ void DltChatPlugin::onQuerySubmitted(const QString &query)
         } else {
             for (const auto &e : filtered) {
                 result.indices.append(e.index);
-                if (result.snippets.size() < 100)
-                    result.snippets.append(e.payload.left(120));
+                result.snippets.append(e.payload.left(120));
             }
             result.responseHtml = QString("Trovati <b>%1</b> messaggi per <b>%2</b> su %3 totali.")
                 .arg(filtered.size()).arg(filterLabel).arg(snapshot.size());
