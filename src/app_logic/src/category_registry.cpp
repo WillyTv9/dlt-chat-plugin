@@ -4,8 +4,12 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QResource>
 #include <algorithm>
 #include <QtConcurrent>
+
+static bool initDltchatRes() { Q_INIT_RESOURCE(dltchat_resources); return true; }
+static bool s_dltchatRes = initDltchatRes();
 
 namespace dltchat {
 

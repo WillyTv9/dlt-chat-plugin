@@ -4,7 +4,7 @@
     {
       "id": "SYSTEM_CORE",
       "aliases": ["core", "runtime", "system", "dbus", "systemd"],
-      "filters": ["APP", "APPLICATION", "App", "Application", "BOOT", "Boot", "CORE", "Core", "D-BUS", "D-Bus", "DBUS", "Dbus", "EVENTBUS", "EventBus", "Eventbus", "FRAMEWORK", "Framework", "HMIM", "Hmim", "hmim", "INIT", "Init", "init", "IPC", "Ipc", "JOURNAL", "Journal", "MANAGER", "Manager", "MsgM", "MSGM", "msgm", "PROCESS", "Process", "Rapp", "RAPP", "rapp", "RUNTIME", "Runtime", "SCHEDULER", "Scheduler", "SERVICE", "Service", "SHUTDOWN", "Shutdown", "STARTUP", "Startup", "SYSM", "SysM", "sysm", "SYSTEM", "SYSTEMD", "System", "Systemd", "TASK", "Task", "UTILITIES", "Utilities", "WATCHDOG", "Watchdog", "app", "application", "boot", "core", "d-bus", "dbus", "eventbus", "framework", "hmim", "init", "ipc", "journal", "manager", "msgm", "process", "rapp", "runtime", "scheduler", "service", "shutdown", "startup", "sysm", "system", "systemd", "task", "utilities", "watchdog"],
+      "filters": ["APPLICATION", "Application", "application", "BOOT", "Boot", "boot", "CORE", "Core", "core", "D-BUS", "D-Bus", "DBUS", "Dbus", "d-bus", "dbus", "EVENTBUS", "EventBus", "Eventbus", "eventbus", "FRAMEWORK", "Framework", "framework", "HMIM", "Hmim", "hmim", "INIT", "Init", "init", "IPC", "Ipc", "ipc", "JOURNAL", "Journal", "journal", "MANAGER", "Manager", "manager", "MsgM", "MSGM", "msgm", "PROCESS", "Process", "process", "Rapp", "RAPP", "rapp", "RUNTIME", "Runtime", "runtime", "SCHEDULER", "Scheduler", "scheduler", "SERVICE", "Service", "service", "SHUTDOWN", "Shutdown", "shutdown", "STARTUP", "Startup", "startup", "SYSM", "SysM", "sysm", "SYSTEM", "SYSTEMD", "System", "Systemd", "system", "systemd", "TASK", "Task", "task", "UTILITIES", "Utilities", "utilities", "WATCHDOG", "Watchdog", "watchdog"],
       "priority": 10,
       "quickAction": { "label": "System", "query": "system", "row": 1, "col": 0 }
     },
@@ -138,7 +138,7 @@
       "id": "LOG_LEVEL_INFO",
       "aliases": ["info"],
       "filters": ["INFO", "Info", "LINF", "Linf", "info", "linf"],
-      "priority": 5,
+      "priority": 100,
       "levelOnly": true,
       "quickAction": { "label": "Info", "query": "info", "row": 0, "col": 3 }
     },
@@ -146,7 +146,7 @@
       "id": "LOG_LEVEL_WARNING",
       "aliases": ["warn"],
       "filters": ["LWARN", "Lwarn", "WARN", "WARNING", "Warn", "Warning", "lwarn", "warn", "warning"],
-      "priority": 5,
+      "priority": 100,
       "levelOnly": true,
       "quickAction": { "label": "Warn", "query": "warn", "row": 0, "col": 2 }
     },
@@ -154,7 +154,7 @@
       "id": "LOG_LEVEL_ERROR",
       "aliases": ["error"],
       "filters": ["ERR", "ERROR", "Err", "Error", "FATAL", "Fatal", "LERR", "Lerr", "err", "error", "fatal", "lerr"],
-      "priority": 5,
+      "priority": 100,
       "levelOnly": true,
       "quickAction": { "label": "Error", "query": "error", "row": 0, "col": 1 }
     },
@@ -162,7 +162,7 @@
       "id": "LOG_LEVEL_DEBUG",
       "aliases": ["debug"],
       "filters": ["DBG", "DEBUG", "Dbg", "Debug", "LDEBUG", "Ldebug", "dbg", "debug", "ldebug"],
-      "priority": 5,
+      "priority": 100,
       "levelOnly": true,
       "quickAction": { "label": "Debug", "query": "debug", "row": 0, "col": 4 }
     },
@@ -170,7 +170,7 @@
       "id": "LOG_LEVEL_FATAL",
       "aliases": ["critical", "fatal"],
       "filters": ["CRITICAL", "Critical", "FATAL", "Fatal", "LFATAL", "Lfatal", "PANIC", "Panic", "critical", "fatal", "lfatal", "panic"],
-      "priority": 5,
+      "priority": 100,
       "levelOnly": true,
       "quickAction": { "label": "Fatal", "query": "fatal", "row": 0, "col": 0 }
     },
@@ -178,7 +178,7 @@
       "id": "APPLE_CARPLAY",
       "aliases": ["apple", "carplay", "iphone"],
       "filters": ["AIRPLAY", "APPLE", "APPLECARPLAY", "APPLEDEVICE", "Airplay", "Apple", "Applecarplay", "Appledevice", "CARPLAY", "CARPLAYAUDIO", "CARPLAYMANAGER", "CARPLAYPROJECTION", "CARPLAYSERVICE", "CARPLAYUSB", "CARPLAYVIDEO", "CP*", "CPINTERFACE", "Carplay", "Carplayaudio", "Carplaymanager", "Carplayprojection", "Carplayservice", "Carplayusb", "Carplayvideo", "Cp*", "Cpinterface", "EAPROTOCOL", "EXTERNALACCESSORY", "Eaprotocol", "Externalaccessory", "IAP2", "IPHONEPROJECTION", "Iap2", "Iphoneprojection", "SIRI", "Siri", "WIRELESSCARPLAY", "Wirelesscarplay", "airplay", "apple", "applecarplay", "appledevice", "carplay", "carplayaudio", "carplaymanager", "carplayprojection", "carplayservice", "carplayusb", "carplayvideo", "cp*", "cpinterface", "eaProtocol", "eaprotocol", "externalaccessory", "iap2", "iphoneprojection", "siri", "wirelesscarplay"],
-      "priority": 40,
+      "priority": 5,
       "domain": "carplay",
       "quickAction": { "label": "CarPlay", "query": "carplay", "row": 6, "col": 0 }
     },
@@ -186,7 +186,7 @@
       "id": "ANDROID_AUTO",
       "aliases": ["aa", "android", "androidauto"],
       "filters": ["AA", "AAMANAGER", "AAP", "AAPROTOCOL", "AAWIFI", "ANDROIDAUDIO", "ANDROIDAUTO", "ANDROIDPROJECTION", "ANDROIDUSB", "ANDROIDVIDEO", "AOA", "AOAP", "Aa", "Aamanager", "Aap", "Aaprotocol", "Aawifi", "Androidaudio", "Androidauto", "Androidprojection", "Androidusb", "Androidvideo", "Aoa", "Aoap", "CARAPPSERVICE", "CARSERVICE", "CarService", "Carappservice", "Carservice", "GMS", "GOOGLEPLAYSERVICES", "GOOGLEPROJECTION", "Gms", "Googleplayservices", "Googleprojection", "HEADUNIT", "Headunit", "PROJECTION", "PROJECTIONSERVICE", "Projection", "Projectionservice", "USB_ACCESSORY", "Usb_accessory", "WIRELESSAA", "Wirelessaa", "aa", "aamanager", "aap", "aaprotocol", "aawifi", "androidaudio", "androidauto", "androidprojection", "androidusb", "androidvideo", "aoa", "aoap", "carappservice", "carservice", "gms", "googleplayservices", "googleprojection", "headunit", "projection", "projectionservice", "usb_accessory", "wirelessaa"],
-      "priority": 40,
+      "priority": 5,
       "domain": "androidauto",
       "quickAction": { "label": "AndroidAuto", "query": "androidauto", "row": 6, "col": 1 }
     },
@@ -292,7 +292,7 @@
       "id": "LOG_LEVEL_VERBOSE",
       "aliases": ["verbose"],
       "filters": ["VERBOSE", "Verbose", "verbose"],
-      "priority": 5,
+      "priority": 100,
       "levelOnly": true,
       "quickAction": { "label": "Verb", "query": "verbose", "row": 0, "col": 5 }
     },
@@ -478,6 +478,13 @@
       "categories": ["ANDROID_AUTO"],
       "extraFilters": ["usb"],
       "quickAction": { "label": "USB AA", "query": "usb_aa", "row": 8, "col": 5 }
+    },
+    {
+      "id": "auth_errors",
+      "aliases": ["auth_errors"],
+      "categories": ["SECURITY"],
+      "levels": ["error", "fatal"],
+      "quickAction": { "label": "Auth Err", "query": "auth_errors", "row": 12, "col": 3 }
     },
     {
       "id": "gps_epoch",
