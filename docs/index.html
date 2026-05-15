@@ -295,7 +295,7 @@
           <div class="stat"><div class="v">21</div><div class="l">Pulsanti rapidi</div></div>
           <div class="stat"><div class="v">9</div><div class="l">Eventi automotive</div></div>
           <div class="stat"><div class="v">4</div><div class="l">Provider LLM</div></div>
-          <div class="stat"><div class="v">~55</div><div class="l">Test case</div></div>
+          <div class="stat"><div class="v">~70+</div><div class="l">Test case</div></div>
         </div>
       </div>
     </div>
@@ -1167,7 +1167,7 @@ userFiltersPath=</pre>
   </div>
   <div class="pad" style="padding-top: 140px;">
     <div class="eyebrow">Test suite</div>
-    <h2 class="slide">~55 test case · 5 suite.</h2>
+    <h2 class="slide">~70+ test case · 9 suite.</h2>
 
     <div class="row" style="gap: 32px;">
       <div class="col">
@@ -1177,12 +1177,16 @@ userFiltersPath=</pre>
         </div>
 
         <div class="card" style="margin-top: 32px;">
-          <div class="label">Suite</div>
+          <div class="label">Suite (9)</div>
           <table class="t" style="margin-top: 8px;">
             <tbody>
               <tr><td class="mono">test_rulebasedanalyzer</td><td>17 test</td><td class="small">comandi · filtri · simplifyPayload</td></tr>
               <tr><td class="mono">test_automotivelogparser</td><td>14 test</td><td class="small">classificazione CarPlay / AA · eventi · preset</td></tr>
               <tr><td class="mono">test_llmutils</td><td>9 test</td><td class="small">parsing risposta · build prompt · request body</td></tr>
+              <tr><td class="mono">test_contextualextractor</td><td>—</td><td class="small">finestra contesto intorno ai match</td></tr>
+              <tr><td class="mono">test_conversationmanager</td><td>—</td><td class="small">cronologia multi-turn AI</td></tr>
+              <tr><td class="mono">test_temporalcorrelator</td><td>—</td><td class="small">correlazione finestra temporale</td></tr>
+              <tr><td class="mono">test_fibexenricher</td><td>—</td><td class="small">arricchimento FIBEX XML</td></tr>
               <tr><td class="mono">test_dltexport</td><td>7 test</td><td class="small">CSV escaping · sanitizzazione · export full</td></tr>
               <tr><td class="mono">test_userfiltermanager</td><td>8 test</td><td class="small">load · match domain / level · enabled count</td></tr>
             </tbody>
@@ -1201,9 +1205,13 @@ $ ctest
 Test project /…/dlt-chat-plugin/tests/build
    Start  1: rule-based-analyzer
    Start  2: automotive-log-parser
-   Start  3: llm-utils
-   Start  4: dlt-export
-   Start  5: user-filter-manager
+   Start  3: contextual-extractor
+   Start  4: conversation-manager
+   Start  5: temporal-correlator
+   Start  6: fibex-enricher
+   Start  7: llm-utils
+   Start  8: dlt-export
+   Start  9: user-filter-manager
 
 100% tests passed, 0 tests failed</pre>
 
