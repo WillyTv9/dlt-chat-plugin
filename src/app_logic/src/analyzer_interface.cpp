@@ -9,8 +9,8 @@
 
 namespace dltchat {
 
-static constexpr int kMaxTimeline = 10000000;
-static constexpr int kMaxSnippets = 10000000;
+static constexpr int kMaxTimeline = 100000000;
+static constexpr int kMaxSnippets = 100000000;
 static constexpr int kSnippetLength = 120;
 static constexpr int kPayloadTruncateAt = 500;
 static constexpr int kPreviewCount = 20;
@@ -202,8 +202,8 @@ DltAnalyzerInterface::QueryResult DltRuleBasedAnalyzer::analyzeInternal(
             r.snippets.append(e.payload.left(kSnippetLength));
         }
         if (entries.size() > kMaxTimeline)
-            r.responseHtml = QString("Prime 200 entry su %1:<br><pre>%2</pre>")
-                .arg(entries.size()).arg(lines.join("\n").toHtmlEscaped());
+            r.responseHtml = QString("Sequenza parziale (%1 entry):<br><pre>%2</pre>")
+                .arg(kMaxTimeline).arg(lines.join("\n").toHtmlEscaped());
         else
             r.responseHtml = QString("Sequenza completa (%1 entry):<br><pre>%2</pre>")
                 .arg(entries.size()).arg(lines.join("\n").toHtmlEscaped());
