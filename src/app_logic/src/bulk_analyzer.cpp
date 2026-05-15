@@ -106,6 +106,7 @@ void DltBulkAnalyzer::setAnalyzer(DltLlmAnalyzerInterface *analyzer)
 void DltBulkAnalyzer::startBulkAnalysis(const QVector<DltAnalyzerInterface::LogEntry> &entries,
                                          int chunkSize)
 {
+    Q_UNUSED(chunkSize)
     QMutexLocker lock(&m_mutex);
     if (m_running) return;
 

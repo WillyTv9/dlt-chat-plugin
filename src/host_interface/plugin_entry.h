@@ -24,7 +24,7 @@
 #include "qdltmessagedecoder.h"
 #include "qdltfile.h"
 
-#define DLT_CHAT_PLUGIN_VERSION "0.7.0"
+
 
 class DltChatPlugin : public QObject, QDLTPluginInterface, QDltPluginViewerInterface, QDltPluginControlInterface
 {

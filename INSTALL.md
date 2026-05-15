@@ -90,9 +90,8 @@ cmake --build . --parallel --config Release
 
 | Platform | Path |
 |----------|------|
-| Linux | `build/libdltchatplugin.so` |
+| Linux | `build/src/host_interface/libdltchatplugin.so` |
 | Windows (MSVC) | `build/src/host_interface/Release/dltchatplugin.dll` |
-| Windows (MinGW) | `build/src/host_interface/libdltchatplugin.dll` |
 
 ---
 
@@ -119,7 +118,7 @@ copy build\src\host_interface\Release\dltchatplugin.dll "%LOCALAPPDATA%\Programs
 ### Linux
 
 ```bash
-cp build/libdltchatplugin.so ~/.local/share/dlt-viewer/plugins/
+cp build/src/host_interface/libdltchatplugin.so ~/.local/share/dlt-viewer/plugins/
 ```
 
 ---
@@ -149,23 +148,15 @@ If the plugin does not appear in the Plugin Settings menu, verify:
 
 ---
 
-## Running Tests
-
-Tests can be built independently of the DLT Viewer SDK:
-
 ```bash
-cd tests
-cmake -B build -DQT_PREFIX=Qt6 .
+# Configure with tests enabled
+cmake -B build -DCMAKE_BUILD_TYPE=Release -DDLTCHAT_BUILD_TESTS=ON
+
+# Build
 cmake --build build --config Release
-cd build && ctest --output-on-failure
-```
 
-Or from the project root:
-
-```bash
-cmake -B build_tests -S tests -DQT_PREFIX=Qt6
-cmake --build build_tests --config Release
-cd build_tests && ctest --output-on-failure
+# Run tests
+ctest --test-dir build -C Release --output-on-failure
 ```
 
 ### Running a single test

@@ -1,6 +1,7 @@
 #ifndef DLTCHAT_ANALYZER_INTERFACE_H
 #define DLTCHAT_ANALYZER_INTERFACE_H
 
+#include <QObject>
 #include <QString>
 #include <QStringList>
 #include <QVector>

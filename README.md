@@ -75,11 +75,13 @@ mkdir build && cd build
 set QDLT_ROOT=C:\path\to\dlt-viewer\sdk  # Windows
 export QDLT_ROOT=/path/to/dlt-viewer      # Linux
 
-cmake .. -DCMAKE_BUILD_TYPE=Release
-cmake --build . --parallel
+cmake .. -DCMAKE_BUILD_TYPE=Release -DDLTCHAT_BUILD_TESTS=ON -DDLTCHAT_BUILD_DIST=ON
+cmake --build . --parallel --config Release
 ```
 
-Output: `build/src/host_interface/Release/dltchatplugin.dll` (MSVC), `build/src/host_interface/libdltchatplugin.dll` (MinGW), or `build/libdltchatplugin.so` (Linux).
+Output: 
+- Windows (MSVC): `build/src/host_interface/Release/dltchatplugin.dll`
+- Linux: `build/src/host_interface/libdltchatplugin.so`
 
 On Windows, you can also run `build_plugin.bat` from a Visual Studio Developer Prompt.
 
@@ -91,27 +93,34 @@ On Windows, you can also run `build_plugin.bat` from a Visual Studio Developer P
 | `-DDLTCHAT_BUILD_DIST=ON` | Enable distribution package | OFF |
 | `-DDLT_ENABLE_ASAN=ON` | AddressSanitizer (Debug, non-MSVC) | OFF |
 | `-DQT_PREFIX=...` | Override Qt version (`Qt5`/`Qt6`) | Auto |
+| `-DQDLT_ROOT=...` | Path to DLT Viewer SDK | - |
 
 #### Running tests
 
 ```bash
-# Build tests standalone
-cmake -B build_tests -S tests -DQT_PREFIX=Qt6
-cmake --build build_tests --config Release
+# Configure with tests enabled
+cmake -B build -DCMAKE_BUILD_TYPE=Release -DDLTCHAT_BUILD_TESTS=ON
 
-# Run all tests
-cd build_tests && ctest --output-on-failure
+# Build
+cmake --build build --config Release
 
-# Run a single test
-cd build_tests && ctest -R rulebased --output-on-failure
+# Run tests
+ctest --test-dir build -C Release --output-on-failure
 ```
 
 #### Distribution package
 
 ```bash
-cmake --build build --target dist
+cmake --build build --target dist --config Release
 # Output in build/dist/dltchatplugin/
 ```
+
+## Releases
+
+Official releases are available on [GitHub Releases](https://github.com/WillyTv9/dlt-chat-plugin/releases).
+Artifacts included:
+- `dltchatplugin-vX.Y.Z-win64.zip`
+- `dltchatplugin-vX.Y.Z-linux64.tar.gz`
 
 ---
 

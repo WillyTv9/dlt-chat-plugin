@@ -1,6 +1,7 @@
 #include "plugin_entry.h"
 #include "dltaioptionsdialog.h"
 #include "dltchat/temporal_correlator.h"
+#include "dltchat_version.h"
 
 #include <QAbstractItemView>
 #include <QDateTime>

@@ -43,17 +43,6 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT MSVC)
     endif()
 endif()
 
-# ── Clang-Tidy ─────────────────────────────────────────────────────
-find_program(CLANG_TIDY clang-tidy)
-if(CLANG_TIDY)
-    set_target_properties(dltchatplugin PROPERTIES
-        CXX_CLANG_TIDY "${CLANG_TIDY};--config-file=${CMAKE_CURRENT_SOURCE_DIR}/.clang-tidy"
-    )
-    message(STATUS "clang-tidy found: ${CLANG_TIDY}")
-else()
-    message(STATUS "clang-tidy not found — skipping static analysis")
-endif()
-
 # ── Versioned Build ───────────────────────────────────────────────
 include(cmake/GetGitHash.cmake)
 get_git_hash(DLTCHAT_GIT_HASH)
@@ -67,6 +56,32 @@ configure_file(
 
 # ── Source Tree ───────────────────────────────────────────────────
 add_subdirectory(src)
+
+# ── Clang-Tidy ─────────────────────────────────────────────────────
+find_program(CLANG_TIDY clang-tidy)
+if(CLANG_TIDY)
+    if(TARGET dltchatplugin)
+        set_target_properties(dltchatplugin PROPERTIES
+            CXX_CLANG_TIDY "${CLANG_TIDY};--config-file=${CMAKE_CURRENT_SOURCE_DIR}/.clang-tidy"
+        )
+    endif()
+    if(TARGET dltchat_app_logic)
+        set_target_properties(dltchat_app_logic PROPERTIES
+            CXX_CLANG_TIDY "${CLANG_TIDY};--config-file=${CMAKE_CURRENT_SOURCE_DIR}/.clang-tidy"
+        )
+    endif()
+    message(STATUS "clang-tidy found: ${CLANG_TIDY}")
+else()
+    message(STATUS "clang-tidy not found — skipping static analysis")
+endif()
+
+# ── Warnings ──────────────────────────────────────────────────────
+if(TARGET dltchatplugin)
+    dltchat_set_warnings(dltchatplugin)
+endif()
+if(TARGET dltchat_app_logic)
+    dltchat_set_warnings(dltchat_app_logic)
+endif()
 
 # ── Tests (optional) ─────────────────────────────────────────────
 option(DLTCHAT_BUILD_TESTS "Build unit tests" OFF)

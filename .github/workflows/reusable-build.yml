@@ -1,0 +1,136 @@
+name: Reusable Build
+
+on:
+  workflow_call:
+    inputs:
+      build_dist:
+        description: "Build distribution package"
+        required: false
+        default: false
+        type: boolean
+      upload_artifacts:
+        description: "Upload built artifacts"
+        required: false
+        default: true
+        type: boolean
+      version_suffix:
+        description: "Suffix for artifacts (e.g. v0.7.0)"
+        required: false
+        default: "dev"
+        type: string
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: "6.7"
+          modules: qtserialport
+
+      # === WINDOWS SDK ===
+      - name: Cache DLT Viewer SDK (Windows)
+        if: runner.os == 'Windows'
+        id: cache-dlt-win
+        uses: actions/cache@v4
+        with:
+          path: ~/dlt-viewer-sdk
+          key: windows-dlt-sdk-2.30.0
+
+      - name: Download DLT Viewer SDK (Windows)
+        if: runner.os == 'Windows' && steps.cache-dlt-win.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          $sdkDir = "$HOME/dlt-viewer-sdk"
+          $tmpDir = "$sdkDir/dlttmp"
+          $url = "https://github.com/COVESA/dlt-viewer/releases/download/2.30.0/DLTViewer-2.30.0-STABLE-qt6.8.3-r1318_msvc2022_x64-win64.7z"
+          mkdir -Force $tmpDir | Out-Null
+          curl.exe -sL $url -o "$tmpDir/sdk.7z"
+          & "C:\Program Files\7-Zip\7z.exe" x "$tmpDir/sdk.7z" -o"$sdkDir" -y
+          Remove-Item -Recurse -Force $tmpDir
+
+      - name: Set QDLT_ROOT (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $sdkDir = Get-ChildItem ~/dlt-viewer-sdk -Directory | Select-Object -First 1
+          echo "QDLT_ROOT=$($sdkDir.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      # === LINUX SDK ===
+      - name: Install Linux Dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libqt6serialport6-dev libcups2-dev
+
+      - name: Cache DLT Viewer SDK (Linux)
+        if: runner.os == 'Linux'
+        id: cache-dlt-linux
+        uses: actions/cache@v4
+        with:
+          path: /tmp/dlt-viewer-install
+          key: linux-dlt-sdk-2.30.0
+
+      - name: Build qdlt from source (Linux)
+        if: runner.os == 'Linux' && steps.cache-dlt-linux.outputs.cache-hit != 'true'
+        run: |
+          git clone --branch 2.30.0 --depth 1 https://github.com/COVESA/dlt-viewer.git /tmp/dlt-viewer-src
+          mkdir -p /tmp/dlt-viewer-src/build
+          cd /tmp/dlt-viewer-src/build
+          cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/tmp/dlt-viewer-install -DDLT_VIEWER=OFF -DDLT_PARSER=OFF
+          cmake --build . --target qdlt --parallel $(nproc)
+          cmake --install . --prefix /tmp/dlt-viewer-install
+
+      - name: Set QDLT_ROOT (Linux)
+        if: runner.os == 'Linux'
+        run: echo "QDLT_ROOT=/tmp/dlt-viewer-install" >> $GITHUB_ENV
+
+      # === BUILD PLUGIN ===
+      - name: Configure CMake
+        run: |
+          cmake -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DDLTCHAT_BUILD_TESTS=ON \
+            -DDLTCHAT_BUILD_DIST=${{ inputs.build_dist && 'ON' || 'OFF' }}
+
+      - name: Build
+        run: cmake --build build --config Release --parallel
+
+      - name: Run Tests
+        shell: bash
+        run: |
+          if [ "${{ runner.os }}" == "Windows" ]; then
+            ctest --test-dir build -C Release --output-on-failure
+          else
+            ctest --test-dir build --output-on-failure
+          fi
+
+      - name: Create Package
+        if: inputs.build_dist
+        shell: bash
+        run: |
+          cmake --build build --target dist --config Release
+          cd build/dist
+          if [ "${{ runner.os }}" == "Windows" ]; then
+            powershell -Command "Compress-Archive -Path dltchatplugin -DestinationPath ../../dltchatplugin-${{ inputs.version_suffix }}-win64.zip -Force"
+          else
+            tar -czf ../../dltchatplugin-${{ inputs.version_suffix }}-linux64.tar.gz dltchatplugin
+          fi
+
+      - name: Upload Artifacts
+        if: inputs.upload_artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dltchatplugin-${{ runner.os }}-${{ inputs.version_suffix }}
+          path: |
+            dltchatplugin-*.zip
+            dltchatplugin-*.tar.gz
+            build/src/host_interface/Release/dltchatplugin.dll
+            build/src/host_interface/libdltchatplugin.so
+          if-no-files-found: warn

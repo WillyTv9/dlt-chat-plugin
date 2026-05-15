@@ -6,11 +6,7 @@
 set(DIST_DIR "${CMAKE_BINARY_DIR}/dist/dltchatplugin")
 
 # Determine plugin binary
-if(WIN32)
-    set(PLUGIN_BINARY "$<TARGET_FILE:dltchatplugin>")
-else()
-    set(PLUGIN_BINARY "$<TARGET_FILE:dltchatplugin>")
-endif()
+set(PLUGIN_BINARY "$<TARGET_FILE:dltchatplugin>")
 
 # Source files to include
 set(DIST_CONFIG    "${CMAKE_SOURCE_DIR}/dlt_chat_plugin.ini.example")

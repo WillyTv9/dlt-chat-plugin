@@ -17,7 +17,7 @@ pushd build
 where ninja >nul 2>nul
 if %errorlevel% equ 0 (
     echo [BUILD] Using Ninja generator
-    cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release
+    cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release -DDLTCHAT_BUILD_DIST=ON
     if %errorlevel% neq 0 (
         echo [ERROR] CMake configuration failed
         popd
@@ -27,7 +27,7 @@ if %errorlevel% equ 0 (
     cmake --build . --parallel
 ) else (
     echo [BUILD] Using Visual Studio 2022 generator
-    cmake .. -G "Visual Studio 17 2022" -A x64
+    cmake .. -G "Visual Studio 17 2022" -A x64 -DDLTCHAT_BUILD_DIST=ON
     if %errorlevel% neq 0 (
         echo [ERROR] CMake configuration failed
         echo Ensure you run from "Developer Command Prompt for VS 2022"
@@ -48,11 +48,12 @@ if %errorlevel% neq 0 (
 popd
 echo.
 echo [SUCCESS] Plugin compiled successfully!
-echo Output: build\src\host_interface\dltchatplugin.dll
+echo Output: build\src\host_interface\Release\dltchatplugin.dll
 echo.
 echo.
-echo To create distribution bundle, run:
-echo   cmake --build build --target dist
+echo [BUILD] Creating distribution bundle...
+cmake --build build --target dist --config Release
+echo Distribution ready at: build\dist\dltchatplugin\
 echo.
 echo Copy to DLT Viewer plugins folder:
 echo   %%LOCALAPPDATA%%\Programs\dlt-viewer\plugins\

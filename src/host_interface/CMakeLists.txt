@@ -22,6 +22,11 @@ target_link_libraries(dltchatplugin
 
 target_compile_definitions(dltchatplugin PRIVATE
     PLUGIN_INTERFACE_VERSION="1.0.1"
+    DLT_CHAT_PLUGIN_VERSION="${PROJECT_VERSION}"
+)
+
+target_include_directories(dltchatplugin
+    PRIVATE "${CMAKE_BINARY_DIR}/generated"
 )
 
 set_target_properties(dltchatplugin PROPERTIES

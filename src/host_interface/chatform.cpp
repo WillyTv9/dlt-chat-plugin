@@ -93,12 +93,7 @@ static BtnColors helpColors(bool)
     return BtnColors{"#616161", "#ffffff", "#757575"};
 }
 
-static BtnColors levelColors(bool dark)
-{
-    return dark
-        ? BtnColors{"#1e3a5f", "#e3f2fd", "#2a4f82"}
-        : BtnColors{"#bbdefb", "#1565c0", "#90caf9"};
-}
+
 
 static BtnColors warnColors(bool dark)
 {
@@ -541,6 +536,23 @@ void Form::onQuickActionClicked()
     }
     QString q = map.value(btn->text());
     if (!q.isEmpty()) { input->setText(q); onSendClicked(); }
+}
+
+QString Form::roleLabel(MessageRole role)
+{
+    switch (role) {
+        case MessageRole::User:               return tr("Tu");
+        case MessageRole::UserAi:             return tr("Tu (AI)");
+        case MessageRole::Assistant:          return tr("Chat Assistant");
+        case MessageRole::AiAssistant:        return tr("AI Assistant");
+        case MessageRole::AiAssistantFallback: return tr("AI Assistant (fallback)");
+    }
+    return tr("Unknown");
+}
+
+void Form::appendMessage(MessageRole role, const QString &html)
+{
+    appendMessage(roleLabel(role), html);
 }
 
 } // namespace DltChat
