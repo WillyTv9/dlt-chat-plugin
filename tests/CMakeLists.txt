@@ -102,22 +102,9 @@ if(WIN32 AND WINDEPLOYQT_EXECUTABLE)
 endif()
 
 if(WIN32)
-    list(JOIN _test_prefix_dirs ";" _test_path_env)
-    if(_qt_plugin_path)
-        add_test(NAME tests
-            COMMAND ${CMAKE_COMMAND} -E env
-                "PATH=${_test_path_env}"
-                "QT_PLUGIN_PATH=${_qt_plugin_path}"
-                $<TARGET_FILE:tests>)
-    else()
-        add_test(NAME tests
-            COMMAND ${CMAKE_COMMAND} -E env
-                "PATH=${_test_path_env}"
-                $<TARGET_FILE:tests>)
-    endif()
-    set_tests_properties(tests PROPERTIES
-        WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
-    )
+    # Run from the directory that contains tests.exe (and windeployqt output).
+    add_test(NAME tests
+        COMMAND ${CMAKE_COMMAND} -E chdir $<TARGET_FILE_DIR:tests> $<TARGET_FILE:tests>)
 else()
     list(JOIN _test_prefix_dirs ":" _test_path_prefix)
     if(_test_path_prefix AND DEFINED ENV{PATH})

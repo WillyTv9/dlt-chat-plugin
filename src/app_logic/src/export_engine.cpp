@@ -26,6 +26,9 @@ bool DltExport::exportToCsv(const QString &filePath,
                             const QString &query,
                             const QVector<DltAnalyzerInterface::LogEntry> &entries)
 {
+    if (indices.isEmpty())
+        return false;
+
     QFile file(filePath);
     if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
         return false;
@@ -69,6 +72,9 @@ bool DltExport::exportToCsv(const QString &filePath,
 bool DltExport::exportAllEntries(const QString &filePath,
                                  const QVector<DltAnalyzerInterface::LogEntry> &entries)
 {
+    if (entries.isEmpty())
+        return false;
+
     QFile file(filePath);
     if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
         return false;
