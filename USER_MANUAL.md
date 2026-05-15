@@ -61,49 +61,113 @@ Quick summary:
 
 ## 4. Using Quick Action Buttons
 
-The plugin has 26 quick action buttons arranged in a 4×7 grid:
+The plugin features a massive set of quick action buttons (65+) arranged in a 10-row scrollable grid for exhaustive log filtering:
 
-### Row 0: Level filters
-| Button | Description |
-|--------|-------------|
-| **Errors** | Find all error and fatal messages |
-| **Warnings** | Find all warning messages |
-| **Info** | Find informational messages |
-| **Debug** | Find debug messages |
-| **Verbose** | Find verbose messages |
+### Row 0: Severity Levels
+| Button | Query | Description |
+|--------|-------|-------------|
+| **Fatal** | `fatal` | Find fatal/critical errors |
+| **Error** | `error` | Find error messages |
+| **Warn** | `warn` | Find warnings |
+| **Info** | `info` | Find informational messages |
+| **Debug** | `debug` | Find debug messages |
+| **Verb** | `verbose` | Find verbose messages |
 
-### Row 1: Category filters
-| Button | Description |
-|--------|-------------|
-| **CAN** | Find CAN bus related messages |
-| **Security** | Find auth/security issues |
-| **Memory** | Find memory-related problems |
-| **Performance** | Find timeout/delay issues |
-| **Diagnostic** | Find diagnostic trouble codes (DTC) |
-| **GPS** | Find GPS/navigation messages |
-| **Categories** | Show available filter categories |
+### Row 1: Core & Boot
+| Button | Query | Description |
+|--------|-------|-------------|
+| **System** | `system` | System core and frameworks |
+| **Diag** | `diag` | Diagnostics and health monitoring |
+| **GPS** | `gps` | Navigation and positioning |
+| **Startup** | `boot` | Boot process and init |
+| **Power** | `power` | Power management and sleep/suspend |
+| **Session** | `login` | Session and user management |
+| **Security** | `security` | Auth and access control |
 
-### Row 2: Automotive presets
-| Button | Description |
-|--------|-------------|
-| **CarPlay** | Filter CarPlay domain messages |
-| **AndroidAuto** | Filter Android Auto domain messages |
-| **Focus** | Find video focus lost events |
-| **Ducking** | Find audio ducking events |
-| **mDNS** | Find mDNS handshake events |
-| **Sensor** | Find vehicle sensor data |
-| **Auth Errors** | Find authentication errors |
+### Row 2: Connectivity
+| Button | Query | Description |
+|--------|-------|-------------|
+| **Network** | `network` | Generic network connectivity |
+| **WiFi** | `wifi` | Wireless networking and hotspots |
+| **Ethernet**| `ethernet`| Wired LAN and PHY management |
+| **BT** | `bt` | Bluetooth and BLE |
+| **USB Stack**| `usbstack`| USB host/device stack |
+| **USB Media**| `usb` | External mass storage |
 
-### Row 3: Analysis & commands
-| Button | Description |
-|--------|-------------|
-| **Session** | Find session start/stop events |
-| **Pattern** | Find repeated/duplicate messages |
-| **Summary** | Show log statistics (level counts, top contexts, etc.) |
-| **Timeline** | Show chronological entry list |
-| **Categorizza** | Classify errors by category |
-| **Help** | Show available commands |
-| **Keywords** | Show available keywords |
+### Row 3: Hardware & Vehicle
+| Button | Query | Description |
+|--------|-------|-------------|
+| **Hardware**| `hw` | Low-level drivers and firmware |
+| **Vehicle** | `vehicle` | IVI and generic vehicle data |
+| **CAN** | `can` | CAN bus and vehicle bus data |
+| **Sensors** | `sensors` | Accelerometer, gyro, and temp sensors |
+| **Storage** | `storage` | Filesystems and databases |
+
+### Row 4: Media & HMI
+| Button | Query | Description |
+|--------|-------|-------------|
+| **FM** | `radio` | FM Tuner and radio management |
+| **DAB** | `dab` | Digital radio (DAB) |
+| **Audio** | `audio` | Media playback and streams |
+| **Video** | `video` | Video rendering and streaming |
+| **Routing** | `mixer` | Audio routing and ALSA mixer |
+| **Meta** | `metadata` | Gracenote and media metadata |
+| **UI** | `ui` | HMI, QML, and display |
+| **Voice** | `voice` | Voice assistant and speech (Siri/Google) |
+
+### Row 5: Performance & Maps
+| Button | Query | Description |
+|--------|-------|-------------|
+| **Perf** | `perf` | CPU, memory, and profiling |
+| **Stats** | `metrics` | Telemetry and monitoring |
+| **Time** | `time` | Clock and time sync |
+| **OTA** | `update` | Software updates (OTA) |
+| **Maps** | `maps` | Map rendering and tiles |
+| **Location**| `location`| Geolocation services |
+
+### Row 6: Smartphone Projection
+| Button | Query | Description |
+|--------|-------|-------------|
+| **CarPlay** | `carplay` | Apple CarPlay domain |
+| **AndroidAuto**| `androidauto`| Android Auto domain |
+| **Projection**| `projection`| Generic projection issues |
+| **Focus** | `video_focus` | Video focus lost events |
+| **Ducking** | `audio_ducking` | Audio ducking events |
+| **mDNS** | `mdns` | mDNS/DNS-SD discovery |
+| **Sensor** | `sensor_data` | Vehicle sensor data (AA) |
+| **Session Proj**| `session_proj`| Projection session events |
+
+### Row 7: Smart Filters
+| Button | Query | Description |
+|--------|-------|-------------|
+| **Critical** | `critical_only`| Fatal level logs only |
+| **Err Only** | `errors_only` | Error and Fatal levels |
+| **Warn Only** | `warnings_only`| Warning level only |
+| **GPS Err** | `gps_errors` | Errors in Navigation |
+| **Radio Warn**| `radio_warnings`| Warnings in FM/DAB radio |
+| **Net TO** | `network_timeouts`| Network timeouts |
+| **Veh Fault** | `vehicle_faults` | Vehicle interface errors |
+| **DAB Issue** | `dab_audio_issues`| DAB audio drops |
+
+### Row 8: Advanced Projection
+| Button | Query | Description |
+|--------|-------|-------------|
+| **CP Err** | `carplay_errors`| CarPlay specific errors |
+| **AA Err** | `androidauto_errors`| Android Auto specific errors |
+| **Wireless** | `wireless_projection`| Wireless link issues |
+| **Audio Proj**| `audio_routing` | Audio routing issues |
+| **USB CP** | `usb_cp` | USB CP negotiation |
+| **USB AA** | `usb_aa` | USB AA negotiation |
+
+### Row 9: Analysis & Help
+| Button | Query | Description |
+|--------|-------|-------------|
+| **Summary** | `summary` | Show log statistics |
+| **Timeline** | `timeline` | Chronological list |
+| **Pattern** | `pattern` | Duplicate detection |
+| **Categorizza**| `categorizza` | AI classification |
+| **Help** | `help` | Commands help |
+| **Categories** | `categories` | List all filter categories |
 
 ---
 
@@ -125,9 +189,10 @@ Type queries in the "Ask about logs..." input box and click **Send**.
 ### By category
 - `can` — CAN bus related messages
 - `security` — auth/security issues
-- `memory` — memory problems
-- `performance` — timeout/delay issues
-- `diagnostic` — diagnostic trouble codes
+- `sensors` — sensor-related data (accel, gyro, temp)
+- `wifi` — WiFi/Hotspot issues
+- `power` — power management (sleep, wake, battery)
+- `diagnostic` — diagnostic trouble codes (DTC)
 - `gps` — GPS/navigation messages
 
 ### Combined queries
@@ -268,21 +333,21 @@ and events.
 
 ### 8.1 Domains
 
-**CarPlay** — detected by:
-- APID: `com.apple.carplay`
-- Payload keywords: `iap2`, `AirPlay`, `CARSIM`
+**Apple CarPlay** — detected by:
+- **Payload keywords**: `carplay`, `iap2`, `airplay`, `siri`, `appledevice`, `eaProtocol`, `CP*`
+- **Technical identifiers**: ExternalAccessory framework, Apple USB identifiers, `com.apple.carplay`
 
 **Android Auto** — detected by:
-- APID: `CarAppService`, `AOAP`, `AndroidAuto`
-- Payload keywords: `USB_ACCESSORY`, `AOA`
+- **Payload keywords**: `androidauto`, `aa`, `projection`, `headunit`, `aaprotocol`, `gms`, `AOA`
+- **Technical identifiers**: Google Projection, Android Open Accessory (AOA), Google Play Services, `CarAppService`
 
-### 8.2 Recognized Events (9)
+### 8.2 Recognized Events
 
 | Event | Domain | Detection Keywords |
 |-------|--------|-------------------|
 | `video_focus_lost` | CarPlay | video, focus |
 | `audio_ducking` | CarPlay | ducking, audio duck |
-| `mdns_handshake` | Both | `_apple-mobdev2`, mdns |
+| `mdns_handshake` | Both | `_apple-mobdev2`, mdns, dns-sd |
 | `hid_event` | CarPlay | hid, keyboard, touch |
 | `auth_tls` | CarPlay | tls, auth, certificate, pairing |
 | `sensor_data` | Android Auto | sensor, gyro, gps, accelerometer |
@@ -290,10 +355,13 @@ and events.
 | `session_start` | Both | session start, link established |
 | `session_stop` | Both | session stop, disconnect, link down |
 
-### 8.3 Preset Filters (8)
+### 8.3 Preset Filters
 
-Triggered by quick action buttons: carplay, androidauto, video_focus,
-audio_ducking, mdns, sensor_data, auth_errors, session.
+All categories and smart filters are available via the **Quick Action** buttons. Common combinations include:
+- `gps_errors` — Navigation specific errors
+- `network_timeouts` — Connectivity issues
+- `wireless_projection` — WiFi/Wireless link problems
+- `carplay_errors` / `androidauto_errors` — Domain-specific failures
 
 ---
 
