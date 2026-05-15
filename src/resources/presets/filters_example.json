@@ -1,10 +1,10 @@
 {
-  "version": "1.0",
-  "description": "CarPlay/AA custom filters example",
+  "version": "1.1",
+  "description": "Premium Automotive Troubleshooting Filter Set",
   "filters": [
     {
       "label": "iAP2 Connection Error",
-      "pattern": "ERROR_0x[0-9A-Fa-f]+",
+      "pattern": "ERROR_0x[0-9A-Fa-f]+|LinkDown|PairingFailed",
       "fields": ["payload"],
       "color": "#ef5350",
       "level": ["error", "fatal"],
@@ -12,34 +12,46 @@
       "enabled": true
     },
     {
-      "label": "mDNS Handshake",
-      "pattern": "_carplay\\._tcp|_androidauto\\._tcp",
+      "label": "mDNS Service Discovery",
+      "pattern": "_carplay\\._tcp|_androidauto\\._tcp|_airplay\\._tcp|_apple-mobdev2",
       "fields": ["payload", "apid"],
       "color": "#42a5f5",
       "enabled": true
     },
     {
-      "label": "Video Focus Lost",
-      "pattern": "Video Focus.*lost|focusLost",
+      "label": "Projection Focus Events",
+      "pattern": "Video Focus.*lost|focusLost|audioFocusLost|Takeover",
       "fields": ["payload"],
       "color": "#ffa726",
-      "domain": "carplay",
       "enabled": true
     },
     {
-      "label": "Sensor Data Rate",
-      "pattern": "sensorEvent.*Hz|VehicleSpeed",
-      "fields": ["payload"],
-      "color": "#66bb6a",
-      "domain": "androidauto",
+      "label": "CAN Bus Faults",
+      "pattern": "BusOff|ErrorFrame|StuffError|CRCError",
+      "fields": ["payload", "apid"],
+      "color": "#b71c1c",
       "enabled": true
     },
     {
-      "label": "Audio Ducking",
-      "pattern": "Audio.*Duck|audioFocus",
+      "label": "WiFi Latency Warnings",
+      "pattern": "RTT > [0-9]{3}ms|PacketLoss > [0-9]%",
       "fields": ["payload"],
-      "color": "#ab47bc",
-      "domain": "carplay",
+      "color": "#fbc02d",
+      "enabled": true
+    },
+    {
+      "label": "Voice Assistant State",
+      "pattern": "AssistantState: (LISTENING|THINKING|SPEAKING)",
+      "fields": ["payload"],
+      "color": "#7e57c2",
+      "enabled": true
+    },
+    {
+      "label": "Audio Buffer Underrun",
+      "pattern": "underrun|buffer empty|audio drop",
+      "fields": ["payload"],
+      "color": "#8d6e63",
+      "level": ["warn", "error"],
       "enabled": true
     }
   ]
