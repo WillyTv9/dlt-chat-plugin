@@ -15,17 +15,20 @@ llmModel=llama3.2:1b
 # --- OpenAI ---
 # llmEndpoint=https://api.openai.com/v1/chat/completions
 # llmApiKey=sk-xxxxxxxxxxxxxxxxxxxx
-# llmModel=gpt-3.5-turbo
+# llmModel=gpt-4o-mini
 
 # --- LocalAI ---
-# llmEndpoint=http://localhost:8080/api/generate
+# llmEndpoint=http://localhost:8080/v1/completions
 # llmApiKey=
 # llmModel=mistral
 
+# Bulk analysis: classify all log entries via LLM on file load
+bulkAnalysisEnabled=false
+
 [Behavior]
-maxResults=200
-llmTimeout=30000
+maxResults=1000
+llmTimeout=120000
 highlightColor=#FFE680
 
-# Percorso file JSON con filtri utente (opzionale)
+# Path to user-defined JSON filter file (optional)
 userFiltersPath=
