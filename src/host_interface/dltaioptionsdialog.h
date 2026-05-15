@@ -16,6 +16,8 @@
 #include <QDoubleSpinBox>
 #include <QPushButton>
 #include <QLabel>
+#include <QWidget>
+#include <QTimer>
 
 class DltAiOptionsDialog : public QDialog
 {
@@ -29,6 +31,7 @@ public:
     int maxTokens() const;
     double temperature() const;
     int timeoutMs() const;
+    QString copilotOAuthToken() const;
 
     void setEndpoint(const QString &v);
     void setApiKey(const QString &v);
@@ -36,12 +39,20 @@ public:
     void setMaxTokens(int v);
     void setTemperature(double v);
     void setTimeoutMs(int v);
+    void setCopilotOAuthToken(const QString &token);
 
 private slots:
     void onProviderChanged(int idx);
     void onTestConnection();
+    void onSignInWithGitHub();
+    void onUseExistingToken();
+    void pollOAuthToken();
 
 private:
+    void updateEndpointForProvider(int idx);
+    void setCopilotStatus(const QString &text, bool ok);
+    QString detectCopilotTokenFromFilesystem();
+
     QComboBox *m_provider;
     QLineEdit *m_endpoint;
     QLineEdit *m_apiKey;
@@ -52,6 +63,19 @@ private:
     QPushButton *m_testBtn;
     QLabel *m_statusLabel;
     QLabel *m_modelHint;
+
+    // Copilot panel
+    QWidget *m_copilotPanel;
+    QLabel *m_copilotStatusLabel;
+    QPushButton *m_signInBtn;
+    QPushButton *m_useExistingBtn;
+    QLabel *m_deviceCodeLabel;
+    QLineEdit *m_manualTokenEdit;
+
+    // OAuth Device Flow state
+    QTimer *m_pollTimer;
+    QString m_deviceCode;
+    QString m_copilotOAuthToken;
 };
 
 #endif
