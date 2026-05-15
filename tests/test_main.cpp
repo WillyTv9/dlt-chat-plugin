@@ -1,7 +1,5 @@
 #include <QTest>
 #include <QCoreApplication>
-#include <QFile>
-#include <QTextStream>
 #include "test_rulebasedanalyzer.h"
 #include "test_automotivelogparser.h"
 #include "test_contextualextractor.h"
@@ -12,16 +10,37 @@
 #include "test_dltexport.h"
 #include "test_userfiltermanager.h"
 
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[])
+{
     QCoreApplication app(argc, argv);
-    TestRuleBasedAnalyzer t1; TestAutomotiveLogParser t2; TestContextualExtractor t3;
-    TestConversationManager t3b; TestTemporalCorrelator t3c; TestFibexEnricher t3d; TestLlmUtils t4;
-    TestDltExport t5; TestUserFilterManager t6;
-    struct { const char *n; QObject *o; } ts[] = {
-        {"RBA", &t1}, {"ALP", &t2}, {"CE", &t3}, {"CM", &t3b},
-        {"TC", &t3c}, {"FE", &t3d}, {"LLM", &t4}, {"DE", &t5}, {"UFM", &t6}
-    };
-    int total = 0; QFile f("r.txt"); f.open(QIODevice::WriteOnly|QIODevice::Text); QTextStream o(&f);
-    for (auto &e : ts) { int r = QTest::qExec(e.o, argc, argv); o << e.n << ": " << r << "\n"; total += r; }
-    o << "TOTAL: " << total << "\n"; f.close(); return total;
+
+    int status = 0;
+    TestRuleBasedAnalyzer ruleBased;
+    status |= QTest::qExec(&ruleBased, argc, argv);
+
+    TestAutomotiveLogParser automotiveLogParser;
+    status |= QTest::qExec(&automotiveLogParser, argc, argv);
+
+    TestContextualExtractor contextualExtractor;
+    status |= QTest::qExec(&contextualExtractor, argc, argv);
+
+    TestConversationManager conversationManager;
+    status |= QTest::qExec(&conversationManager, argc, argv);
+
+    TestTemporalCorrelator temporalCorrelator;
+    status |= QTest::qExec(&temporalCorrelator, argc, argv);
+
+    TestFibexEnricher fibexEnricher;
+    status |= QTest::qExec(&fibexEnricher, argc, argv);
+
+    TestLlmUtils llmUtils;
+    status |= QTest::qExec(&llmUtils, argc, argv);
+
+    TestDltExport dltExport;
+    status |= QTest::qExec(&dltExport, argc, argv);
+
+    TestUserFilterManager userFilterManager;
+    status |= QTest::qExec(&userFilterManager, argc, argv);
+
+    return status;
 }
