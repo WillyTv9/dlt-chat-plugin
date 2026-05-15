@@ -2,6 +2,7 @@
 build/
 build_tests/
 build-*/
+build_msvc_*/
 cmake-build-*/
 out/
 
@@ -49,14 +50,29 @@ test_results/
 *.orig
 *.rej
 
+# DLT log and project files
+*.dlt
+*.dlp
+
 # Package files
 *.tar.gz
 *.zip
 
 # OS specific
 Thumbs.db
+
 # User config
 dlt_chat_plugin.ini
+
+# AI/Claude configuration
+.claude/
+
+# Backup patches
+backup_patches/
+
+# Text/work files
+prompts.txt
+r.txt
 
 # Vendor downloaded sources
 vendor/_deps/
