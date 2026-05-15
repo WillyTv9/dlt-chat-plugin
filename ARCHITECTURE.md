@@ -17,8 +17,8 @@ chat-based log analysis. It supports both rule-based (local) and LLM/AI
 │  │              DltChatPlugin (Plugin)                 │  │
 │  │                                                     │  │
 │  │  ┌──────────┐  ┌──────────────┐  ┌──────────────┐  │  │
-│  │  │ Chat UI  │  │  Analyzer    │  │  DLT File    │  │  │
-│  │  │ (Form)   │◄─┤  (Strategy)  │◄─┤  Access      │  │  │
+│  │  │ Chat UI  │  │  Analyzer    │  │  LogStore +   │  │  │
+│  │  │ (Form)   │◄─┤  (Strategy)  │◄─┤  LogIndex     │  │  │
 │  │  └──────────┘  └──────────────┘  └──────────────┘  │  │
 │  │       │               │                              │  │
 │  │       ▼               ▼                              │  │
@@ -37,14 +37,16 @@ chat-based log analysis. It supports both rule-based (local) and LLM/AI
   and `DltLlmAnalyzerInterface` implementations
 - **Observer Pattern**: Signals/slots for UI updates, async results
 - **Circuit Breaker**: For LLM failure handling (5 failures → 60s open)
-- **Token Bucket**: Rate limiter for LLM API calls
-- **LRU Cache**: Response caching in both plugin and LLM analyzer
+- **Token Bucket**: Rate limiter for LLM API calls (10 tokens, 1/s refill)
+- **LRU Cache**: Response caching in both plugin (10k) and LLM analyzer (1k)
+- **Worker Thread**: `DltBulkAnalyzerWorker` runs bulk analysis in QThread
+- **Factory**: `DltLlmAnalyzerFactory` creates provider-specific analyzers
 
 ---
 
 ## 2. Component Breakdown
 
-### 2.1 Core Plugin (`dltchatplugin.h/.cpp`)
+### 2.1 Core Plugin (`plugin_entry.h/.cpp`)
 
 **Purpose**: Entry point, DLT Viewer lifecycle, query routing.
 
@@ -75,16 +77,31 @@ form->appendMessage() + form->setResults() + highlightIndices()
 
 **Components**:
 - Status bar (file info, domain stats, AI status)
-- 20 quick action buttons (3×7 grid with per-button colors)
+- 26 quick action buttons (4×7 grid with per-button colors)
 - Chat history (`QTextBrowser`)
-- Results list (`QListWidget`) with clickable items
+- Results list (`QListView` + `ResultsModel`) with clickable items
 - Rule-based query input + Send button
 - AI query input + Ask AI button + progress bar
 - Bottom bar: Clear, Filters (load), CSV, CSV All
 
 **Palette-aware**: Automatically adjusts colors for dark/light themes.
 
-### 2.3 Analyzer Interface (`dltanalyzerinterface.h/.cpp`)
+### 2.3 Results Model (`results_model.h/.cpp`)
+
+**Purpose**: Qt Model/View backing for the results list.
+
+Provides color-coded items with level-appropriate highlighting
+(error → red, warn → orange, others → gray).
+
+### 2.4 AI Options Dialog (`dltaioptionsdialog.h/.cpp`)
+
+**Purpose**: Configuration UI for LLM provider settings.
+
+Fields: Provider selector (Ollama/OpenAI/LocalAI/Custom), endpoint URL,
+API key, model name, max tokens, temperature, timeout.
+Includes "Test Connection" button.
+
+### 2.5 Analyzer Interface (`analyzer_interface.h/.cpp`)
 
 **Core Data Structures**:
 - `LogEntry`: index, time, timestamp, ecu, apid, ctid, level, payload,
@@ -99,10 +116,12 @@ form->appendMessage() + form->setResults() + highlightIndices()
 - Category filtering: CAN, security, memory, performance, diagnostic, GPS
 - Combined queries: "error can", "warn carplay"
 - Pattern detection: duplicate message grouping
-- Error categorization: classifies error/fatal entries into 7 categories (Comunicazione, Memoria, Sicurezza, Configurazione, Hardware, Timeout, Protocollo)
+- Error categorization: classifies error/fatal entries into 7 categories
+  (Comunicazione, Memoria, Sicurezza, Configurazione, Hardware, Timeout,
+  Protocollo)
 - Statistics: level counts, top contexts, repeated messages, domains
 
-### 2.4 LLM Analyzer (`dltllmanalyzerinterface.h/.cpp`)
+### 2.6 LLM Analyzer (`llm_analyzer_interface.h/.cpp`)
 
 **Purpose**: AI-powered log analysis via HTTP API.
 
@@ -118,19 +137,19 @@ form->appendMessage() + form->setResults() + highlightIndices()
 - JSON response parsing for Ollama and OpenAI formats
 - Index extraction from LLM responses (`[index:N]` syntax + fallback)
 
-### 2.5 Bulk Analyzer (`dltbulkanalyzer.h/.cpp`)
+### 2.7 Bulk Analyzer (`bulk_analyzer.h/.cpp`)
 
 **Purpose**: Batch log classification using LLM.
 
-**Architecture**: Worker thread (`QThread`) processing logs in chunks.
+**Architecture**: Worker thread processing logs in chunks (default 100/chunk).
 
 **Features**:
 - Chunked processing with pause/resume/cancel
 - Chunk classification query: category, summary, tags per entry
-- Search by tag or category
+- Search results by `tag:` or `category:` filters
 - Progress reporting via signals
 
-### 2.6 Export (`dltexport.h/.cpp`)
+### 2.8 Export Engine (`export_engine.h/.cpp`)
 
 **Purpose**: CSV export of query results and all entries.
 
@@ -141,37 +160,77 @@ form->appendMessage() + form->setResults() + highlightIndices()
   CTID, domain, payload, source query
 - Full export: all entries with same metadata
 
-### 2.7 Automotive Log Parser (`automotivelogparser.h/.cpp`)
+### 2.9 Automotive Log Parser (`automotive_log_parser.h/.cpp`)
 
 **Purpose**: Domain-specific classification for automotive protocols.
 
 **Domains**:
 - **CarPlay**: Detected via APID (`com.apple.carplay`), payload keywords
-  (`iap2`, `AirPlay`)
+  (`iap2`, `AirPlay`, `CARSIM`)
 - **Android Auto**: Detected via APID (`CarAppService`, `AOAP`,
   `AndroidAuto`), payload keywords (`USB_ACCESSORY`, `AOA`)
 
-**Events**:
+**Events** (9 total):
 - CarPlay: `video_focus_lost`, `audio_ducking`, `mdns_handshake`,
   `hid_event`, `auth_tls`
 - Android Auto: `sensor_data`, `audio_focus`, `mdns_handshake`,
   `session_start`, `session_stop`
 
-**Preset rules**: 8 quick filters for common use cases.
+**Preset rules**: 8 quick filters for common use cases
+(carplay, androidauto, video_focus, audio_ducking, mdns, sensor_data,
+auth_errors, session).
 
-### 2.8 User Filter Manager (`userfiltermanager.h/.cpp`)
+### 2.10 Log Store (`log_store.h/.cpp`)
+
+**Purpose**: Thread-safe storage for decoded log entries.
+
+Manages the `entries` vector with mutex-guarded access (`entriesMutex`).
+Provides snapshot mechanism for safe concurrent reads during analysis.
+
+### 2.11 Log Index (`log_index.h/.cpp`)
+
+**Purpose**: Inverted index for O(K) keyword search.
+
+Builds a `QHash<QString, QSet<int>>` mapping each keyword to the set
+of entry indices where it appears. Supports AND-intersection queries.
+
+### 2.12 AI Cache Manager (`ai_cache_manager.h/.cpp`)
+
+**Purpose**: LRU response cache for LLM queries.
+
+Maintains 1000-entry LRU cache with half-flush when full.
+
+### 2.13 Contextual Extractor (`contextual_extractor.h/.cpp`)
+
+**Purpose**: Extracts context windows around matched log entries.
+
+Enables "show me what happened before/after index N" queries.
+
+### 2.14 Conversation Manager (`conversation_manager.h/.cpp`)
+
+**Purpose**: Multi-turn AI conversation history.
+
+Maintains recent conversation context for follow-up AI queries.
+
+### 2.15 Temporal Correlator (`temporal_correlator.h/.cpp`)
+
+**Purpose**: Time-window based event correlation.
+
+Correlates events within configurable time windows.
+
+### 2.16 Fibex Enricher (`fibex_enricher.h/.cpp`)
+
+**Purpose**: Enriches log entries with FIBEX XML metadata.
+
+Parses FIBEX (Field Bus Exchange) XML files to provide additional
+context for CAN/FlexRay bus signals.
+
+### 2.17 User Filter Manager (`user_filter_manager.h/.cpp`)
 
 **Purpose**: User-defined regex-based log highlighting.
 
 **Filter structure**: label, regex pattern, fields (payload, apid, ctid,
-ecu), color, levels, domain.
-
-### 2.9 AI Configuration Dialog (`dltaioptionsdialog.h/.cpp`)
-
-**Purpose**: Configuration UI for LLM provider settings.
-
-**Fields**: Provider selector, endpoint URL, API key, model name, max
-tokens, temperature, timeout. Includes "Test Connection" button.
+ecu), color, levels, domain. Loaded from JSON file.
 
 ---
 
@@ -221,10 +280,11 @@ This enables O(K) keyword lookups (K = number of keywords).
 ```
 onQuerySubmitted(query)
     │
-    ├── Preset match? → filterByPreset + rule-based analysis
+    ├── Quick button / Preset match? → AutomotiveLogParser::filterByPreset()
+    │   └── m_ruleBasedAnalyzer->analyzeQuery()
     ├── Special command? (summary, timeline, help, pattern, keywords, categorizza)
     │   └── m_ruleBasedAnalyzer->analyzeQuery()
-    ├── Level/category query? → m_ruleBasedAnalyzer->analyzeQuery()
+    ├── Level/category/domain query? → m_ruleBasedAnalyzer->analyzeQuery()
     └── Free text → liveSearch() (inverted index + regex fallback)
 ```
 
@@ -241,12 +301,13 @@ onAiQuerySubmitted(query)
 
 | Technique | Location | Benefit |
 |-----------|----------|---------|
-| Inverted index | `dltchatplugin.cpp` | O(K) keyword search |
+| Inverted index | `log_index.cpp` | O(K) keyword search |
 | Mutex locks | `entriesMutex` | Thread-safe entry access |
 | Display cap (1000) | `kMaxDisplayResults` | UI responsiveness |
+| Entry limit (500k) | `kMaxEntries` | Memory bound |
 | AI pre-filter (100) | `kAIPreFilterMax` | LLM prompt size limit |
 | Async LLM | `analyzeQueryAsync` | Non-blocking UI |
-| LRU cache | Both plugin + LLM | Repeated query speedup |
+| LRU cache | Plugin + LLM analyzer | Repeated query speedup |
 | Circuit breaker | `dltllmanalyzerinterface` | Prevent cascading failures |
 | Rate limiter | `dltllmanalyzerinterface` | API quota compliance |
 
@@ -260,6 +321,7 @@ onAiQuerySubmitted(query)
 | Qt GUI | Yes | 5.15+ / 6.x |
 | Qt Widgets | Yes | 5.15+ / 6.x |
 | Qt Network | Yes | 5.15+ / 6.x |
+| Qt Xml | Yes | 5.15+ / 6.x |
 | DLT Viewer SDK (qdlt) | Yes | 2.30.0+ |
 | C++ Compiler | Yes | C++17 |
 | CMake | Yes | 3.16+ |
@@ -278,7 +340,24 @@ CMakeLists.txt
 ```
 
 The plugin is built as a Qt MODULE library (shared library loadable at
-runtime).
+runtime). The app logic is factored into a static library (`dltchat_app_logic`)
+for testability.
+
+### Directory layout
+
+```
+src/
+  app_logic/
+    include/dltchat/    ← 13 public headers (all core classes)
+    src/                ← implementations
+  host_interface/       ← plugin_entry, chatform, options dialog, results model
+  resources/presets/    ← preset filter JSON definitions
+tests/
+  test_*.cpp/.h         ← 10 Qt Test classes
+  test_data/            ← sample FIBEX XML, filter JSON
+cmake/                  ← compiler_warnings, GetGitHash, version template
+dist/                   ← distribution packaging
+```
 
 ---
 
@@ -294,13 +373,16 @@ llmModel = llama3.2:1b
 bulkAnalysisEnabled = false
 
 [Behavior]
+maxResults = 1000
+llmTimeout = 120
 highlightColor = #FFE680
+userFiltersPath =
 ```
 
 **User Filters** (`*.json`):
 ```json
 {
-  "version": "1.0.0",
+  "version": "1.0",
   "filters": [
     {
       "label": "CAN Errors",
@@ -312,4 +394,31 @@ highlightColor = #FFE680
     }
   ]
 }
+```
+
+---
+
+## 9. Test Architecture
+
+Tests use the **Qt Test** framework with 10 test suites:
+
+| Suite | Tests | Area |
+|-------|-------|------|
+| `test_rulebasedanalyzer` | 17 | Commands, filters, simplifyPayload |
+| `test_automotivelogparser` | 14 | CarPlay/AA classification, events, presets |
+| `test_llmutils` | 9 | Response parsing, prompt building, request body |
+| `test_dltexport` | 7 | CSV escaping, sanitization, full export |
+| `test_userfiltermanager` | 8 | Load, match domain/level, enabled count |
+| `test_contextualextractor` | — | Context window extraction |
+| `test_conversationmanager` | — | Multi-turn conversation history |
+| `test_fibexenricher` | — | FIBEX XML metadata enrichment |
+| `test_temporalcorrelator` | — | Time-window correlation |
+| `test_main` | — | Test harness / main entry |
+
+
+Run tests:
+```bash
+cmake -B build_tests -S tests
+cmake --build build_tests --config Release
+cd build_tests && ctest --output-on-failure
 ```
