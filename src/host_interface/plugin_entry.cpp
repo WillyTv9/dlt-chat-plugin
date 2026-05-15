@@ -377,6 +377,12 @@ void DltChatPlugin::initFileStart(QDltFile *file)
     dltFile = file;
     clearData();
     filterRowMapDirty = true;
+    if (dltFile)
+    {
+        int totalMsgs = dltFile->size();
+        if (totalMsgs > 0)
+            entries.reserve(totalMsgs);
+    }
     updateStatus("Loading log file...");
 }
 
