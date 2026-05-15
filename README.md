@@ -79,7 +79,7 @@ cmake .. -DCMAKE_BUILD_TYPE=Release
 cmake --build . --parallel
 ```
 
-Output: `build/src/host_interface/dltchatplugin.dll` (MSVC) or `build/libdltchatplugin.so` (Linux).
+Output: `build/src/host_interface/Release/dltchatplugin.dll` (MSVC), `build/src/host_interface/libdltchatplugin.dll` (MinGW), or `build/libdltchatplugin.so` (Linux).
 
 On Windows, you can also run `build_plugin.bat` from a Visual Studio Developer Prompt.
 
@@ -155,6 +155,7 @@ cmake --build build --target dist
 5. **Output:**
    - Linux:   `build/bin/plugins/libdltchatplugin.so`
    - Windows: `build/bin/plugins/Release/dltchatplugin.dll` (MSVC)
+   - Windows: `build/bin/plugins/libdltchatplugin.dll` (MinGW)
 
 6. **Installa** nella cartella plugins di DLT Viewer:
    - Linux:   `cp build/bin/plugins/libdltchatplugin.so ~/.local/share/dlt-viewer/plugins/`
@@ -303,7 +304,7 @@ bulkAnalysisEnabled=false
 
 [Behavior]
 maxResults=1000
-llmTimeout=120
+llmTimeout=120000
 highlightColor=#FFE680
 userFiltersPath=
 ```

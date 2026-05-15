@@ -374,7 +374,7 @@ bulkAnalysisEnabled = false
 
 [Behavior]
 maxResults = 1000
-llmTimeout = 120
+llmTimeout = 120000
 highlightColor = #FFE680
 userFiltersPath =
 ```
