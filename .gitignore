@@ -109,3 +109,4 @@ docs/
 # Release artifacts
 dltchatplugin-*.zip
 dltchatplugin-*.tar.gz
+releases.json

@@ -50,11 +50,19 @@ signals:
     void analysisFinished(bool success);
     void errorOccurred(const QString &error);
 
+private slots:
+    void onWorkerProgress(double progress, int processed, int total);
+    void onWorkerFinished();
+    void onWorkerError(const QString &error);
+
 private:
     DltBulkAnalyzerWorker *m_worker;
     QThread *m_workerThread;
     QVector<DltAnalyzerInterface::LogEntry> m_entries;
+    DltLlmAnalyzerInterface *m_llmAnalyzer = nullptr;
+    QHash<int, BulkAnalysisResult> m_resultsCache;
     bool m_running;
+    bool m_hasCompleted = false;
     mutable QMutex m_mutex;
 };
 
