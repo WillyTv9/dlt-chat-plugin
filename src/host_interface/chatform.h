@@ -2,6 +2,7 @@
 #define CHATFORM_H
 
 #include <QWidget>
+#include <QHash>
 #include <QListView>
 #include <QStringList>
 
@@ -80,6 +81,7 @@ private:
     QLabel *aiDisclaimer;
     dltchat::ResultsModel *m_resultsModel;
     QString lastQuery;
+    QHash<QObject *, QString> m_quickActionQueries;
 };
 
 } // namespace DltChat

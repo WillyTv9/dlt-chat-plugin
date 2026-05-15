@@ -28,6 +28,7 @@ public:
         QString payload;
         QString domain;
         QString event;
+        QString category;
     };
 
     struct QueryResult

@@ -11,6 +11,7 @@
 #include "test_llmutils.h"
 #include "test_dltexport.h"
 #include "test_userfiltermanager.h"
+#include "test_categoryregistry.h"
 
 static int runTestSuite(QObject *testObject)
 {
@@ -60,6 +61,9 @@ int main(int argc, char *argv[])
 
     TestUserFilterManager userFilterManager;
     status |= runTestSuite(&userFilterManager);
+
+    TestCategoryRegistry categoryRegistry;
+    status |= runTestSuite(&categoryRegistry);
 
     return status;
 }

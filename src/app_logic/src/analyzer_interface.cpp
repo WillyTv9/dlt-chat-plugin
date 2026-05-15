@@ -1,4 +1,5 @@
 #include "dltchat/analyzer_interface.h"
+#include "dltchat/category_registry.h"
 
 #include <QElapsedTimer>
 #include <QRegularExpression>
@@ -97,6 +98,30 @@ static QString helpText()
 static QStringList extractLevels(const QString &lq)
 {
     QStringList levels;
+    const auto resolved = CategoryRegistry::instance().resolveQuery(lq);
+    if (resolved.kind == ResolvedQuery::Kind::Category && !resolved.categoryIds.isEmpty()) {
+        const auto *cat = CategoryRegistry::instance().categoryById(resolved.categoryId);
+        if (cat && cat->levelOnly) {
+            for (const auto &f : cat->filters) {
+                if (f == QLatin1String("error") || f == QLatin1String("fatal")
+                    || f == QLatin1String("lerr") || f == QLatin1String("err"))
+                    levels << "error" << "fatal";
+                else if (f == QLatin1String("warn") || f == QLatin1String("lwarn")
+                         || f == QLatin1String("warning"))
+                    levels << "warn";
+                else if (f == QLatin1String("info") || f == QLatin1String("linf"))
+                    levels << "info";
+                else if (f == QLatin1String("debug") || f == QLatin1String("ldebug")
+                         || f == QLatin1String("dbg"))
+                    levels << "debug";
+                else if (f == QLatin1String("verbose"))
+                    levels << "verbose";
+            }
+            levels.removeDuplicates();
+            if (!levels.isEmpty())
+                return levels;
+        }
+    }
     if (lq.contains("error") || lq.contains("errore") || lq.contains("fatal") || lq.contains("fatale"))
         levels << "error" << "fatal";
     if (lq.contains("warn") || lq.contains("warning") || lq.contains("avviso"))
@@ -114,59 +139,41 @@ static QStringList extractDomains(const QString &lq)
 {
     QStringList domains;
     if (lq.contains("carplay")) domains << "carplay";
-    if (lq.contains("androidauto") || lq.contains("android auto") || lq.contains("aa")) domains << "androidauto";
+    if (lq.contains("androidauto") || lq.contains("android auto")) domains << "androidauto";
     return domains;
-}
-
-struct CategoryRule {
-    QString name;
-    QStringList keywords;
-};
-
-static const QVector<CategoryRule> &allCategories()
-{
-    static QVector<CategoryRule> cats;
-    if (cats.isEmpty()) {
-        cats = {
-            {"can",         {"can", "canfd", "arbitration", "identifier", "dlc", "errorframe"}},
-            {"security",    {"auth", "security", "permission", "denied", "unauthorized",
-                             "certificate", "encryption", "token", "login", "access"}},
-            {"memory",      {"memory", "heap", "stack", "leak", "overflow", "underflow",
-                             "null", "pointer", "alloc", "free", "buffer", "segfault"}},
-            {"performance", {"timeout", "latency", "delay", "slow", "performance",
-                             "response", "elapsed", "duration", "wait", "stuck"}},
-            {"diagnostic",  {"diagnostic", "dtc", "obd", "fault", "trouble",
-                             "faultcode", "error code", "sid", "did"}},
-            {"gps",         {"gps", "position", "location", "navigation", "satellite",
-                             "gnss", "heading", "coordinates", "latitude", "longitude"}},
-        };
-    }
-    return cats;
 }
 
 static QStringList extractCategoryKeywords(const QString &lq)
 {
-    QStringList keywords;
-    for (const auto &cat : allCategories()) {
-        if (lq.contains(cat.name)) {
-            keywords.append(cat.keywords);
-            break;
+    const auto resolved = CategoryRegistry::instance().resolveQuery(lq);
+    if (resolved.kind == ResolvedQuery::Kind::Category && !resolved.categoryId.isEmpty()) {
+        const auto *cat = CategoryRegistry::instance().categoryById(resolved.categoryId);
+        if (cat && !cat->levelOnly)
+            return cat->filters;
+    }
+    if (resolved.kind == ResolvedQuery::Kind::CombinedFilter) {
+        QStringList keywords = resolved.extraFilters;
+        for (const auto &cid : resolved.categoryIds) {
+            const auto *cat = CategoryRegistry::instance().categoryById(cid);
+            if (cat)
+                keywords.append(cat->filters);
         }
+        return keywords;
     }
-    if (keywords.isEmpty()) {
-        QSet<QString> sw;
-        sw << "show" << "mostra" << "elenca" << "tutti" << "tutte" << "all" << "the" << "and"
-           << "log" << "logs" << "messaggi" << "messaggio" << "di" << "il" << "la" << "le" << "gli"
-           << "dei" << "delle" << "degli" << "una" << "uno" << "un" << "per" << "con" << "che"
-           << "error" << "warn" << "info" << "debug" << "verbose" << "summary" << "riassumi"
-           << "sintesi" << "statistiche" << "help" << "aiuto" << "comandi" << "timeline" << "cronologia"
-           << "carplay" << "androidauto" << "pattern" << "categorie" << "keywords";
 
-        QStringList toks = lq.split(QRegularExpression("\\W+"), Qt::SkipEmptyParts);
-        for (const auto &t : toks)
-            if (t.size() >= 3 && !sw.contains(t) && !t.at(0).isDigit())
-                keywords.append(t);
-    }
+    QStringList keywords;
+    QSet<QString> sw;
+    sw << "show" << "mostra" << "elenca" << "tutti" << "tutte" << "all" << "the" << "and"
+       << "log" << "logs" << "messaggi" << "messaggio" << "di" << "il" << "la" << "le" << "gli"
+       << "dei" << "delle" << "degli" << "una" << "uno" << "un" << "per" << "con" << "che"
+       << "error" << "warn" << "info" << "debug" << "verbose" << "summary" << "riassumi"
+       << "sintesi" << "statistiche" << "help" << "aiuto" << "comandi" << "timeline" << "cronologia"
+       << "pattern" << "categorie" << "keywords";
+
+    QStringList toks = lq.split(QRegularExpression("\\W+"), Qt::SkipEmptyParts);
+    for (const auto &t : toks)
+        if (t.size() >= 3 && !sw.contains(t) && !t.at(0).isDigit())
+            keywords.append(t);
     return keywords;
 }
 
@@ -204,18 +211,7 @@ DltAnalyzerInterface::QueryResult DltRuleBasedAnalyzer::analyzeInternal(
     }
     if (lq == "keywords" || lq == "categorie" || lq == "categories")
     {
-        QString html = "<b>Categorie riconosciute:</b><br>"
-            "CAN: can, canfd, arbitration, identifier<br>"
-            "Security: auth, security, permission, denied, unauthorized<br>"
-            "Memoria: memory, heap, stack, leak, overflow, null, alloc<br>"
-            "Performance: timeout, latency, delay, slow, performance<br>"
-            "Diagnostic: diagnostic, dtc, obd, fault, trouble<br>"
-            "GPS: gps, position, navigation, location, satellite<br><br>"
-            "<b>Domini riconosciuti:</b><br>"
-            "CarPlay: carplay, apple carplay<br>"
-            "Android Auto: androidauto, android auto<br><br>"
-            "<i>Combina: 'error can', 'warn carplay', 'info security timeout'</i>";
-        r.responseHtml = html;
+        r.responseHtml = CategoryRegistry::instance().buildCategoriesHelpHtml();
         return r;
     }
     if (lq == "summary" || lq == "riassumi" || lq == "sintesi" || lq == "statistiche")

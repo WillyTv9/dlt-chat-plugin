@@ -15,6 +15,7 @@ set(DIST_README    "${CMAKE_SOURCE_DIR}/README.md")
 set(DIST_LICENSE   "${CMAKE_SOURCE_DIR}/LICENSE")
 set(DIST_ARCH      "${CMAKE_SOURCE_DIR}/ARCHITECTURE.md")
 set(DIST_PRESET_DIR "${CMAKE_SOURCE_DIR}/src/resources/presets")
+set(DIST_CATEGORY_REGISTRY "${CMAKE_SOURCE_DIR}/src/resources/category_registry.json")
 
 add_custom_target(dist
     COMMAND ${CMAKE_COMMAND} -E echo "Packaging plugin to ${DIST_DIR}..."
@@ -26,6 +27,7 @@ add_custom_target(dist
     COMMAND ${CMAKE_COMMAND} -E copy "${DIST_LICENSE}"   "${DIST_DIR}/"
     COMMAND ${CMAKE_COMMAND} -E copy "${DIST_ARCH}"      "${DIST_DIR}/"
     COMMAND ${CMAKE_COMMAND} -E copy_directory "${DIST_PRESET_DIR}" "${DIST_DIR}/presets"
+    COMMAND ${CMAKE_COMMAND} -E copy "${DIST_CATEGORY_REGISTRY}" "${DIST_DIR}/"
     COMMENT "Plugin distribution created at ${DIST_DIR}"
     VERBATIM
 )

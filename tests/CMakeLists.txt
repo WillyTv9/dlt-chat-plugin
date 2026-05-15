@@ -11,6 +11,7 @@ set(TEST_SOURCES
     test_llmutils.cpp
     test_dltexport.cpp
     test_userfiltermanager.cpp
+    test_categoryregistry.cpp
 )
 
 add_executable(tests ${TEST_SOURCES})

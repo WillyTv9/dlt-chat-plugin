@@ -1,6 +1,7 @@
 #include "plugin_entry.h"
 #include "dltaioptionsdialog.h"
 #include "dltchat/temporal_correlator.h"
+#include "dltchat/category_registry.h"
 #include "dltchat_version.h"
 
 #include <QAbstractItemView>
@@ -531,43 +532,37 @@ void DltChatPlugin::onQuerySubmitted(const QString &query)
         return;
     }
 
-    // 1. Quick Button / Preset automotive match
-    static const QHash<QString, QString> presetMap = {
-        {"carplay", "carplay"},
-        {"androidauto", "androidauto"},
-        {"video_focus", "video_focus"},
-        {"audio_ducking", "audio_ducking"},
-        {"mdns", "mdns"},
-        {"sensor_data", "sensor_data"},
-        {"auth_errors", "auth_errors"},
-        {"session", "session"},
-    };
-
-    auto presetIt = presetMap.constFind(lq);
-    if (presetIt != presetMap.constEnd()) {
-        QString presetName = presetIt.value();
-        auto filtered = AutomotiveLogParser::filterByPreset(snapshot, presetName);
+    // 1. Registry-driven category / projection / combined filters
+    const auto &registry = dltchat::CategoryRegistry::instance();
+    const auto resolved = registry.resolveQuery(lq);
+    if (resolved.kind == dltchat::ResolvedQuery::Kind::Category
+        || resolved.kind == dltchat::ResolvedQuery::Kind::CategoryById
+        || resolved.kind == dltchat::ResolvedQuery::Kind::CombinedFilter
+        || resolved.kind == dltchat::ResolvedQuery::Kind::ProjectionEvent) {
+        auto filtered = registry.filterEntries(snapshot, resolved);
         DltAnalyzerInterface::QueryResult result;
+        QString filterLabel = resolved.categoryId.isEmpty() ? lq : resolved.categoryId;
+        if (resolved.kind == dltchat::ResolvedQuery::Kind::ProjectionEvent)
+            filterLabel = resolved.projectionEventId;
+        if (resolved.kind == dltchat::ResolvedQuery::Kind::CombinedFilter)
+            filterLabel = resolved.combinedId;
         if (filtered.isEmpty()) {
-            result.responseHtml = QString("Nessun messaggio <b>%1</b> trovato.").arg(presetName);
+            result.responseHtml = QString("Nessun messaggio <b>%1</b> trovato.").arg(filterLabel);
             result.success = true;
         } else {
-            result = m_ruleBasedAnalyzer->analyzeQuery(query, filtered);
+            for (const auto &e : filtered) {
+                result.indices.append(e.index);
+                if (result.snippets.size() < 100)
+                    result.snippets.append(e.payload.left(120));
+            }
+            result.responseHtml = QString("Trovati <b>%1</b> messaggi per <b>%2</b> su %3 totali.")
+                .arg(filtered.size()).arg(filterLabel).arg(snapshot.size());
+            result.success = true;
         }
         result.processingTimeMs = timer.elapsed();
-        {
-            int totalIdx = result.indices.size();
-            int displayIdx = qMin(totalIdx, kMaxDisplayResults);
-            if (totalIdx > displayIdx) {
-                result.snippets = result.snippets.mid(0, displayIdx);
-                result.responseHtml += QString("<br><em>Mostrati %1 su %2 risultati totali.</em>")
-                    .arg(displayIdx).arg(totalIdx);
-            }
-        }
         QString html = result.responseHtml;
         html += buildUserFilterContextHtml();
-        if (result.processingTimeMs > 0)
-            html += QString("<br><small>%1ms</small>").arg(result.processingTimeMs);
+        html += QString("<br><small>%1ms</small>").arg(result.processingTimeMs);
         form->appendMessage("Chat Assistant", html);
         {
             QMutexLocker lk(&entriesMutex);
@@ -581,27 +576,15 @@ void DltChatPlugin::onQuerySubmitted(const QString &query)
         return;
     }
 
-    // 2. Check if this is a special command for the rule-based analyzer
-    bool isSpecial = false;
-    const QStringList specialCommands = {
-        "summary", "riassumi", "sintesi", "statistiche",
-        "timeline", "cronologia",
-        "help", "aiuto", "comandi",
-        "keywords", "categorie", "categories",
-        "pattern",
-        "categorizza", "categorize", "classifica"
-    };
-    for (const auto &cmd : specialCommands) {
-        if (lq == cmd || lq.startsWith(cmd + " ")) { isSpecial = true; break; }
+    // 2. Special commands for rule-based analyzer
+    bool isSpecial = registry.isSpecialCommand(lq);
+    if (!isSpecial) {
+        if (lq.contains("error") || lq.contains("errore") || lq.contains("fatal")
+            || lq.contains("warn") || lq == "info" || lq == "debug" || lq == "verbose")
+            isSpecial = true;
     }
-    if (lq.contains("error") || lq.contains("errore") || lq.contains("fatal") ||
-        lq.contains("warn") || lq == "info" || lq == "debug" || lq == "verbose")
+    if (!isSpecial && resolved.kind == dltchat::ResolvedQuery::Kind::SpecialCommand)
         isSpecial = true;
-    const QStringList categories = {"can", "security", "memory", "performance",
-                                     "diagnostic", "gps"};
-    for (const auto &cat : categories) {
-        if (lq.contains(cat)) { isSpecial = true; break; }
-    }
 
     if (!isSpecial) {
         QList<int> searchIndices = liveSearch(lq);
@@ -1002,6 +985,8 @@ void DltChatPlugin::ingestMessage(int index, QDltMsg &msg)
     if (!e.event.isEmpty())
         invertedIndex[QString("event:") + e.event].insert(index);
     invertedIndex[QString("domain:") + e.domain.toLower()].insert(index);
+    if (!e.category.isEmpty())
+        invertedIndex[QString("category:") + e.category.toLower()].insert(index);
     for (const QString &k : kw)
         invertedIndex[k].insert(index);
 }
