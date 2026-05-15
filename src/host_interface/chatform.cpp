@@ -377,27 +377,9 @@ void Form::appendMessage(const QString &author, const QString &html)
     if (sb) sb->setValue(sb->maximum());
 }
 
-void Form::setResults(const QList<int> &indices, const QStringList &snippets,
-                      const QStringList &levels)
+void Form::setResults(const QList<int> &indices)
 {
-    if (indices.isEmpty()) {
-        m_resultsModel->clearResults();
-        return;
-    }
-
-    bool dk = palette().color(QPalette::Window).lightness() < 128;
-    int n = indices.size();
-
-    QList<QColor> colors;
-    colors.reserve(n);
-    for (int i = 0; i < n; ++i)
-    {
-        QString lvl = i < levels.size() ? levels[i] : QString();
-        if (lvl == "error" || lvl == "fatal") colors.append(QColor(dk ? "#ef5350" : "#d32f2f"));
-        else if (lvl == "warn") colors.append(QColor(dk ? "#ffa726" : "#e65100"));
-        else colors.append(QColor(dk ? "#e0e0e0" : "#424242"));
-    }
-    m_resultsModel->setResults(indices, snippets, levels, colors);
+    m_resultsModel->setResults(indices);
 }
 
 void Form::setAiStatus(int state, const QString &modelName)

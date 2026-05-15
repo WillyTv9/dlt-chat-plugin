@@ -8,16 +8,10 @@ ResultsModel::ResultsModel(QObject *parent)
 {
 }
 
-void ResultsModel::setResults(const QList<int> &indices,
-                               const QStringList &snippets,
-                               const QStringList &levels,
-                               const QList<QColor> &colors)
+void ResultsModel::setResults(const QList<int> &indices)
 {
     beginResetModel();
     m_indices = indices;
-    m_snippets = snippets;
-    m_levels = levels;
-    m_colors = colors;
     endResetModel();
 }
 
@@ -25,9 +19,6 @@ void ResultsModel::clearResults()
 {
     beginResetModel();
     m_indices.clear();
-    m_snippets.clear();
-    m_levels.clear();
-    m_colors.clear();
     endResetModel();
 }
 
@@ -43,15 +34,20 @@ QVariant ResultsModel::data(const QModelIndex &index, int role) const
         return QVariant();
 
     int row = index.row();
+    int logIndex = m_indices[row];
+
+    if (role == IndexRole) return logIndex;
+
+    if (!m_fetcher) return QVariant();
+
+    LogEntryData d = m_fetcher(logIndex);
 
     if (role == Qt::DisplayRole) {
-        QString snippet = (row < m_snippets.size()) ? m_snippets[row] : QString();
-        return QString("%1: %2").arg(m_indices[row]).arg(snippet);
+        return QString("%1: %2").arg(logIndex).arg(d.snippet);
     }
-    if (role == IndexRole) return m_indices[row];
-    if (role == SnippetRole && row < m_snippets.size()) return m_snippets[row];
-    if (role == LevelRole && row < m_levels.size()) return m_levels[row];
-    if (role == ColorRole && row < m_colors.size()) return m_colors[row];
+    if (role == SnippetRole) return d.snippet;
+    if (role == LevelRole) return d.level;
+    if (role == ColorRole) return d.color;
 
     return QVariant();
 }
