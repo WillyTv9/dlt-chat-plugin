@@ -121,6 +121,17 @@ jobs:
             ctest --test-dir build --output-on-failure
           fi
 
+      - name: Stage binary artifact
+        shell: bash
+        run: |
+          if [ "${{ runner.os }}" == "Windows" ]; then
+            cp build/src/host_interface/Release/dltchatplugin.dll \
+               dltchatplugin-${{ inputs.version_suffix }}-win64.dll
+          else
+            cp build/src/host_interface/dltchatplugin.so \
+               dltchatplugin-${{ inputs.version_suffix }}-linux64.so
+          fi
+
       - name: Create Package
         if: inputs.build_dist
         shell: bash
@@ -141,6 +152,6 @@ jobs:
           path: |
             dltchatplugin-*.zip
             dltchatplugin-*.tar.gz
-            build/src/host_interface/Release/dltchatplugin.dll
-            build/src/host_interface/dltchatplugin.so
+            dltchatplugin-*.dll
+            dltchatplugin-*.so
           if-no-files-found: warn
