@@ -4,21 +4,21 @@
     {
       "id": "SYSTEM_CORE",
       "aliases": ["core", "runtime", "system", "dbus", "systemd"],
-      "filters": ["APP", "APPLICATION", "App", "Application", "BOOT", "Boot", "CORE", "Core", "D-BUS", "D-Bus", "DBUS", "Dbus", "EVENTBUS", "EventBus", "Eventbus", "FRAMEWORK", "Framework", "IPC", "Ipc", "JOURNAL", "Journal", "MANAGER", "Manager", "PROCESS", "Process", "RUNTIME", "Runtime", "SCHEDULER", "SERVICE", "SHUTDOWN", "STARTUP", "SYSTEM", "SYSTEMD", "Systemd", "TASK", "UTILITIES", "WATCHDOG", "Scheduler", "Service", "Shutdown", "Startup", "System", "Task", "Utilities", "Watchdog", "app", "application", "boot", "core", "d-bus", "dbus", "eventbus", "framework", "ipc", "journal", "manager", "process", "runtime", "scheduler", "service", "shutdown", "startup", "system", "systemd", "task", "utilities", "watchdog"],
+      "filters": ["APP", "APPLICATION", "App", "Application", "BOOT", "Boot", "CORE", "Core", "D-BUS", "D-Bus", "DBUS", "Dbus", "EVENTBUS", "EventBus", "Eventbus", "FRAMEWORK", "Framework", "HMIM", "Hmim", "hmim", "INIT", "Init", "init", "IPC", "Ipc", "JOURNAL", "Journal", "MANAGER", "Manager", "MsgM", "MSGM", "msgm", "PROCESS", "Process", "Rapp", "RAPP", "rapp", "RUNTIME", "Runtime", "SCHEDULER", "Scheduler", "SERVICE", "Service", "SHUTDOWN", "Shutdown", "STARTUP", "Startup", "SYSM", "SysM", "sysm", "SYSTEM", "SYSTEMD", "System", "Systemd", "TASK", "Task", "UTILITIES", "Utilities", "WATCHDOG", "Watchdog", "app", "application", "boot", "core", "d-bus", "dbus", "eventbus", "framework", "hmim", "init", "ipc", "journal", "manager", "msgm", "process", "rapp", "runtime", "scheduler", "service", "shutdown", "startup", "sysm", "system", "systemd", "task", "utilities", "watchdog"],
       "priority": 10,
       "quickAction": { "label": "System", "query": "system", "row": 1, "col": 0 }
     },
     {
       "id": "DIAGNOSTICS",
       "aliases": ["diag", "errors", "faults", "dtc"],
-      "filters": ["ASSERT", "Assert", "CRASH", "Crash", "DIAG", "DIAGNOSTIC", "DIAGNOSTICS", "DIAGNMANAGER", "DLT", "DTC", "DID", "Diag", "Diagnostic", "Diagnostics", "Diagnmanager", "Dlt", "Dtc", "Did", "ERROR", "EXCEPTION", "Error", "Exception", "FAULT", "Fault", "HEALTH", "Health", "MONITOR", "Monitor", "OBD", "Obd", "RECOVERY", "Recovery", "SELFTEST", "SID", "Selftest", "Sid", "TRACE", "TROUBLE", "Trace", "Trouble", "assert", "crash", "diag", "diagnostic", "diagnostics", "diagnmanager", "dlt", "dtc", "did", "error", "exception", "fault", "health", "monitor", "obd", "recovery", "selftest", "sid", "trace", "trouble"],
+      "filters": ["ASSERT", "Assert", "CRASH", "Crash", "DIAG", "DIAGNOSTIC", "DIAGNOSTICS", "DIAGNMANAGER", "DiaM", "DIAM", "diam", "DLTD", "Dltd", "dltd", "DLT", "DTC", "DID", "Diag", "Diagnostic", "Diagnostics", "Diagnmanager", "Dlt", "Dtc", "Did", "ERROR", "EXCEPTION", "Error", "Exception", "FAULT", "Fault", "HEALTH", "Health", "MONITOR", "Monitor", "OBD", "Obd", "RECOVERY", "Recovery", "SELFTEST", "SID", "Selftest", "Sid", "TRACE", "TROUBLE", "Trace", "Trouble", "assert", "crash", "diag", "diagnostic", "diagnostics", "diagnmanager", "diam", "dltd", "dlt", "dtc", "did", "error", "exception", "fault", "health", "monitor", "obd", "recovery", "selftest", "sid", "trace", "trouble"],
       "priority": 10,
       "quickAction": { "label": "Diag", "query": "diag", "row": 1, "col": 1 }
     },
     {
       "id": "GPS_NAVIGATION",
       "aliases": ["gps", "maps", "nav"],
-      "filters": ["COORDINATES", "Coordinates", "GEOFENCE", "GNSS", "GPS", "GPSMANAGER", "GUIDANCE", "Geofence", "Gnss", "Gps", "Gpsmanager", "Guidance", "HEADING", "Heading", "LATITUDE", "LOCATION", "LONGITUDE", "Latitude", "Location", "Longitude", "MAP", "MAPS", "Map", "Maps", "NAVI", "NAVIGATION", "NEWDATEMONITOR", "Navi", "Navigation", "NewDateMonitor", "Newdatemonitor", "POSITION", "POSITIONSERVICE", "Position", "Positionservice", "ROUTE", "Route", "SATELLITE", "Satellite", "TRACKING", "Tracking", "coordinates", "geofence", "gnss", "gps", "gpsmanager", "guidance", "heading", "latitude", "location", "longitude", "map", "maps", "navi", "navigation", "newdatemonitor", "position", "positionservice", "route", "satellite", "tracking"],
+      "filters": ["COORDINATES", "Coordinates", "GEOFENCE", "GNSS", "GPS", "GPSMANAGER", "GUIDANCE", "GpsManager", "Geofence", "Gnss", "Gps", "Gpsmanager", "Guidance", "HEADING", "Heading", "LATITUDE", "LOCATION", "LONGITUDE", "Latitude", "Location", "Longitude", "MAP", "MAPS", "Map", "Maps", "NAVI", "NAVIGATION", "NAVM", "NVNE", "NVNC", "NVMV", "NVPS", "NEWDATEMONITOR", "Navi", "Navigation", "Navm", "NewDateMonitor", "Newdatemonitor", "Nvne", "Nvnc", "Nvmv", "Nvps", "POSITION", "POSITIONSERVICE", "Position", "Positionservice", "ROUTE", "Route", "SATELLITE", "Satellite", "TRACKING", "Tracking", "coordinates", "geofence", "gnss", "gps", "gpsmanager", "guidance", "heading", "latitude", "location", "longitude", "map", "maps", "navi", "navigation", "navm", "newdatemonitor", "nvne", "nvnc", "nvmv", "nvps", "position", "positionservice", "route", "satellite", "tracking"],
       "priority": 10,
       "quickAction": { "label": "GPS", "query": "gps", "row": 1, "col": 2 }
     },
@@ -39,7 +39,7 @@
     {
       "id": "AUDIO_MEDIA",
       "aliases": ["audio", "media", "playback"],
-      "filters": ["AUDIO", "Audio", "BLUETOOTHAUDIO", "Bluetoothaudio", "CODEC", "Codec", "DECODER", "Decoder", "MEDIA", "Media", "MULTIMEDIA", "Multimedia", "PLAYBACK", "PLAYER", "PLAYLIST", "Playback", "Player", "Playlist", "SOURCE", "Source", "STREAM", "Stream", "TRACK", "Track", "USBMEDIA", "Usbmedia", "audio", "bluetoothaudio", "codec", "decoder", "media", "multimedia", "playback", "player", "playlist", "source", "stream", "track", "usbmedia"],
+      "filters": ["AUDIO", "AUDM", "Audio", "Audm", "BLUETOOTHAUDIO", "Bluetoothaudio", "CODEC", "Codec", "DECODER", "Decoder", "MEDIA", "Media", "MULTIMEDIA", "Multimedia", "MulM", "MULM", "mulm", "PLAYBACK", "PLAYER", "PLAYLIST", "Playback", "Player", "Playlist", "SOURCE", "Source", "STREAM", "Stream", "TRACK", "Track", "USBMEDIA", "Usbmedia", "audio", "audm", "bluetoothaudio", "codec", "decoder", "media", "multimedia", "mulm", "playback", "player", "playlist", "source", "stream", "track", "usbmedia"],
       "priority": 10,
       "quickAction": { "label": "Audio", "query": "media", "row": 4, "col": 2 }
     },
@@ -53,35 +53,35 @@
     {
       "id": "HMI_UI",
       "aliases": ["display", "hmi", "ui", "gpu", "qml"],
-      "filters": ["ANIMATION", "Animation", "COMPOSITOR", "Compositor", "DIALOG", "DISPLAY", "Dialog", "Display", "FRONTEND", "Frontend", "GPU", "Gpu", "HMI", "Hmi", "INTERACTION", "Interaction", "MENU", "Menu", "OPENGL", "Opengl", "PRESENTER", "Presenter", "QML", "Qml", "SCREEN", "Screen", "TOUCH", "Touch", "UI", "UX", "Ui", "Ux", "VIEW", "View", "VULKAN", "Vulkan", "WAYLAND", "Wayland", "WIDGET", "Widget", "X11", "animation", "compositor", "dialog", "display", "frontend", "gpu", "hmi", "interaction", "menu", "opengl", "presenter", "qml", "screen", "touch", "ui", "ux", "view", "vulkan", "wayland", "widget", "x11"],
+      "filters": ["ANIMATION", "Animation", "COMPOSITOR", "Compositor", "DIALOG", "DISPLAY", "Dialog", "Display", "FRONTEND", "Frontend", "GPU", "Gpu", "HCEN", "Hcen", "hcen", "HInf", "HINF", "hinf", "HMI", "Hmi", "HMIM", "Hmim", "hmim", "INTERACTION", "Interaction", "MENU", "Menu", "OPENGL", "Opengl", "PRESENTER", "Presenter", "QML", "Qml", "SCREEN", "Screen", "TOUCH", "Touch", "UI", "UX", "Ui", "Ux", "VIEW", "View", "VULKAN", "Vulkan", "WAYLAND", "Wayland", "WIDGET", "Widget", "X11", "animation", "compositor", "dialog", "display", "frontend", "gpu", "hcen", "hinf", "hmi", "hmim", "interaction", "menu", "opengl", "presenter", "qml", "screen", "touch", "ui", "ux", "view", "vulkan", "wayland", "widget", "x11"],
       "priority": 10,
       "quickAction": { "label": "UI", "query": "ui", "row": 4, "col": 6 }
     },
     {
       "id": "NETWORK_CONNECTIVITY",
       "aliases": ["bt", "network", "wifi", "ip"],
-      "filters": ["BLUETOOTH", "BT", "Bluetooth", "Bt", "CONNECTION", "CONNECTIVITY", "Connection", "Connectivity", "DNS", "DNS-SD", "Dns", "Dns-sd", "ETHERNET", "Ethernet", "FIREWALL", "Firewall", "GATEWAY", "Gateway", "HTTP", "HTTPS", "Http", "Https", "INTERFACE", "Interface", "IP", "Ip", "MDNS", "Mdns", "NET", "NETWORK", "Net", "Network", "PACKET", "Packet", "ROUTE", "Route", "SOCKET", "Socket", "TCP", "UDP", "Tcp", "Udp", "VPN", "Vpn", "WIFI", "Wifi", "_TCP", "_Tcp", "bluetooth", "bt", "connection", "connectivity", "dns", "dns-sd", "ethernet", "firewall", "gateway", "http", "https", "interface", "ip", "mdns", "net", "network", "packet", "route", "socket", "tcp", "udp", "vpn", "wifi", "_tcp"],
+      "filters": ["BLUETOOTH", "BT", "Bluetooth", "Bt", "CONNECTION", "CONNECTIVITY", "ConM", "CONM", "conm", "Connection", "Connectivity", "DNS", "DNS-SD", "Dns", "Dns-sd", "ETHERNET", "Ethernet", "FIREWALL", "Firewall", "GATEWAY", "Gateway", "HTTP", "HTTPS", "Http", "Https", "INTERFACE", "Interface", "IP", "Ip", "MDNS", "Mdns", "NET", "NETWORK", "Net", "Network", "PACKET", "Packet", "ROUTE", "Route", "SOCKET", "Socket", "TCP", "UDP", "Tcp", "Udp", "VPN", "Vpn", "WIFI", "Wifi", "_TCP", "_Tcp", "bluetooth", "bt", "conm", "connection", "connectivity", "dns", "dns-sd", "ethernet", "firewall", "gateway", "http", "https", "interface", "ip", "mdns", "net", "network", "packet", "route", "socket", "tcp", "udp", "vpn", "wifi", "_tcp"],
       "priority": 10,
       "quickAction": { "label": "Network", "query": "network", "row": 2, "col": 0 }
     },
     {
       "id": "SECURITY",
       "aliases": ["auth", "security"],
-      "filters": ["ACCESS", "AUTH", "AUTHENTICATION", "Access", "Auth", "Authentication", "CERTIFICATE", "CRYPTO", "Certificate", "Crypto", "DENIED", "Denied", "ENCRYPTION", "Encryption", "FIREWALL", "Firewall", "KEYMANAGEMENT", "Keymanagement", "LOGIN", "Login", "PERMISSION", "Permission", "SECURITY", "SSL", "Security", "Ssl", "TLS", "TOKEN", "Tls", "Token", "UNAUTHORIZED", "Unauthorized", "access", "auth", "authentication", "certificate", "crypto", "denied", "encryption", "firewall", "keymanagement", "login", "permission", "security", "ssl", "tls", "token", "unauthorized"],
+      "filters": ["ACCESS", "AUTH", "AUTHENTICATION", "Access", "Auth", "Authentication", "CERTIFICATE", "CRYPTO", "Certificate", "Crypto", "DENIED", "Denied", "ENCRYPTION", "Encryption", "FIREWALL", "Firewall", "KEYMANAGEMENT", "Keymanagement", "LOGIN", "Login", "PERMISSION", "Permission", "SecM", "SECM", "secm", "SECURITY", "SSL", "Security", "Ssl", "TLS", "TOKEN", "Tls", "Token", "UNAUTHORIZED", "Unauthorized", "access", "auth", "authentication", "certificate", "crypto", "denied", "encryption", "firewall", "keymanagement", "login", "permission", "secm", "security", "ssl", "tls", "token", "unauthorized"],
       "priority": 10,
       "quickAction": { "label": "Security", "query": "security", "row": 1, "col": 6 }
     },
     {
       "id": "VEHICLE_INTERFACE",
       "aliases": ["can", "ecu", "vehicle", "bus"],
-      "filters": ["ACTUATOR", "ARBITRATION", "Actuator", "Arbitration", "BAUDRATE", "Baudrate", "BUS", "BUSOFF", "Bus", "Busoff", "CAN", "CANFD", "CARSTATE", "Can", "Canfd", "Carstate", "DBC", "Dbc", "DLC", "Dlc", "ECU", "ERRORFRAME", "Ecu", "Errorframe", "GATEWAY", "Gateway", "IDENTIFIER", "IVI", "IVIEXTENSIONWRAPPER", "Identifier", "Ivi", "IviExtensionWrapper", "Iviextensionwrapper", "LIN", "Lin", "MESSAGE", "Message", "SENSOR", "Sensor", "SIGNAL", "Signal", "VEHICLE", "VEHICLEDATA", "Vehicle", "Vehicledata", "actuator", "arbitration", "baudrate", "bus", "busoff", "can", "canfd", "carstate", "dbc", "dlc", "ecu", "errorframe", "gateway", "identifier", "ivi", "iviextensionwrapper", "lin", "message", "sensor", "signal", "vehicle", "vehicledata"],
+      "filters": ["ACTUATOR", "ARBITRATION", "Actuator", "Arbitration", "BAUDRATE", "Baudrate", "BUS", "BUSOFF", "Bus", "Busoff", "CAN", "CANFD", "CARSTATE", "Can", "Canfd", "Carstate", "DBC", "Dbc", "DLC", "Dlc", "ECU", "ERRORFRAME", "Ecu", "Errorframe", "GATEWAY", "Gateway", "IDENTIFIER", "IVI", "IVIEXTENSIONWRAPPER", "Identifier", "Ivi", "IviExtensionWrapper", "Iviextensionwrapper", "LIN", "Lin", "MESSAGE", "Message", "OCP", "Ocp", "ocp", "RPMs", "Rpms", "rpms", "SENSOR", "Sensor", "SIGNAL", "Signal", "VEHI", "VEHICLE", "VEHICLEDATA", "Vehi", "Vehicle", "Vehicledata", "vehi", "actuator", "arbitration", "baudrate", "bus", "busoff", "can", "canfd", "carstate", "dbc", "dlc", "ecu", "errorframe", "gateway", "identifier", "ivi", "iviextensionwrapper", "lin", "message", "ocp", "sensor", "signal", "rpms", "vehicle", "vehicledata"],
       "priority": 10,
       "quickAction": { "label": "Vehicle", "query": "vehicle", "row": 3, "col": 1 }
     },
     {
       "id": "EMBEDDED_HARDWARE",
       "aliases": ["drivers", "embedded", "hw"],
-      "filters": ["ACTUATOR", "ADC", "Actuator", "Adc", "DAC", "DEVICE", "DRIVER", "Dac", "Device", "Driver", "FIRMWARE", "Firmware", "GPIO", "Gpio", "HARDWARE", "Hardware", "I2C", "I2c", "INTERPRETER", "Interpreter", "LOWLEVEL", "Lowlevel", "SERIAL", "SPI", "Serial", "Spi", "UART", "UBX", "Uart", "Ubx", "actuator", "adc", "dac", "device", "driver", "firmware", "gpio", "hardware", "i2c", "interpreter", "lowlevel", "serial", "spi", "uart", "ubx"],
+      "filters": ["ACTUATOR", "ADC", "Actuator", "Adc", "BORD", "Bord", "bord", "COOL", "Cool", "cool", "DAC", "DEVICE", "DRIVER", "Dac", "Device", "Driver", "FIRMWARE", "Firmware", "FPGA", "Fpga", "fpga", "GPIO", "Gpio", "HARDWARE", "Hardware", "I2C", "I2c", "INTERPRETER", "Interpreter", "LOWLEVEL", "Lowlevel", "SERIAL", "SPI", "Serial", "Spi", "UART", "UBX", "Uart", "Ubx", "WDOG", "Wdog", "wdog", "actuator", "adc", "bord", "cool", "dac", "device", "driver", "firmware", "fpga", "gpio", "hardware", "i2c", "interpreter", "lowlevel", "serial", "spi", "uart", "ubx", "wdog"],
       "priority": 10,
       "quickAction": { "label": "Hardware", "query": "hw", "row": 3, "col": 0 }
     },
@@ -95,28 +95,28 @@
     {
       "id": "STORAGE_FILESYSTEM",
       "aliases": ["db", "fs", "storage"],
-      "filters": ["CACHE", "Cache", "DATABASE", "DISK", "Database", "Disk", "FILE", "FILESYSTEM", "File", "Filesystem", "MOUNT", "Mount", "PARTITION", "PERSISTENCE", "Partition", "Persistence", "SQLITE", "STORAGE", "Sqlite", "Storage", "cache", "database", "disk", "file", "filesystem", "mount", "partition", "persistence", "sqlite", "storage"],
+      "filters": ["CACHE", "Cache", "DATABASE", "DISK", "Database", "Disk", "FILE", "FILESYSTEM", "File", "Filesystem", "MOUNT", "Mount", "NVS", "Nvs", "nvs", "NVNE", "Nvne", "nvne", "NVNC", "Nvnc", "nvnc", "PARTITION", "PERSISTENCE", "Partition", "Persistence", "SQLITE", "STORAGE", "Sqlite", "Storage", "cache", "database", "disk", "file", "filesystem", "mount", "nvne", "nvnc", "nvs", "partition", "persistence", "sqlite", "storage"],
       "priority": 10,
       "quickAction": { "label": "Storage", "query": "storage", "row": 3, "col": 4 }
     },
     {
       "id": "TELEMETRY_MONITORING",
       "aliases": ["metrics", "stats", "telemetry"],
-      "filters": ["HEARTBEAT", "Heartbeat", "METRICS", "MONITORING", "Metrics", "Monitoring", "PERFORMANCE", "Performance", "STATISTICS", "STATUS", "Statistics", "Status", "TELEMETRY", "Telemetry", "USAGE", "Usage", "heartbeat", "metrics", "monitoring", "performance", "statistics", "status", "telemetry", "usage"],
+      "filters": ["HEARTBEAT", "Heartbeat", "LOGG", "Logg", "logg", "METRICS", "MONITORING", "Metrics", "Monitoring", "PERFORMANCE", "Performance", "STATISTICS", "STATUS", "Statistics", "Status", "TELEMETRY", "Telemetry", "USAGE", "Usage", "heartbeat", "logg", "metrics", "monitoring", "performance", "statistics", "status", "telemetry", "usage"],
       "priority": 10,
       "quickAction": { "label": "Stats", "query": "metrics", "row": 5, "col": 1 }
     },
     {
       "id": "OTA_UPDATE",
       "aliases": ["ota", "update"],
-      "filters": ["DEPLOYMENT", "Deployment", "FIRMWAREUPDATE", "Firmwareupdate", "INSTALLER", "Installer", "OTA", "Ota", "PACKAGE", "Package", "ROLLBACK", "Rollback", "UPDATE", "UPGRADE", "Update", "Upgrade", "deployment", "firmwareupdate", "installer", "ota", "package", "rollback", "update", "upgrade"],
+      "filters": ["DEPLOYMENT", "Deployment", "FIRMWAREUPDATE", "Firmwareupdate", "INSTALLER", "Installer", "OTA", "Ota", "PACKAGE", "Package", "ROLLBACK", "Rollback", "UPDATE", "UPGRADE", "UPDT", "Updt", "updt", "Update", "Upgrade", "deployment", "firmwareupdate", "installer", "ota", "package", "rollback", "updt", "update", "upgrade"],
       "priority": 10,
       "quickAction": { "label": "OTA", "query": "update", "row": 5, "col": 3 }
     },
     {
       "id": "BLUETOOTH",
       "aliases": ["bt", "bluetooth"],
-      "filters": ["A2DP", "A2dp", "BLE", "BLUETOOTH", "BT", "Ble", "Bluetooth", "Bt", "HANDSFREE", "HFP", "Handsfree", "Hfp", "PAIRING", "Pairing", "a2dp", "ble", "bluetooth", "bt", "handsfree", "hfp", "pairing"],
+      "filters": ["A2DP", "A2dp", "BLE", "BLUETOOTH", "BT", "BtM", "BTM", "btm", "Ble", "Bluetooth", "Bt", "HANDSFREE", "HFP", "Handsfree", "Hfp", "PAIRING", "Pairing", "a2dp", "ble", "bluetooth", "bt", "btm", "handsfree", "hfp", "pairing"],
       "priority": 10,
       "quickAction": { "label": "BT", "query": "bt", "row": 2, "col": 3 }
     },
@@ -130,7 +130,7 @@
     {
       "id": "PERFORMANCE",
       "aliases": ["cpu", "memory", "perf", "oom"],
-      "filters": ["BENCHMARK", "Benchmark", "CGROUP", "Cgroup", "CPU", "Cpu", "DELAY", "DURATION", "Delay", "Duration", "ELAPSED", "Elapsed", "HEAP", "Heap", "KILL", "Kill", "LATENCY", "LEAK", "LOAD", "Latency", "Leak", "Load", "MEMORY", "Memory", "OOM", "OVERFLOW", "Overflow", "PERFORMANCE", "PROFILING", "Performance", "Profiling", "SLOW", "STACK", "STUCK", "Slow", "Stack", "Stuck", "TIMING", "Timing", "WAIT", "Wait", "benchmark", "cgroup", "cpu", "delay", "duration", "elapsed", "heap", "kill", "latency", "leak", "load", "memory", "oom", "overflow", "performance", "profiling", "slow", "stack", "stuck", "timing", "wait"],
+      "filters": ["BENCHMARK", "Benchmark", "CGROUP", "Cgroup", "CPU", "Cpu", "DELAY", "DURATION", "Delay", "Duration", "ELAPSED", "Elapsed", "HEAP", "Heap", "KILL", "Kill", "LATENCY", "LEAK", "LOAD", "Latency", "Leak", "Load", "LOGG", "Logg", "logg", "MEMORY", "Memory", "OOM", "OVERFLOW", "Overflow", "PERFORMANCE", "PROFILING", "Performance", "Profiling", "RPMs", "Rpms", "rpms", "SLOW", "STACK", "STUCK", "Slow", "Stack", "Stuck", "TIMING", "Timing", "WAIT", "Wait", "benchmark", "cgroup", "cpu", "delay", "duration", "elapsed", "heap", "kill", "latency", "leak", "load", "logg", "memory", "oom", "overflow", "performance", "profiling", "rpms", "slow", "stack", "stuck", "timing", "wait"],
       "priority": 10,
       "quickAction": { "label": "Perf", "query": "perf", "row": 5, "col": 0 }
     },
@@ -228,21 +228,21 @@
     {
       "id": "VIDEO_PLAYBACK",
       "aliases": ["streaming", "video"],
-      "filters": ["RENDERER", "Renderer", "STREAMING", "SURFACE", "Streaming", "Surface", "VIDEO", "VIDEOPLAYER", "Video", "Videoplayer", "renderer", "streaming", "surface", "video", "videoplayer"],
+      "filters": ["RENDERER", "Renderer", "STREAMING", "SURFACE", "Streaming", "Surface", "VDEO", "Vdeo", "vdeo", "VIDEO", "VIDEOPLAYER", "VidM", "VIDM", "vidm", "Video", "Videoplayer", "renderer", "streaming", "surface", "vdeo", "video", "videoplayer", "vidm"],
       "priority": 10,
       "quickAction": { "label": "Video", "query": "video", "row": 4, "col": 3 }
     },
     {
       "id": "AUDIO_ROUTING",
       "aliases": ["mixer", "routing"],
-      "filters": ["ALSA", "AUDIOROUTING", "Alsa", "Audiorouting", "MIXER", "Mixer", "SINK", "SOURCE", "Sink", "Source", "alsa", "audiorouting", "mixer", "sink", "source"],
+      "filters": ["ALSA", "AUDM", "AUDIOROUTING", "Alsa", "Audiorouting", "Audm", "MIXER", "Mixer", "SINK", "SOURCE", "Sink", "Source", "alsa", "audiorouting", "audm", "mixer", "sink", "source"],
       "priority": 10,
       "quickAction": { "label": "Routing", "query": "mixer", "row": 4, "col": 4 }
     },
     {
       "id": "POWER_MANAGEMENT",
       "aliases": ["power", "sleep"],
-      "filters": ["BATTERY", "Battery", "IGNITION", "Ignition", "POWER", "Power", "RESUME", "Resume", "SLEEP", "SUSPEND", "Sleep", "Suspend", "battery", "ignition", "power", "resume", "sleep", "suspend"],
+      "filters": ["BATTERY", "Battery", "IGNITION", "Ignition", "NVPS", "Nvps", "nvps", "POWER", "Power", "PWR", "Pwr", "pwr", "RESUME", "Resume", "SLEEP", "SUSPEND", "Sleep", "Suspend", "battery", "ignition", "nvps", "power", "pwr", "resume", "sleep", "suspend"],
       "priority": 10,
       "quickAction": { "label": "Power", "query": "power", "row": 1, "col": 4 }
     },
@@ -284,7 +284,7 @@
     {
       "id": "SENSORS",
       "aliases": ["sensors"],
-      "filters": ["ACCELEROMETER", "Accelerometer", "GYRO", "Gyro", "PRESSURE", "Pressure", "SENSOR", "Sensor", "TEMPERATURE", "Temperature", "accelerometer", "gyro", "pressure", "sensor", "temperature"],
+      "filters": ["ACCELEROMETER", "Accelerometer", "CAM", "Cam", "cam", "GYRO", "Gyro", "PRESSURE", "Pressure", "SENSOR", "Sensor", "TEMPERATURE", "Temperature", "accelerometer", "cam", "gyro", "pressure", "sensor", "temperature"],
       "priority": 10,
       "quickAction": { "label": "Sensors", "query": "sensors", "row": 3, "col": 3 }
     },
