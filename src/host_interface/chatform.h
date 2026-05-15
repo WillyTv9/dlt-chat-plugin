@@ -34,6 +34,9 @@ public:
     void setResults(const QList<int> &indices);
     void setDataFetcher(dltchat::ResultsModel::DataFetcher fetcher) { if (m_resultsModel) m_resultsModel->setDataFetcher(fetcher); }
     void setAiStatus(int state, const QString &modelName = QString());
+    QList<int> cachedQuickActionResult(const QString &query) const { return m_quickActionCache.value(query); }
+    void storeQuickActionResult(const QString &query, const QList<int> &indices) { m_quickActionCache.insert(query, indices); }
+    void clearQuickActionCache() { m_quickActionCache.clear(); }
 
 public slots:
     void setStatusText(const QString &text);
@@ -43,6 +46,7 @@ public slots:
 
 signals:
     void querySubmitted(const QString &query);
+    void quickActionTriggered(const QString &query);
     void aiQuerySubmitted(const QString &query);
     void configureAiClicked();
     void indexActivated(int index);
@@ -82,6 +86,7 @@ private:
     dltchat::ResultsModel *m_resultsModel;
     QString lastQuery;
     QHash<QObject *, QString> m_quickActionQueries;
+    QHash<QString, QList<int>> m_quickActionCache;
 };
 
 } // namespace DltChat

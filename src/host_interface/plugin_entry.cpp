@@ -322,6 +322,7 @@ QWidget* DltChatPlugin::initViewer()
 {
     form = new DltChat::Form();
     connect(form, &DltChat::Form::querySubmitted, this, &DltChatPlugin::onQuerySubmitted);
+    connect(form, &DltChat::Form::quickActionTriggered, this, &DltChatPlugin::onQuickActionQuery);
     connect(form, &DltChat::Form::aiQuerySubmitted, this, &DltChatPlugin::onAiQuerySubmitted);
     connect(form, &DltChat::Form::configureAiClicked, this, &DltChatPlugin::onConfigureAiClicked);
     connect(form, &DltChat::Form::indexActivated, this, &DltChatPlugin::onIndexActivated);
@@ -364,6 +365,7 @@ void DltChatPlugin::initFileStart(QDltFile *file)
 {
     dltFile = file;
     clearData();
+    if (form) form->clearQuickActionCache();
     filterRowMapDirty = true;
     if (dltFile)
     {
@@ -479,6 +481,93 @@ QString DltChatPlugin::buildUserFilterContextHtml() const
     html += names.join(", ");
     html += "</small>";
     return html;
+}
+
+void DltChatPlugin::onQuickActionQuery(const QString &query)
+{
+    if (!form) return;
+
+    QVector<DltAnalyzerInterface::LogEntry> snapshot;
+    { QMutexLocker l(&entriesMutex); snapshot = entries; }
+
+    if (snapshot.isEmpty()) {
+        form->appendMessage("Tu", query.toHtmlEscaped());
+        form->appendMessage("Chat Assistant", "Nessun log caricato. Apri un file DLT.");
+        form->setResults(QList<int>());
+        return;
+    }
+
+    // Check cache first
+    QList<int> cached = form->cachedQuickActionResult(query);
+    if (!cached.isEmpty()) {
+        form->appendMessage("Tu", query.toHtmlEscaped());
+        if (cached.isEmpty()) {
+            form->appendMessage("Chat Assistant",
+                QString("Nessun messaggio per <b>%1</b> (cache).").arg(query.toHtmlEscaped()));
+        } else {
+            form->appendMessage("Chat Assistant",
+                QString("Trovati <b>%1</b> risultati per <b>%2</b> (cache).")
+                .arg(cached.size()).arg(query.toHtmlEscaped()));
+        }
+        form->setResults(cached);
+        highlightIndices(cached);
+        return;
+    }
+
+    QElapsedTimer timer;
+    timer.start();
+
+    const auto &registry = dltchat::CategoryRegistry::instance();
+    const auto resolved = registry.resolveQuery(query.trimmed().toLower());
+    QList<int> indices;
+
+    if (resolved.kind == dltchat::ResolvedQuery::Kind::Category
+        || resolved.kind == dltchat::ResolvedQuery::Kind::CategoryById
+        || resolved.kind == dltchat::ResolvedQuery::Kind::CombinedFilter
+        || resolved.kind == dltchat::ResolvedQuery::Kind::ProjectionEvent) {
+        auto filtered = registry.filterEntries(snapshot, resolved);
+        QString filterLabel = resolved.categoryId.isEmpty() ? query : resolved.categoryId;
+        if (resolved.kind == dltchat::ResolvedQuery::Kind::ProjectionEvent)
+            filterLabel = resolved.projectionEventId;
+        if (resolved.kind == dltchat::ResolvedQuery::Kind::CombinedFilter)
+            filterLabel = resolved.combinedId;
+
+        form->appendMessage("Tu", query.toHtmlEscaped());
+        if (filtered.isEmpty()) {
+            form->appendMessage("Chat Assistant",
+                QString("Nessun messaggio <b>%1</b> trovato.").arg(filterLabel));
+        } else {
+            int totalLevels[6] = {0};
+            for (const auto &e : filtered) {
+                indices.append(e.index);
+                if (e.level == "fatal") totalLevels[0]++;
+                else if (e.level == "error") totalLevels[1]++;
+                else if (e.level == "warn") totalLevels[2]++;
+                else if (e.level == "info") totalLevels[3]++;
+                else if (e.level == "debug") totalLevels[4]++;
+                else totalLevels[5]++;
+            }
+            QString html = QString("Trovati <b>%1</b> messaggi per <b>%2</b> su %3 totali.")
+                .arg(filtered.size()).arg(filterLabel).arg(snapshot.size());
+            html += QString("<br><small>");
+            QStringList parts;
+            if (totalLevels[0]) parts += QString("fatal:%1").arg(totalLevels[0]);
+            if (totalLevels[1]) parts += QString("error:%1").arg(totalLevels[1]);
+            if (totalLevels[2]) parts += QString("warn:%1").arg(totalLevels[2]);
+            if (totalLevels[3]) parts += QString("info:%1").arg(totalLevels[3]);
+            if (totalLevels[4]) parts += QString("debug:%1").arg(totalLevels[4]);
+            if (totalLevels[5]) parts += QString("other:%1").arg(totalLevels[5]);
+            html += parts.join(", ");
+            html += QString(" | %1ms</small>").arg(timer.elapsed());
+            form->appendMessage("Chat Assistant", html);
+        }
+        form->storeQuickActionResult(query, indices);
+        form->setResults(indices);
+        highlightIndices(indices);
+    } else {
+        // Fallback: normal routing handles Tu echo
+        onQuerySubmitted(query);
+    }
 }
 
 void DltChatPlugin::onQuerySubmitted(const QString &query)

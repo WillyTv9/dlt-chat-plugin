@@ -82,6 +82,7 @@ signals:
 
 private slots:
     void onQuerySubmitted(const QString &query);
+    void onQuickActionQuery(const QString &query);
     void onAiQuerySubmitted(const QString &query);
     void onConfigureAiClicked();
     void onIndexActivated(int index);

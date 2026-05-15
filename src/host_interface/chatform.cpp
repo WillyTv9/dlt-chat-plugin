@@ -504,8 +504,8 @@ void Form::onQuickActionClicked()
 
     const QString q = m_quickActionQueries.value(btn);
     if (!q.isEmpty()) {
-        input->setText(q);
-        onSendClicked();
+        lastQuery = q;
+        emit quickActionTriggered(q);
     }
 }
 
