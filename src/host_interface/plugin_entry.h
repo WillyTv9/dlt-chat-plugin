@@ -132,7 +132,7 @@ private:
 
     dltchat::UserFilterManager *m_userFilterManager;
     QHash<int, QColor> m_highlightMap;
-    static constexpr int kMaxDisplayResults = 1000;
+    static constexpr int kMaxDisplayResults = 10000000;
 
     dltchat::DltAnalyzerInterface *m_analyzer;
     dltchat::DltRuleBasedAnalyzer *m_ruleBasedAnalyzer;
@@ -160,6 +160,8 @@ private:
     QElapsedTimer m_llmRequestTimer;
     int m_aiAvailabilityRetryCount = 0;
     QHash<QString, dltchat::DltAnalyzerInterface::QueryResult> m_aiResponseCache;
+    QString m_copilotOAuthToken;
 };
 
 #endif
+

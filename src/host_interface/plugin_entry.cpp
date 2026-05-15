@@ -21,7 +21,7 @@
 
 using namespace dltchat;
 
-static constexpr int kMaxFilterResults = 1000;
+static constexpr int kMaxFilterResults = 10000000;
 static constexpr int kAIPreFilterMax = 100;
 static constexpr int kSnippetLength = 120;
 static constexpr int kPayloadTruncateAt = 500;
@@ -177,37 +177,63 @@ void DltChatPlugin::checkAiAvailabilityAsync()
         return;
     }
 
+    // Use provider-aware probe: Ollama uses /api/tags, others use /v1/models
     QNetworkAccessManager *mgr = new QNetworkAccessManager(this);
-    QString tagsUrl = m_llmAnalyzer->apiEndpoint();
-    tagsUrl.replace("/api/generate", "/api/tags");
+    QString provider = m_llmAnalyzer->detectProviderType();
+    QNetworkRequest probeReq;
 
-    QNetworkReply *reply = mgr->get(QNetworkRequest(QUrl(tagsUrl)));
-    connect(reply, &QNetworkReply::finished, this, [this, reply, mgr]() {
+    if (provider == "ollama") {
+        QString tagsUrl = m_llmAnalyzer->apiEndpoint();
+        tagsUrl.replace("/api/generate", "/api/tags").replace("/api/chat", "/api/tags");
+        probeReq.setUrl(QUrl(tagsUrl));
+    } else {
+        QUrl base(m_llmAnalyzer->apiEndpoint());
+        QString modelsUrl = base.scheme() + "://" + base.authority() + "/v1/models";
+        probeReq.setUrl(QUrl(modelsUrl));
+        if (!m_llmAnalyzer->apiKey().isEmpty())
+            probeReq.setRawHeader("Authorization",
+                QString("Bearer %1").arg(m_llmAnalyzer->apiKey()).toUtf8());
+        if (provider == "copilot") {
+            probeReq.setRawHeader("Editor-Version", "DLTChatPlugin/1.0");
+            probeReq.setRawHeader("Copilot-Integration-Id", "dlt-chat-plugin");
+        }
+    }
+
+    QNetworkReply *reply = mgr->get(probeReq);
+    connect(reply, &QNetworkReply::finished, this, [this, reply, mgr, provider]() {
         reply->deleteLater();
         mgr->deleteLater();
 
-        if (reply->error() == QNetworkReply::NoError)
-        {
-            QJsonDocument doc = QJsonDocument::fromJson(reply->readAll());
-            if (doc.isObject())
+        if (provider == "ollama") {
+            if (reply->error() == QNetworkReply::NoError)
             {
-                QJsonArray models = doc.object()["models"].toArray();
-                for (const auto &m : models)
+                QJsonDocument doc = QJsonDocument::fromJson(reply->readAll());
+                if (doc.isObject())
                 {
-                    QString name = m.toObject()["name"].toString();
-                    if (name.startsWith(m_llmAnalyzer->modelName()))
+                    QJsonArray models = doc.object()["models"].toArray();
+                    for (const auto &m : models)
                     {
-                        m_aiAvailabilityRetryCount = 0;
+                        QString name = m.toObject()["name"].toString();
+                        if (name.contains(m_llmAnalyzer->modelName(), Qt::CaseInsensitive))
+                        {
+                            m_aiAvailabilityRetryCount = 0;
+                            setAiState(2, m_llmAnalyzer->modelName());
+                            return;
+                        }
+                    }
+                    // Server reachable but model not found — show as state 1 (online, no exact model)
+                    if (!models.isEmpty()) {
                         setAiState(2, m_llmAnalyzer->modelName());
                         return;
                     }
                 }
             }
             setAiState(1, m_llmAnalyzer->modelName());
-        }
-        else
-        {
-            setAiState(1, m_llmAnalyzer->modelName());
+        } else {
+            // For cloud/compat providers: any HTTP response means server is reachable
+            int httpCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+            bool reachable = (httpCode > 0 || reply->error() == QNetworkReply::NoError);
+            setAiState(reachable ? 2 : 1, m_llmAnalyzer->modelName());
         }
     });
 }
@@ -260,6 +286,7 @@ bool DltChatPlugin::loadConfig(QString filename)
     QString ep = settings.value("llmEndpoint", "").toString();
     QString key = settings.value("llmApiKey", "").toString();
     QString model = settings.value("llmModel", "llama3.2:1b").toString();
+    m_copilotOAuthToken = settings.value("copilotOAuthToken", "").toString();
     if (!ep.isEmpty()) configureLlmAnalyzer(ep, key, model);
     m_bulkAnalysisEnabled = settings.value("bulkAnalysisEnabled", false).toBool();
     settings.endGroup();
@@ -283,6 +310,8 @@ bool DltChatPlugin::saveConfig(QString filename)
         s.setValue("llmApiKey", m_llmAnalyzer->apiKey());
         s.setValue("llmModel", m_llmAnalyzer->modelName());
     }
+    if (!m_copilotOAuthToken.isEmpty())
+        s.setValue("copilotOAuthToken", m_copilotOAuthToken);
     s.setValue("bulkAnalysisEnabled", m_bulkAnalysisEnabled);
     s.endGroup();
     s.beginGroup("Behavior");
@@ -845,15 +874,23 @@ void DltChatPlugin::onConfigureAiClicked()
     dlg.setMaxTokens(m_llmAnalyzer->maxTokens());
     dlg.setTemperature(m_llmAnalyzer->temperature());
     dlg.setTimeoutMs(m_llmAnalyzer->timeout());
+    if (!m_copilotOAuthToken.isEmpty())
+        dlg.setCopilotOAuthToken(m_copilotOAuthToken);
 
     if (dlg.exec() == QDialog::Accepted)
     {
         m_llmAnalyzer->setApiEndpoint(dlg.endpoint());
-        m_llmAnalyzer->setApiKey(dlg.apiKey());
+        // Use Copilot token as the API key when Copilot is configured
+        QString key = dlg.apiKey();
+        if (key.isEmpty() && !dlg.copilotOAuthToken().isEmpty())
+            key = dlg.copilotOAuthToken();
+        m_llmAnalyzer->setApiKey(key);
         m_llmAnalyzer->setModelName(dlg.model());
         m_llmAnalyzer->setMaxTokens(dlg.maxTokens());
         m_llmAnalyzer->setTemperature(dlg.temperature());
         m_llmAnalyzer->setTimeout(dlg.timeoutMs());
+        if (!dlg.copilotOAuthToken().isEmpty())
+            m_copilotOAuthToken = dlg.copilotOAuthToken();
         m_aiAvailabilityRetryCount = 0;
         m_aiResponseCache.clear();
         checkAiAvailabilityAsync();
@@ -961,6 +998,9 @@ void DltChatPlugin::ingestMessage(int index, QDltMsg &msg)
     kw.append(e.ctid.toLower());
     kw.append(e.domain.toLower());
     kw.removeDuplicates();
+    if (!e.event.isEmpty())
+        invertedIndex[QString("event:") + e.event].insert(index);
+    invertedIndex[QString("domain:") + e.domain.toLower()].insert(index);
     for (const QString &k : kw)
         invertedIndex[k].insert(index);
 }
@@ -1062,7 +1102,7 @@ QList<int> DltChatPlugin::liveSearch(const QString &rawQuery) const
     }
 
     QList<int> results;
-    results.reserve(qMin(candidates.size(), 10000));
+    results.reserve(candidates.size());
     QRegularExpression rx(QRegularExpression::escape(rawQuery),
                           QRegularExpression::CaseInsensitiveOption);
 
@@ -1131,3 +1171,5 @@ void DltChatPlugin::onUserFilterLoadRequested(const QString &path)
 #if QT_VERSION < QT_VERSION_CHECK(5, 0, 0)
 Q_EXPORT_PLUGIN2(dltchatplugin, DltChatPlugin);
 #endif
+
+

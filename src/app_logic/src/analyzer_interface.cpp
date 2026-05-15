@@ -8,8 +8,8 @@
 
 namespace dltchat {
 
-static constexpr int kMaxTimeline = 200;
-static constexpr int kMaxSnippets = 5000;
+static constexpr int kMaxTimeline = 10000000;
+static constexpr int kMaxSnippets = 10000000;
 static constexpr int kSnippetLength = 120;
 static constexpr int kPayloadTruncateAt = 500;
 static constexpr int kPreviewCount = 20;
@@ -525,3 +525,4 @@ QVariantMap DltRuleBasedAnalyzer::currentConfiguration() const
 }
 
 } // namespace dltchat
+
