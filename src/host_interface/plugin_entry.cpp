@@ -647,12 +647,28 @@ void DltChatPlugin::onQuerySubmitted(const QString &query)
             result.responseHtml = QString("Nessun messaggio <b>%1</b> trovato.").arg(filterLabel);
             result.success = true;
         } else {
+            int totalLevels[6] = {0};
             for (const auto &e : filtered) {
                 result.indices.append(e.index);
                 result.snippets.append(e.payload.left(120));
+                if (e.level == "fatal") totalLevels[0]++;
+                else if (e.level == "error") totalLevels[1]++;
+                else if (e.level == "warn") totalLevels[2]++;
+                else if (e.level == "info") totalLevels[3]++;
+                else if (e.level == "debug") totalLevels[4]++;
+                else totalLevels[5]++;
             }
-            result.responseHtml = QString("Trovati <b>%1</b> messaggi per <b>%2</b> su %3 totali.")
-                .arg(filtered.size()).arg(filterLabel).arg(snapshot.size());
+            QString breakdown;
+            QStringList parts;
+            if (totalLevels[0]) parts += QString("fatal:%1").arg(totalLevels[0]);
+            if (totalLevels[1]) parts += QString("error:%1").arg(totalLevels[1]);
+            if (totalLevels[2]) parts += QString("warn:%1").arg(totalLevels[2]);
+            if (totalLevels[3]) parts += QString("info:%1").arg(totalLevels[3]);
+            if (totalLevels[4]) parts += QString("debug:%1").arg(totalLevels[4]);
+            if (totalLevels[5]) parts += QString("other:%1").arg(totalLevels[5]);
+            breakdown = parts.join(", ");
+            result.responseHtml = QString("Trovati <b>%1</b> messaggi per <b>%2</b> su %3 totali.<br><small>%4</small>")
+                .arg(filtered.size()).arg(filterLabel).arg(snapshot.size()).arg(breakdown);
             result.success = true;
         }
         result.processingTimeMs = timer.elapsed();
