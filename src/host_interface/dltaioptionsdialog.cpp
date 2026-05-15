@@ -177,9 +177,9 @@ void DltAiOptionsDialog::onProviderChanged(int idx)
 
 void DltAiOptionsDialog::updateEndpointForProvider(int idx)
 {
-    QString data = m_provider->itemData(idx).toString();
-    if (!data.isEmpty())
-        m_endpoint->setText(data);
+    const QString endpointData = m_provider->itemData(idx).toString();
+    if (!endpointData.isEmpty())
+        m_endpoint->setText(endpointData);
 }
 
 // ---- Copilot auto-detect ----
