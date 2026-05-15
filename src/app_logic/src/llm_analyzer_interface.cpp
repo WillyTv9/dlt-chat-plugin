@@ -46,41 +46,66 @@ bool DltLlmAnalyzerInterface::isAvailable() const
     if (now - m_lastAvailabilityCheck < AVAILABILITY_TTL_MS)
         return m_availabilityVerified;
 
-    QUrl url(m_apiEndpoint);
-    QString tagsUrl = url.toString();
-    tagsUrl.replace("/api/generate", "/api/tags");
-
+    m_lastAvailabilityCheck = now;
+    QString provider = detectProviderType();
     QNetworkAccessManager mgr;
-    QNetworkReply *reply = mgr.get(QNetworkRequest(QUrl(tagsUrl)));
+    QNetworkReply *reply = nullptr;
+
+    if (provider == "ollama") {
+        QString tagsUrl = QUrl(m_apiEndpoint).toString();
+        tagsUrl.replace("/api/generate", "/api/tags").replace("/api/chat", "/api/tags");
+        QUrl tagsQUrl(tagsUrl);
+        reply = mgr.get(QNetworkRequest(tagsQUrl));
+    } else {
+        // For cloud/compat providers: probe the models list or base URL
+        QUrl base(m_apiEndpoint);
+        QString modelsUrl = base.scheme() + "://" + base.authority();
+        if (provider == "openai" || provider == "openai-compat" || provider == "copilot")
+            modelsUrl += "/v1/models";
+        QUrl probeUrl(modelsUrl);
+        QNetworkRequest req(probeUrl);
+        if (!m_apiKey.isEmpty())
+            req.setRawHeader("Authorization", QString("Bearer %1").arg(m_apiKey).toUtf8());
+        if (provider == "copilot") {
+            req.setRawHeader("Editor-Version", "DLTChatPlugin/1.0");
+            req.setRawHeader("Copilot-Integration-Id", "dlt-chat-plugin");
+        }
+        reply = mgr.get(req);
+    }
+
     QEventLoop loop;
     QTimer timer;
     timer.setSingleShot(true);
     connect(&timer, &QTimer::timeout, &loop, &QEventLoop::quit);
     connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
-    timer.start(3000);
+    timer.start(5000);
     loop.exec();
 
-    m_lastAvailabilityCheck = now;
-    if (timer.isActive() && reply->error() == QNetworkReply::NoError)
-    {
-        QJsonDocument doc = QJsonDocument::fromJson(reply->readAll());
-        if (doc.isObject())
-        {
-            QJsonArray models = doc.object()["models"].toArray();
-            for (const auto &m : models)
-            {
-                if (m.toObject()["name"].toString().contains(m_modelName, Qt::CaseInsensitive))
-                {
-                    m_availabilityVerified = true;
-                    reply->deleteLater();
-                    return true;
+    bool ok = false;
+    if (timer.isActive()) {
+        int httpCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        if (provider == "ollama") {
+            if (reply->error() == QNetworkReply::NoError) {
+                QJsonDocument doc = QJsonDocument::fromJson(reply->readAll());
+                if (doc.isObject()) {
+                    QJsonArray models = doc.object()["models"].toArray();
+                    for (const auto &m : models) {
+                        if (m.toObject()["name"].toString().contains(m_modelName, Qt::CaseInsensitive)) {
+                            ok = true; break;
+                        }
+                    }
+                    if (!ok && !models.isEmpty()) ok = true; // server reachable, any model
                 }
             }
+        } else {
+            // Reachable if HTTP response received (200, 401, 403 all mean server is up)
+            ok = (httpCode > 0 || reply->error() == QNetworkReply::NoError);
         }
     }
-    m_availabilityVerified = false;
+
+    m_availabilityVerified = ok;
     reply->deleteLater();
-    return false;
+    return ok;
 }
 
 bool DltLlmAnalyzerInterface::testConnection(QString *errMsg)
@@ -92,9 +117,30 @@ bool DltLlmAnalyzerInterface::testConnection(QString *errMsg)
         return false;
     }
 
-    QString tagsUrl = QUrl(m_apiEndpoint).toString().replace("/api/generate", "/api/tags");
+    QString provider = detectProviderType();
     QNetworkAccessManager mgr;
-    QNetworkReply *reply = mgr.get(QNetworkRequest(QUrl(tagsUrl)));
+    QNetworkReply *reply = nullptr;
+
+    if (provider == "ollama") {
+        QString tagsUrl = QUrl(m_apiEndpoint).toString();
+        tagsUrl.replace("/api/generate", "/api/tags").replace("/api/chat", "/api/tags");
+        QUrl tagsQUrl2(tagsUrl);
+        reply = mgr.get(QNetworkRequest(tagsQUrl2));
+    } else {
+        QUrl base(m_apiEndpoint);
+        QString modelsUrl = base.scheme() + "://" + base.authority();
+        if (provider == "openai" || provider == "openai-compat" || provider == "copilot")
+            modelsUrl += "/v1/models";
+        QUrl probeUrl2(modelsUrl);
+        QNetworkRequest req(probeUrl2);
+        if (!m_apiKey.isEmpty())
+            req.setRawHeader("Authorization", QString("Bearer %1").arg(m_apiKey).toUtf8());
+        if (provider == "copilot") {
+            req.setRawHeader("Editor-Version", "DLTChatPlugin/1.0");
+            req.setRawHeader("Copilot-Integration-Id", "dlt-chat-plugin");
+        }
+        reply = mgr.get(req);
+    }
 
     QEventLoop loop;
     QTimer timer; timer.setSingleShot(true); timer.setInterval(5000);
@@ -102,9 +148,23 @@ bool DltLlmAnalyzerInterface::testConnection(QString *errMsg)
     connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
     timer.start(); loop.exec();
 
-    bool ok = timer.isActive() && reply->error() == QNetworkReply::NoError;
-    QString msg = ok ? "Connessione OK" : (timer.isActive() ? reply->errorString() : "Timeout");
+    bool ok = false;
+    QString msg;
+    if (!timer.isActive()) {
+        msg = "Timeout";
+    } else if (provider == "ollama") {
+        ok = reply->error() == QNetworkReply::NoError;
+        msg = ok ? "Connessione OK (Ollama)" : reply->errorString();
+    } else {
+        int httpCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        ok = (httpCode > 0 || reply->error() == QNetworkReply::NoError);
+        msg = ok ? QString("Connessione OK (HTTP %1)").arg(httpCode) : reply->errorString();
+    }
+
     reply->deleteLater();
+    // Invalidate cached availability so next isAvailable() re-probes
+    m_lastAvailabilityCheck = 0;
+    m_availabilityVerified = ok;
     if (errMsg) *errMsg = msg;
     emit connectionTestResult(ok, msg);
     return ok;
@@ -152,6 +212,8 @@ QString DltLlmAnalyzerInterface::buildAutomotiveSystemPrompt()
 
 QString DltLlmAnalyzerInterface::detectProviderType() const
 {
+    if (m_apiEndpoint.contains("githubcopilot.com", Qt::CaseInsensitive))
+        return "copilot";
     if (m_apiEndpoint.contains("openai.com", Qt::CaseInsensitive) ||
         m_apiEndpoint.contains("azure.com", Qt::CaseInsensitive))
         return "openai";
@@ -240,13 +302,34 @@ QByteArray DltLlmAnalyzerInterface::buildRequestBody(const QString &prompt) cons
         if (m_maxTokens > 0) { json["max_tokens"] = m_maxTokens; }
         json["temperature"] = m_temperature;
     }
-    else
+    else if (provider == "copilot")
     {
-        QString fullPrompt = QString("System: %1\n\n%2")
-            .arg(buildAutomotiveSystemPrompt(), prompt);
-        json["prompt"] = fullPrompt;
+        QJsonArray msgs;
+        QJsonObject s; s["role"] = "system"; s["content"] = buildAutomotiveSystemPrompt();
+        QJsonObject u; u["role"] = "user"; u["content"] = prompt;
+        msgs.append(s); msgs.append(u);
+        json["messages"] = msgs;
+        if (m_maxTokens > 0) { json["max_tokens"] = m_maxTokens; json["temperature"] = m_temperature; }
+    }
+    else if (provider == "ollama")
+    {
+        QJsonArray msgs;
+        QJsonObject s; s["role"] = "system"; s["content"] = buildAutomotiveSystemPrompt();
+        QJsonObject u; u["role"] = "user"; u["content"] = prompt;
+        msgs.append(s); msgs.append(u);
+        json["messages"] = msgs;
         if (m_maxTokens > 0)
             json["options"] = QJsonObject{{"num_predict", m_maxTokens}, {"temperature", m_temperature}};
+    }
+    else
+    {
+        // openai-compat: use messages format
+        QJsonArray msgs;
+        QJsonObject s; s["role"] = "system"; s["content"] = buildAutomotiveSystemPrompt();
+        QJsonObject u; u["role"] = "user"; u["content"] = prompt;
+        msgs.append(s); msgs.append(u);
+        json["messages"] = msgs;
+        if (m_maxTokens > 0) { json["max_tokens"] = m_maxTokens; json["temperature"] = m_temperature; }
     }
     return QJsonDocument(json).toJson(QJsonDocument::Compact);
 }
@@ -411,11 +494,19 @@ bool DltLlmAnalyzerInterface::analyzeQueryAsync(const QString &query,
     int maxEntries = qMin(entries.size(), kLlmMaxEntries);
     QString prompt = buildEnhancedPrompt(query, entries, maxEntries, m_extraContext);
 
-    QUrl url(m_apiEndpoint);
+    QString endpointStr = m_apiEndpoint;
+    if (detectProviderType() == "ollama")
+        endpointStr.replace("/api/generate", "/api/chat");
+
+    QUrl url(endpointStr);
     QNetworkRequest req(url);
     req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
     if (!m_apiKey.isEmpty())
         req.setRawHeader("Authorization", QString("Bearer %1").arg(m_apiKey).toUtf8());
+    if (detectProviderType() == "copilot") {
+        req.setRawHeader("Editor-Version", "DLTChatPlugin/1.0");
+        req.setRawHeader("Copilot-Integration-Id", "dlt-chat-plugin");
+    }
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
     req.setTransferTimeout(m_timeout);
 #endif
@@ -570,11 +661,19 @@ DltAnalyzerInterface::QueryResult DltLlmAnalyzerInterface::analyzeQuery(
         int n = qMin(entries.size(), 100);
         QString prompt = buildEnhancedPrompt(query, entries, n, m_extraContext);
 
-        QUrl url(m_apiEndpoint);
+        QString endpointStr = m_apiEndpoint;
+        if (detectProviderType() == "ollama")
+            endpointStr.replace("/api/generate", "/api/chat");
+
+        QUrl url(endpointStr);
         QNetworkRequest req(url);
         req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
         if (!m_apiKey.isEmpty())
             req.setRawHeader("Authorization", QString("Bearer %1").arg(m_apiKey).toUtf8());
+        if (detectProviderType() == "copilot") {
+            req.setRawHeader("Editor-Version", "DLTChatPlugin/1.0");
+            req.setRawHeader("Copilot-Integration-Id", "dlt-chat-plugin");
+        }
 
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
         req.setTransferTimeout(m_timeout);
