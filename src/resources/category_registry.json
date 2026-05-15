@@ -295,6 +295,48 @@
       "priority": 5,
       "levelOnly": true,
       "quickAction": { "label": "Verb", "query": "verbose", "row": 0, "col": 5 }
+    },
+    {
+      "id": "SYS_MANAGER",
+      "aliases": ["sysmgr", "sysmanager", "watchdog"],
+      "filters": ["SysM", "SYSM", "sysm", "SystemManager", "WATCHDOG", "Watchdog", "watchdog"],
+      "priority": 10,
+      "quickAction": { "label": "SysMgr", "query": "sysmgr", "row": 10, "col": 0 }
+    },
+    {
+      "id": "APP_LAUNCHER",
+      "aliases": ["launcher", "appmgr"],
+      "filters": ["Rapp", "RAPP", "rapp", "LAUNCHER", "Launcher", "launcher", "AppManager", "AppLauncher"],
+      "priority": 10,
+      "quickAction": { "label": "Launcher", "query": "launcher", "row": 10, "col": 1 }
+    },
+    {
+      "id": "MESSAGE_MANAGER",
+      "aliases": ["msgbus", "messaging"],
+      "filters": ["MsgM", "MSGM", "msgm", "MessageBus", "MessageManager", "EVENTBUS", "EventBus", "eventbus"],
+      "priority": 10,
+      "quickAction": { "label": "MsgBus", "query": "msgbus", "row": 10, "col": 2 }
+    },
+    {
+      "id": "CONNECTIVITY_MGR",
+      "aliases": ["conmgr", "connmgr"],
+      "filters": ["ConM", "CONM", "conm", "ConnectivityManager"],
+      "priority": 10,
+      "quickAction": { "label": "ConMgr", "query": "conmgr", "row": 10, "col": 3 }
+    },
+    {
+      "id": "TTS_MANAGER",
+      "aliases": ["tts", "texttospeech"],
+      "filters": ["TTSM", "Ttsm", "ttsm", "TTS", "Tts", "tts", "TextToSpeech"],
+      "priority": 10,
+      "quickAction": { "label": "TTS", "query": "tts", "row": 11, "col": 0 }
+    },
+    {
+      "id": "HAPTIC_CTRL",
+      "aliases": ["haptic", "hapticcontrol"],
+      "filters": ["HCEN", "Hcen", "hcen", "Haptic", "HAPTIC", "haptic"],
+      "priority": 10,
+      "quickAction": { "label": "Haptic", "query": "haptic", "row": 11, "col": 1 }
     }
   ],
   "projectionEvents": [
@@ -436,6 +478,26 @@
       "categories": ["ANDROID_AUTO"],
       "extraFilters": ["usb"],
       "quickAction": { "label": "USB AA", "query": "usb_aa", "row": 8, "col": 5 }
+    },
+    {
+      "id": "gps_epoch",
+      "aliases": ["gps_epoch"],
+      "categories": ["GPS_NAVIGATION"],
+      "extraFilters": ["1970", "epoch"],
+      "quickAction": { "label": "GPS Epoch", "query": "gps_epoch", "row": 12, "col": 0 }
+    },
+    {
+      "id": "sys_fatal",
+      "aliases": ["sys_fatal"],
+      "levels": ["fatal"],
+      "categories": ["SYSTEM_CORE"],
+      "quickAction": { "label": "Sys Fatal", "query": "sys_fatal", "row": 12, "col": 1 }
+    },
+    {
+      "id": "all_fatal",
+      "aliases": ["all_fatal"],
+      "levels": ["fatal"],
+      "quickAction": { "label": "All Fatal", "query": "all_fatal", "row": 12, "col": 2 }
     }
   ],
   "specialCommands": [
