@@ -30,6 +30,7 @@ public:
     Q_PROPERTY(int maxTokens READ maxTokens WRITE setMaxTokens NOTIFY maxTokensChanged)
     Q_PROPERTY(double temperature READ temperature WRITE setTemperature NOTIFY temperatureChanged)
     Q_PROPERTY(int timeout READ timeout WRITE setTimeout NOTIFY timeoutChanged)
+    Q_PROPERTY(int maxLogEntries READ maxLogEntries WRITE setMaxLogEntries NOTIFY maxLogEntriesChanged)
 
 public:
     explicit DltLlmAnalyzerInterface(QObject *parent = nullptr);
@@ -57,6 +58,7 @@ public:
     int maxTokens() const { return m_maxTokens; }
     double temperature() const { return m_temperature; }
     int timeout() const { return m_timeout; }
+    int maxLogEntries() const { return m_maxLogEntries; }
 
     void setApiEndpoint(const QString &endpoint);
     void setApiKey(const QString &key);
@@ -64,6 +66,7 @@ public:
     void setMaxTokens(int tokens);
     void setTemperature(double temp);
     void setTimeout(int ms);
+    void setMaxLogEntries(int maxEntries);
 
     bool validateConfiguration() const;
     bool testConnection(QString *errorMessage = nullptr);
@@ -99,6 +102,7 @@ signals:
     void timeoutChanged(int ms);
     void connectionTestResult(bool success, const QString &message);
     void queryResultReady(const QueryResult &result, const QString &originalQuery);
+    void maxLogEntriesChanged(int maxEntries);
 
 private:
     QueryResult processReply(QNetworkReply *reply, const QElapsedTimer &timer);
@@ -143,6 +147,7 @@ private:
     static constexpr int AVAILABILITY_TTL_MS = 30000;
     QString m_extraContext;
     ConversationManager *m_conversationManager = nullptr;
+    int m_maxLogEntries = 100;
     bool m_fibexLoaded = false;
 };
 

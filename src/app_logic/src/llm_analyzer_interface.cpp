@@ -17,7 +17,6 @@
 
 namespace dltchat {
 
-static constexpr int kLlmMaxEntries = 100;
 static constexpr int kMaxRetries = 3;
 static constexpr int kBaseRetryDelayMs = 1000;
 
@@ -491,7 +490,7 @@ bool DltLlmAnalyzerInterface::analyzeQueryAsync(const QString &query,
     m_rateLimiter.tokens -= 1.0;
     lockRate.unlock();
 
-    int maxEntries = qMin(entries.size(), kLlmMaxEntries);
+    int maxEntries = qMin(entries.size(), m_maxLogEntries);
     QString prompt = buildEnhancedPrompt(query, entries, maxEntries, m_extraContext);
 
     QString endpointStr = m_apiEndpoint;
@@ -658,7 +657,7 @@ DltAnalyzerInterface::QueryResult DltLlmAnalyzerInterface::analyzeQuery(
             QThread::sleep(delay / 1000);
         }
 
-        int n = qMin(entries.size(), 100);
+        int n = qMin(entries.size(), m_maxLogEntries);
         QString prompt = buildEnhancedPrompt(query, entries, n, m_extraContext);
 
         QString endpointStr = m_apiEndpoint;
@@ -790,6 +789,7 @@ bool DltLlmAnalyzerInterface::configure(const QVariantMap &c)
     if (c.contains("maxTokens")) setMaxTokens(c["maxTokens"].toInt());
     if (c.contains("temperature")) setTemperature(c["temperature"].toDouble());
     if (c.contains("timeout")) setTimeout(c["timeout"].toInt());
+    if (c.contains("maxLogEntries")) setMaxLogEntries(c["maxLogEntries"].toInt());
     return true;
 }
 
@@ -799,6 +799,7 @@ QVariantMap DltLlmAnalyzerInterface::currentConfiguration() const
     c["type"] = "llm"; c["apiEndpoint"] = m_apiEndpoint; c["modelName"] = m_modelName;
     c["maxTokens"] = m_maxTokens; c["temperature"] = m_temperature; c["timeout"] = m_timeout;
     c["hasApiKey"] = !m_apiKey.isEmpty();
+    c["maxLogEntries"] = m_maxLogEntries;
     return c;
 }
 
@@ -811,6 +812,7 @@ void DltLlmAnalyzerInterface::setModelName(const QString &v)
 void DltLlmAnalyzerInterface::setMaxTokens(int v) { if (m_maxTokens != v) { m_maxTokens = v; emit maxTokensChanged(v); } }
 void DltLlmAnalyzerInterface::setTemperature(double v) { if (qAbs(m_temperature - v) > 0.001) { m_temperature = v; emit temperatureChanged(v); } }
 void DltLlmAnalyzerInterface::setTimeout(int v) { if (m_timeout != v) { m_timeout = v; emit timeoutChanged(v); } }
+void DltLlmAnalyzerInterface::setMaxLogEntries(int v) { if (m_maxLogEntries != v) { m_maxLogEntries = qMax(1, v); emit maxLogEntriesChanged(m_maxLogEntries); } }
 
 DltLlmAnalyzerInterface *DltLlmAnalyzerFactory::createOpenAIAnalyzer(
     const QString &key, const QString &model, QObject *p)
