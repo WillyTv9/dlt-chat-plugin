@@ -4,12 +4,8 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
-#include <QResource>
 #include <algorithm>
 #include <QtConcurrent>
-
-static bool initDltchatRes() { Q_INIT_RESOURCE(dltchat_resources); return true; }
-static bool s_dltchatRes = initDltchatRes();
 
 namespace dltchat {
 
@@ -43,8 +39,9 @@ static void parseQuickAction(const QJsonObject &obj, QuickActionDef &qa, bool &h
 CategoryRegistry &CategoryRegistry::instance()
 {
     static CategoryRegistry reg;
-    if (!reg.m_loaded)
+    if (!reg.m_loaded) {
         reg.loadFromResource();
+    }
     return reg;
 }
 

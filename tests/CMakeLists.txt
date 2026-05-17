@@ -1,3 +1,6 @@
+cmake_minimum_required(VERSION 3.16)
+project(DltChatTests LANGUAGES CXX)
+
 find_package(${QT_PREFIX} REQUIRED COMPONENTS Test)
 
 set(TEST_SOURCES
