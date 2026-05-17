@@ -1,4 +1,4 @@
-#ifndef DLTCHAT_LLM_ANALYZER_INTERFACE_H
+﻿#ifndef DLTCHAT_LLM_ANALYZER_INTERFACE_H
 #define DLTCHAT_LLM_ANALYZER_INTERFACE_H
 
 #include "analyzer_interface.h"
@@ -71,6 +71,10 @@ public:
     bool validateConfiguration() const;
     bool testConnection(QString *errorMessage = nullptr);
 
+    // For Copilot: exchanges OAuth token for a short-lived bearer (cached). Other providers return apiKey() directly.
+    QString resolvedApiKey() const;
+    QString cachedCopilotBearer() const;
+
     bool analyzeQueryAsync(const QString &query, const QVector<LogEntry> &entries);
     void setExtraContext(const QString &context) { m_extraContext = context; }
 
@@ -140,11 +144,16 @@ private:
     double m_temperature;
     int m_timeout;
 
+    mutable QString m_copilotBearer;
+    mutable qint64 m_copilotBearerExpiry = 0;
+
     QNetworkAccessManager *m_networkManager;
     mutable QMutex m_availMutex;
     mutable bool m_availabilityVerified = false;
     mutable qint64 m_lastAvailabilityCheck = 0;
     static constexpr int AVAILABILITY_TTL_MS = 30000;
+
+    QString effectiveCopilotBearer() const;
     QString m_extraContext;
     ConversationManager *m_conversationManager = nullptr;
     int m_maxLogEntries = 100;

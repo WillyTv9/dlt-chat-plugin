@@ -1,4 +1,4 @@
-#include "dltchat/llm_analyzer_interface.h"
+﻿#include "dltchat/llm_analyzer_interface.h"
 
 #include <QDateTime>
 #include <QElapsedTimer>
@@ -63,8 +63,10 @@ bool DltLlmAnalyzerInterface::isAvailable() const
             modelsUrl += "/v1/models";
         QUrl probeUrl(modelsUrl);
         QNetworkRequest req(probeUrl);
-        if (!m_apiKey.isEmpty())
-            req.setRawHeader("Authorization", QString("Bearer %1").arg(m_apiKey).toUtf8());
+        // Resolve effective auth key (exchanges Copilot OAuth token if needed)
+        QString authKey = resolvedApiKey();
+        if (!authKey.isEmpty())
+            req.setRawHeader("Authorization", QString("Bearer %1").arg(authKey).toUtf8());
         if (provider == "copilot") {
             req.setRawHeader("Editor-Version", "DLTChatPlugin/1.0");
             req.setRawHeader("Copilot-Integration-Id", "dlt-chat-plugin");
@@ -97,8 +99,8 @@ bool DltLlmAnalyzerInterface::isAvailable() const
                 }
             }
         } else {
-            // Reachable if HTTP response received (200, 401, 403 all mean server is up)
-            ok = (httpCode > 0 || reply->error() == QNetworkReply::NoError);
+            // Require 2xx: 401/403 means auth failed, not "connected"
+            ok = (httpCode >= 200 && httpCode < 300);
         }
     }
 
@@ -132,8 +134,10 @@ bool DltLlmAnalyzerInterface::testConnection(QString *errMsg)
             modelsUrl += "/v1/models";
         QUrl probeUrl2(modelsUrl);
         QNetworkRequest req(probeUrl2);
-        if (!m_apiKey.isEmpty())
-            req.setRawHeader("Authorization", QString("Bearer %1").arg(m_apiKey).toUtf8());
+        // Resolve effective auth key (exchanges Copilot OAuth token if needed)
+        QString authKey = resolvedApiKey();
+        if (!authKey.isEmpty())
+            req.setRawHeader("Authorization", QString("Bearer %1").arg(authKey).toUtf8());
         if (provider == "copilot") {
             req.setRawHeader("Editor-Version", "DLTChatPlugin/1.0");
             req.setRawHeader("Copilot-Integration-Id", "dlt-chat-plugin");
@@ -156,8 +160,19 @@ bool DltLlmAnalyzerInterface::testConnection(QString *errMsg)
         msg = ok ? "Connessione OK (Ollama)" : reply->errorString();
     } else {
         int httpCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-        ok = (httpCode > 0 || reply->error() == QNetworkReply::NoError);
-        msg = ok ? QString("Connessione OK (HTTP %1)").arg(httpCode) : reply->errorString();
+        if (httpCode >= 200 && httpCode < 300) {
+            ok = true;
+            msg = QString("Connessione OK (HTTP %1)").arg(httpCode);
+        } else if (httpCode == 401 || httpCode == 403) {
+            ok = false;
+            msg = QString("Autenticazione fallita (HTTP %1)").arg(httpCode);
+        } else if (httpCode > 0) {
+            ok = false;
+            msg = QString("Errore server (HTTP %1)").arg(httpCode);
+        } else {
+            ok = false;
+            msg = reply->errorString();
+        }
     }
 
     reply->deleteLater();
@@ -169,6 +184,60 @@ bool DltLlmAnalyzerInterface::testConnection(QString *errMsg)
     return ok;
 }
 
+QString DltLlmAnalyzerInterface::effectiveCopilotBearer() const
+{
+    if (m_apiKey.isEmpty()) return {};
+    bool isRawOAuth = m_apiKey.startsWith("gho_") || m_apiKey.startsWith("ghu_") ||
+                      m_apiKey.startsWith("ghp_") || m_apiKey.startsWith("github_pat_");
+    if (!isRawOAuth) return m_apiKey;
+
+    qint64 now = QDateTime::currentMSecsSinceEpoch();
+    if (!m_copilotBearer.isEmpty() && now < m_copilotBearerExpiry - 60000)
+        return m_copilotBearer;
+
+    QNetworkAccessManager mgr;
+    QNetworkRequest req(QUrl("https://api.github.com/copilot_internal/v2/token"));
+    req.setRawHeader("Authorization", QString("token %1").arg(m_apiKey).toUtf8());
+    req.setRawHeader("Accept", "application/json");
+    QNetworkReply *reply = mgr.get(req);
+
+    QEventLoop loop;
+    QTimer timer;
+    timer.setSingleShot(true);
+    connect(&timer, &QTimer::timeout, &loop, &QEventLoop::quit);
+    connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+    timer.start(8000);
+    loop.exec();
+
+    if (!timer.isActive()) { reply->deleteLater(); return {}; }
+
+    QJsonObject obj = QJsonDocument::fromJson(reply->readAll()).object();
+    reply->deleteLater();
+
+    QString token = obj["token"].toString();
+    if (token.isEmpty()) return {};
+
+    m_copilotBearer = token;
+    QDateTime expiry = QDateTime::fromString(obj["expires_at"].toString(), Qt::ISODate);
+    m_copilotBearerExpiry = expiry.isValid() ? expiry.toMSecsSinceEpoch()
+                                             : (now + 25LL * 60000);
+    return m_copilotBearer;
+}
+
+QString DltLlmAnalyzerInterface::resolvedApiKey() const
+{
+    if (detectProviderType() == "copilot")
+        return effectiveCopilotBearer();
+    return m_apiKey;
+}
+
+QString DltLlmAnalyzerInterface::cachedCopilotBearer() const
+{
+    qint64 now = QDateTime::currentMSecsSinceEpoch();
+    if (!m_copilotBearer.isEmpty() && now < m_copilotBearerExpiry - 60000)
+        return m_copilotBearer;
+    return {};
+}
 QString DltLlmAnalyzerInterface::buildPrompt(const QString &query,
                                              const QVector<LogEntry> &entries,
                                              int maxEntries) const
@@ -500,8 +569,9 @@ bool DltLlmAnalyzerInterface::analyzeQueryAsync(const QString &query,
     QUrl url(endpointStr);
     QNetworkRequest req(url);
     req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
-    if (!m_apiKey.isEmpty())
-        req.setRawHeader("Authorization", QString("Bearer %1").arg(m_apiKey).toUtf8());
+    QString authKey = resolvedApiKey();
+    if (!authKey.isEmpty())
+        req.setRawHeader("Authorization", QString("Bearer %1").arg(authKey).toUtf8());
     if (detectProviderType() == "copilot") {
         req.setRawHeader("Editor-Version", "DLTChatPlugin/1.0");
         req.setRawHeader("Copilot-Integration-Id", "dlt-chat-plugin");
