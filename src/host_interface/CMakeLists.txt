@@ -35,7 +35,10 @@ set_target_properties(dltchatplugin PROPERTIES
     PREFIX ""
 )
 
-if(NOT MSVC)
+if(MSVC)
+    # Suppress C4458 from DLT Viewer SDK headers (parameter hides class member)
+    target_compile_options(dltchatplugin PRIVATE /wd4458)
+else()
     target_compile_options(dltchatplugin PRIVATE -fvisibility=hidden)
 endif()
 
