@@ -72,6 +72,10 @@ DltChatPlugin::DltChatPlugin()
     connect(m_bulkAnalyzer, &DltBulkAnalyzer::errorOccurred,
             this, &DltChatPlugin::onBulkError);
 
+    m_aiHealthTimer = new QTimer(this);
+    m_aiHealthTimer->setInterval(60000);
+    connect(m_aiHealthTimer, &QTimer::timeout, this, &DltChatPlugin::onAiHealthCheck);
+
     QTimer::singleShot(0, this, &DltChatPlugin::checkAiAvailabilityAsync);
 }
 
@@ -179,9 +183,11 @@ void DltChatPlugin::checkAiAvailabilityAsync()
         QUrl base(m_llmAnalyzer->apiEndpoint());
         QString modelsUrl = base.scheme() + "://" + base.authority() + "/v1/models";
         probeReq.setUrl(QUrl(modelsUrl));
-        if (!m_llmAnalyzer->apiKey().isEmpty())
+        QString probeKey = m_llmAnalyzer->cachedCopilotBearer();
+        if (probeKey.isEmpty()) probeKey = m_llmAnalyzer->apiKey();
+        if (!probeKey.isEmpty())
             probeReq.setRawHeader("Authorization",
-                QString("Bearer %1").arg(m_llmAnalyzer->apiKey()).toUtf8());
+                QString("Bearer %1").arg(probeKey).toUtf8());
         if (provider == "copilot") {
             probeReq.setRawHeader("Editor-Version", "DLTChatPlugin/1.0");
             probeReq.setRawHeader("Copilot-Integration-Id", "dlt-chat-plugin");
@@ -219,10 +225,10 @@ void DltChatPlugin::checkAiAvailabilityAsync()
             }
             setAiState(1, m_llmAnalyzer->modelName());
         } else {
-            // For cloud/compat providers: any HTTP response means server is reachable
+            // Cloud/compat: 2xx means connected; 401/403 means auth failure (offline)
             int httpCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-            bool reachable = (httpCode > 0 || reply->error() == QNetworkReply::NoError);
-            setAiState(reachable ? 2 : 1, m_llmAnalyzer->modelName());
+            bool ok = (httpCode >= 200 && httpCode < 300);
+            setAiState(ok ? 2 : 1, m_llmAnalyzer->modelName());
         }
     });
 }
@@ -241,7 +247,16 @@ void DltChatPlugin::setAiState(int state, const QString &modelName)
         m_aiAvailabilityRetryCount = 0;
     }
     m_aiAvailabilityTimer.start();
+
+    if (m_aiHealthTimer) {
+        if (state == 0)
+            m_aiHealthTimer->stop();
+        else if (!m_aiHealthTimer->isActive())
+            m_aiHealthTimer->start();
+    }
+
     emit onAiAvailabilityChanged(state, m_aiModelName);
+    updateDomainStatus();
 }
 
 int DltChatPlugin::aiAvailabilityBackoffMs() const
@@ -249,6 +264,12 @@ int DltChatPlugin::aiAvailabilityBackoffMs() const
     if (m_aiAvailabilityRetryCount <= 1) return 5000;
     if (m_aiAvailabilityRetryCount <= 3) return 15000;
     return 60000;
+}
+
+void DltChatPlugin::onAiHealthCheck()
+{
+    if (m_llmAnalyzer && m_llmAnalyzer->validateConfiguration())
+        checkAiAvailabilityAsync();
 }
 
 QString DltChatPlugin::name() { return QString("Chat Log Assistant"); }
@@ -276,7 +297,19 @@ bool DltChatPlugin::loadConfig(QString filename)
     QString key = settings.value("llmApiKey", "").toString();
     QString model = settings.value("llmModel", "llama3.2:1b").toString();
     m_copilotOAuthToken = settings.value("copilotOAuthToken", "").toString();
-    if (!ep.isEmpty()) configureLlmAnalyzer(ep, key, model);
+    int maxTokens = settings.value("llmMaxTokens", 4096).toInt();
+    double temperature = settings.value("llmTemperature", 0.7).toDouble();
+    int timeoutMs = settings.value("llmTimeout", 120000).toInt();
+    if (!ep.isEmpty()) {
+        if (key.isEmpty() && !m_copilotOAuthToken.isEmpty())
+            key = m_copilotOAuthToken;
+        configureLlmAnalyzer(ep, key, model);
+        if (m_llmAnalyzer) {
+            m_llmAnalyzer->setMaxTokens(maxTokens);
+            m_llmAnalyzer->setTemperature(temperature);
+            m_llmAnalyzer->setTimeout(timeoutMs);
+        }
+    }
     m_bulkAnalysisEnabled = settings.value("bulkAnalysisEnabled", false).toBool();
     settings.endGroup();
     settings.beginGroup("Behavior");
@@ -298,6 +331,9 @@ bool DltChatPlugin::saveConfig(QString filename)
         s.setValue("llmEndpoint", m_llmAnalyzer->apiEndpoint());
         s.setValue("llmApiKey", m_llmAnalyzer->apiKey());
         s.setValue("llmModel", m_llmAnalyzer->modelName());
+        s.setValue("llmMaxTokens", m_llmAnalyzer->maxTokens());
+        s.setValue("llmTemperature", m_llmAnalyzer->temperature());
+        s.setValue("llmTimeout", m_llmAnalyzer->timeout());
     }
     if (!m_copilotOAuthToken.isEmpty())
         s.setValue("copilotOAuthToken", m_copilotOAuthToken);
@@ -910,6 +946,13 @@ void DltChatPlugin::onConfigureAiClicked()
     dlg.setTimeoutMs(m_llmAnalyzer->timeout());
     if (!m_copilotOAuthToken.isEmpty())
         dlg.setCopilotOAuthToken(m_copilotOAuthToken);
+
+    connect(&dlg, &DltAiOptionsDialog::copilotTokenObtained, this, [this](const QString &tok) {
+        m_copilotOAuthToken = tok;
+        m_llmAnalyzer->setApiKey(tok);
+        m_aiResponseCache.clear();
+        checkAiAvailabilityAsync();
+    });
 
     if (dlg.exec() == QDialog::Accepted)
     {

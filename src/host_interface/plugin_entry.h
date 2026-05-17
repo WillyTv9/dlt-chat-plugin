@@ -94,6 +94,7 @@ private slots:
     void onBulkProgress(double progress, int processed, int total);
     void onBulkFinished(bool success);
     void onBulkError(const QString &error);
+    void onAiHealthCheck();
 
 private:
     void clearData();
@@ -161,6 +162,7 @@ private:
     int m_aiAvailabilityRetryCount = 0;
     QHash<QString, dltchat::DltAnalyzerInterface::QueryResult> m_aiResponseCache;
     QString m_copilotOAuthToken;
+    QTimer *m_aiHealthTimer = nullptr;
 };
 
 #endif
