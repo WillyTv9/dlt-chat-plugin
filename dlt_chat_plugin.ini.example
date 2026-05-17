@@ -22,12 +22,22 @@ llmModel=llama3.2:1b
 # llmApiKey=
 # llmModel=mistral
 
+# --- GitHub Copilot ---
+# llmEndpoint=https://api.githubcopilot.com/chat/completions
+# llmApiKey=gho_xxxx  (or leave empty to use copilotOAuthToken below)
+# llmModel=gpt-4o
+# copilotOAuthToken=gho_xxxxxxxxxxxxxxxxxxxx
+
+# LLM generation parameters (all optional, UI-editable)
+llmMaxTokens=4096
+llmTemperature=0.7
+llmTimeout=120000
+
 # Bulk analysis: classify all log entries via LLM on file load
 bulkAnalysisEnabled=false
 
 [Behavior]
 maxResults=1000
-llmTimeout=120000
 highlightColor=#FFE680
 
 # Path to user-defined JSON filter file (optional)
