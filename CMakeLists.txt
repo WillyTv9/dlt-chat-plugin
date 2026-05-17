@@ -95,3 +95,9 @@ option(DLTCHAT_BUILD_DIST "Build distribution package" OFF)
 if(DLTCHAT_BUILD_DIST)
     add_subdirectory(dist)
 endif()
+
+# ── Audit tools (optional) ────────────────────────────────────────
+option(DLTCHAT_BUILD_TOOLS "Build audit tools (requires qdlt SDK)" OFF)
+if(DLTCHAT_BUILD_TOOLS)
+    add_subdirectory(tools/quick_action_audit)
+endif()
