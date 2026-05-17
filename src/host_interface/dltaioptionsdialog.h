@@ -1,4 +1,4 @@
-/*
+﻿/*
  * This Source Code Form is subject to the terms of the Mozilla Public License,
  * v. 2.0. If a copy of the MPL was not distributed with this file, You can
  * obtain one at http://mozilla.org/MPL/2.0/.
@@ -41,6 +41,9 @@ public:
     void setTimeoutMs(int v);
     void setCopilotOAuthToken(const QString &token);
 
+signals:
+    void copilotTokenObtained(const QString &token);
+
 private slots:
     void onProviderChanged(int idx);
     void onTestConnection();
@@ -52,6 +55,7 @@ private:
     void updateEndpointForProvider(int idx);
     void setCopilotStatus(const QString &text, bool ok);
     QString detectCopilotTokenFromFilesystem();
+    static bool isValidGitHubToken(const QString &tok);
 
     QComboBox *m_provider;
     QLineEdit *m_endpoint;

@@ -1,4 +1,4 @@
-/*
+﻿/*
  * This Source Code Form is subject to the terms of the Mozilla Public License,
  * v. 2.0. If a copy of the MPL was not distributed with this file, You can
  * obtain one at http://mozilla.org/MPL/2.0/.
@@ -24,6 +24,7 @@
 #include <QEventLoop>
 #include <QTimer>
 #include <QFile>
+#include <QTextStream>
 #include <QDir>
 #include <QStandardPaths>
 #include <QDesktopServices>
@@ -85,6 +86,7 @@ DltAiOptionsDialog::DltAiOptionsDialog(QWidget *parent)
     m_copilotStatusLabel = new QLabel(tr("Not authenticated"), m_copilotPanel);
     m_copilotStatusLabel->setStyleSheet("font-size: 11px; color: #888;");
     m_copilotStatusLabel->setWordWrap(true);
+    m_copilotStatusLabel->setTextInteractionFlags(Qt::TextSelectableByMouse | Qt::TextSelectableByKeyboard);
 
     m_signInBtn = new QPushButton(tr("Sign in with GitHub"), m_copilotPanel);
     m_useExistingBtn = new QPushButton(tr("Auto-detect token"), m_copilotPanel);
@@ -92,7 +94,10 @@ DltAiOptionsDialog::DltAiOptionsDialog(QWidget *parent)
     m_deviceCodeLabel = new QLabel(m_copilotPanel);
     m_deviceCodeLabel->setVisible(false);
     m_deviceCodeLabel->setWordWrap(true);
-    m_deviceCodeLabel->setStyleSheet("font-size: 10px; color: #555;");
+    m_deviceCodeLabel->setTextFormat(Qt::RichText);
+    m_deviceCodeLabel->setOpenExternalLinks(true);
+    m_deviceCodeLabel->setTextInteractionFlags(Qt::TextSelectableByMouse | Qt::TextSelectableByKeyboard | Qt::LinksAccessibleByMouse);
+    m_deviceCodeLabel->setStyleSheet("font-size: 12px; color: #222;");
 
     m_manualTokenEdit = new QLineEdit(m_copilotPanel);
     m_manualTokenEdit->setPlaceholderText(tr("Paste gho_* token manually (optional)"));
@@ -184,37 +189,70 @@ void DltAiOptionsDialog::updateEndpointForProvider(int idx)
 
 // ---- Copilot auto-detect ----
 
+bool DltAiOptionsDialog::isValidGitHubToken(const QString &tok)
+{
+    if (tok.isEmpty()) return false;
+    return tok.startsWith("gho_") || tok.startsWith("ghu_") ||
+           tok.startsWith("ghp_") || tok.startsWith("github_pat_");
+}
+
 QString DltAiOptionsDialog::detectCopilotTokenFromFilesystem()
 {
+    // 1. Check environment variables first
+    const QStringList envVars = {"GITHUB_COPILOT_TOKEN", "GH_TOKEN", "GITHUB_TOKEN"};
+    for (const QString &var : envVars) {
+        QString tok = qEnvironmentVariable(var.toLatin1().constData());
+        if (isValidGitHubToken(tok)) return tok;
+    }
+
+    // 2. Scan known filesystem paths for Copilot JSON tokens
     QStringList candidates;
 #ifdef Q_OS_WIN
-    QString localApp = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation);
-    candidates << localApp + "/GitHub Copilot/apps.json";
-    // Also check LOCALAPPDATA directly
     QString localAppData = qEnvironmentVariable("LOCALAPPDATA");
-    if (!localAppData.isEmpty())
+    QString appData = qEnvironmentVariable("APPDATA");
+    if (!localAppData.isEmpty()) {
+        candidates << localAppData + "/github-copilot/apps.json";
         candidates << localAppData + "/GitHub Copilot/apps.json";
+    }
+    if (!appData.isEmpty()) {
+        candidates << appData + "/GitHub CLI/hosts.yml";
+    }
 #else
     QString home = QDir::homePath();
     candidates << home + "/.config/github-copilot/apps.json";
     candidates << home + "/.config/github-copilot/hosts.json";
+    candidates << home + "/.config/gh/hosts.yml";
 #endif
 
     for (const QString &path : candidates) {
-        QFile f(path);
-        if (!f.open(QIODevice::ReadOnly)) continue;
-        QJsonDocument doc = QJsonDocument::fromJson(f.readAll());
-        if (!doc.isObject()) continue;
-        QJsonObject root = doc.object();
-        // apps.json: { "user": { "oauth_token": "gho_*" } }
-        if (root.contains("user")) {
-            QString tok = root["user"].toObject()["oauth_token"].toString();
-            if (tok.startsWith("gho_")) return tok;
-        }
-        // hosts.json: { "github.com": { "oauth_token": "gho_*" } }
-        for (auto it = root.begin(); it != root.end(); ++it) {
-            QString tok = it.value().toObject()["oauth_token"].toString();
-            if (tok.startsWith("gho_")) return tok;
+        if (path.endsWith(".json")) {
+            QFile f(path);
+            if (!f.open(QIODevice::ReadOnly)) continue;
+            QJsonDocument doc = QJsonDocument::fromJson(f.readAll());
+            if (!doc.isObject()) continue;
+            QJsonObject root = doc.object();
+            // apps.json modern schema: { "github.com:<clientId>": { "oauth_token": "gho_*" } }
+            // apps.json legacy schema: { "user": { "oauth_token": "gho_*" } }
+            for (auto it = root.begin(); it != root.end(); ++it) {
+                QJsonObject entry = it.value().toObject();
+                QString tok = entry["oauth_token"].toString();
+                if (isValidGitHubToken(tok)) return tok;
+                // Also check nested "user" object
+                tok = entry["user"].toObject()["oauth_token"].toString();
+                if (isValidGitHubToken(tok)) return tok;
+            }
+        } else if (path.endsWith(".yml")) {
+            // Simple line-by-line YAML parse: look for "  oauth_token: gho_..."
+            QFile f(path);
+            if (!f.open(QIODevice::ReadOnly | QIODevice::Text)) continue;
+            QTextStream stream(&f);
+            while (!stream.atEnd()) {
+                QString line = stream.readLine().trimmed();
+                if (line.startsWith("oauth_token:")) {
+                    QString tok = line.mid(12).trimmed().remove('"').remove('\'');
+                    if (isValidGitHubToken(tok)) return tok;
+                }
+            }
         }
     }
     return {};
@@ -276,8 +314,10 @@ void DltAiOptionsDialog::onSignInWithGitHub()
     m_pollTimer->setInterval(interval * 1000);
 
     m_deviceCodeLabel->setText(
-        tr("1. Open: %1\n2. Enter code: <b>%2</b>\n3. Waiting for authorization…")
-        .arg(verifyUri, userCode));
+        tr("1. Open: <a href=\"%1\">%2</a><br>"
+           "2. Enter code: <code style=\"font-weight:bold;font-size:14px;\">%3</code><br>"
+           "3. Waiting for authorization…")
+        .arg(verifyUri.toHtmlEscaped(), verifyUri.toHtmlEscaped(), userCode.toHtmlEscaped()));
     m_deviceCodeLabel->setVisible(true);
 
     QApplication::clipboard()->setText(userCode);
@@ -323,6 +363,7 @@ void DltAiOptionsDialog::pollOAuthToken()
         m_copilotOAuthToken = accessToken;
         m_apiKey->setText(accessToken);
         setCopilotStatus(tr("Authenticated with GitHub Copilot"), true);
+        emit copilotTokenObtained(accessToken);
     } else if (error == "authorization_pending" || error == "slow_down") {
         // still waiting — keep polling
     } else {
@@ -389,11 +430,18 @@ void DltAiOptionsDialog::onTestConnection()
         m_statusLabel->setStyleSheet("color: #c62828; font-size: 11px;");
     } else {
         int httpCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-        // 200 = OK, 401/403 = server reachable but auth wrong, 400 = bad request (model ok)
-        bool reachable = (httpCode > 0 || reply->error() == QNetworkReply::NoError);
-        if (reachable) {
+        if (httpCode >= 200 && httpCode < 300) {
             m_statusLabel->setText(tr("✔ Connection OK (HTTP %1)").arg(httpCode));
             m_statusLabel->setStyleSheet("color: #2e7d32; font-size: 11px;");
+        } else if (httpCode == 401 || httpCode == 403) {
+            m_statusLabel->setText(tr("✖ Authentication failed (HTTP %1)").arg(httpCode));
+            m_statusLabel->setStyleSheet("color: #c62828; font-size: 11px;");
+        } else if (httpCode == 400) {
+            m_statusLabel->setText(tr("⚠ Endpoint reached, bad request (HTTP 400)"));
+            m_statusLabel->setStyleSheet("color: #e65100; font-size: 11px;");
+        } else if (httpCode > 0) {
+            m_statusLabel->setText(tr("✖ Server error (HTTP %1)").arg(httpCode));
+            m_statusLabel->setStyleSheet("color: #c62828; font-size: 11px;");
         } else {
             m_statusLabel->setText(QString("✖ %1").arg(reply->errorString()));
             m_statusLabel->setStyleSheet("color: #c62828; font-size: 11px;");
