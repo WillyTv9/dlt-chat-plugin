@@ -3,7 +3,8 @@ build/
 build_tests/
 build-*/
 build_plugin/
-build_msvc_*/
+build_audit/
+build_msvc*/
 cmake-build-*/
 out/
 
