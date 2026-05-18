@@ -6,17 +6,64 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A C++17/Qt plugin for [COVESA DLT Viewer](https://github.com/COVESA/dlt-viewer) that adds an interactive chat interface for analyzing automotive diagnostic logs. Supports both deterministic rule-based analysis and AI-powered analysis via LLM providers (Ollama, OpenAI, LocalAI, Custom).
 
-## Build Commands
+## Build Prerequisites (Windows)
+
+**Critical — DLT Viewer's Qt6 is MSVC-built** (depends on `MSVCP140.dll`, `VCRUNTIME140.dll`).  
+The plugin **must** be compiled with the same toolchain — MinGW/GCC produces an incompatible C++ ABI and cannot load.
+
+Available toolchains:
+- **VS 2019 BuildTools** (`C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools`) — confirmed working
+- **VS 2022 Enterprise** at non-standard path `C:\Program Files\Microsoft Visual Studio\18\Enterprise` — VC++ workload NOT installed
+
+**Qt 6.8.3 for MSVC** must be installed separately. The MinGW Qt6 from MSYS2 (`C:\msys64\ucrt64`) cannot be used.
 
 ```bash
-# Standalone build (set QDLT_ROOT first)
-mkdir build && cd build
-cmake .. -DCMAKE_BUILD_TYPE=Release
-cmake --build . --parallel
+# Install Qt6 MSVC via aqtinstall (no Qt account required)
+pip install aqtinstall
+python -m aqt install-qt windows desktop 6.8.3 win64_msvc2022_64 --outputdir C:\Qt6
+```
 
-# Windows quick build (from Developer Command Prompt for VS 2022)
-build_plugin.bat
+MSVC Qt6 is now at `C:\Qt6\6.8.3\msvc2022_64`.
 
+## Build Commands (Windows MSVC)
+
+Run from a **Visual Studio 2019 Developer Command Prompt** (`VsDevCmd.bat -arch=amd64`):
+
+```bash
+# Full build (configure + compile)
+set PATH=%PATH:C:\msys64=%
+cmake -G Ninja -S . -B build_msvc_qt ^
+  -DCMAKE_BUILD_TYPE=Release ^
+  -DCMAKE_PREFIX_PATH="C:\Qt6\6.8.3\msvc2022_64" ^
+  -DQDLT_ROOT="C:\Users\aless\AppData\Local\Programs\dlt-viewer\sdk" ^
+  -DCMAKE_DISABLE_FIND_PACKAGE_Vulkan=ON
+cmake --build build_msvc_qt --config Release --parallel
+```
+
+> **Why `-DCMAKE_DISABLE_FIND_PACKAGE_Vulkan=ON`?** Without it, cmake detects Vulkan headers in the MinGW include directory (`C:\msys64\ucrt64\include`) and adds that path as a system include, causing the MSVC compiler to consume MinGW's C headers (`corecrt.h`, `math.h`, `stdio.h`, etc.) which use GCC-specific extensions and fail to compile.
+
+**Build output:** `build_msvc_qt/src/host_interface/dltchatplugin.dll` (669 KB, MSVC runtime)
+
+### Quick build (batch script)
+
+```batch
+:: build_msvc.bat — run from any shell
+@echo off
+call "C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools\Common7\Tools\VsDevCmd.bat" -arch=amd64 -host_arch=amd64
+if errorlevel 1 exit /b 1
+set PATH=%PATH:C:\msys64=%
+cmake -G Ninja -S "%~dp0." -B "%~dp0build_msvc_qt" ^
+  -DCMAKE_BUILD_TYPE=Release ^
+  -DCMAKE_PREFIX_PATH="C:\Qt6\6.8.3\msvc2022_64" ^
+  -DQDLT_ROOT="C:\Users\aless\AppData\Local\Programs\dlt-viewer\sdk" ^
+  -DCMAKE_DISABLE_FIND_PACKAGE_Vulkan=ON
+if errorlevel 1 exit /b 1
+cmake --build "%~dp0build_msvc_qt" --config Release --parallel
+```
+
+### Other build commands
+
+```bash
 # Build with tests enabled
 cmake -B build_tests -S tests -DQT_PREFIX=Qt6
 cmake --build build_tests --config Release
@@ -37,8 +84,7 @@ cmake --build build --target dist
 - `-DDLT_ENABLE_ASAN=ON` — AddressSanitizer for Debug builds
 - `-DQT_PREFIX=...` — override Qt version (auto-detects Qt6 then Qt5)
 - `-DQDLT_ROOT=...` — DLT Viewer SDK path
-
-**Build outputs:** `build/src/host_interface/Release/dltchatplugin.dll` (Windows MSVC), `build/libdltchatplugin.so` (Linux)
+- `-DCMAKE_DISABLE_FIND_PACKAGE_Vulkan=ON` — **required for MSVC builds**; prevents MinGW include path contamination
 
 ## Architecture
 
