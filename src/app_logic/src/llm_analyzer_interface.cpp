@@ -50,27 +50,23 @@ bool DltLlmAnalyzerInterface::isAvailable() const
     QNetworkAccessManager mgr;
     QNetworkReply *reply = nullptr;
 
-    if (provider == "ollama") {
+    if (provider == "copilot") {
+        m_lastAvailabilityCheck = now;
+        m_availabilityVerified = true;
+        return true;
+    } else if (provider == "ollama") {
         QString tagsUrl = QUrl(m_apiEndpoint).toString();
         tagsUrl.replace("/api/generate", "/api/tags").replace("/api/chat", "/api/tags");
         QUrl tagsQUrl(tagsUrl);
         reply = mgr.get(QNetworkRequest(tagsQUrl));
     } else {
-        // For cloud/compat providers: probe the models list or base URL
         QUrl base(m_apiEndpoint);
-        QString modelsUrl = base.scheme() + "://" + base.authority();
-        if (provider == "openai" || provider == "openai-compat" || provider == "copilot")
-            modelsUrl += "/v1/models";
+        QString modelsUrl = base.scheme() + "://" + base.authority() + "/v1/models";
         QUrl probeUrl(modelsUrl);
         QNetworkRequest req(probeUrl);
-        // Resolve effective auth key (exchanges Copilot OAuth token if needed)
-        QString authKey = resolvedApiKey();
+        QString authKey = m_apiKey;
         if (!authKey.isEmpty())
             req.setRawHeader("Authorization", QString("Bearer %1").arg(authKey).toUtf8());
-        if (provider == "copilot") {
-            req.setRawHeader("Editor-Version", "DLTChatPlugin/1.0");
-            req.setRawHeader("Copilot-Integration-Id", "dlt-chat-plugin");
-        }
         reply = mgr.get(req);
     }
 
@@ -95,11 +91,10 @@ bool DltLlmAnalyzerInterface::isAvailable() const
                             ok = true; break;
                         }
                     }
-                    if (!ok && !models.isEmpty()) ok = true; // server reachable, any model
+                    if (!ok && !models.isEmpty()) ok = true;
                 }
             }
         } else {
-            // Require 2xx: 401/403 means auth failed, not "connected"
             ok = (httpCode >= 200 && httpCode < 300);
         }
     }

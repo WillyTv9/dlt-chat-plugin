@@ -170,10 +170,15 @@ void DltChatPlugin::checkAiAvailabilityAsync()
         return;
     }
 
-    // Use provider-aware probe: Ollama uses /api/tags, others use /v1/models
     QNetworkAccessManager *mgr = new QNetworkAccessManager(this);
     QString provider = m_llmAnalyzer->detectProviderType();
     QNetworkRequest probeReq;
+
+    if (provider == "copilot") {
+        setAiState(2, m_llmAnalyzer->modelName());
+        delete mgr;
+        return;
+    }
 
     if (provider == "ollama") {
         QString tagsUrl = m_llmAnalyzer->apiEndpoint();
@@ -183,15 +188,10 @@ void DltChatPlugin::checkAiAvailabilityAsync()
         QUrl base(m_llmAnalyzer->apiEndpoint());
         QString modelsUrl = base.scheme() + "://" + base.authority() + "/v1/models";
         probeReq.setUrl(QUrl(modelsUrl));
-        QString probeKey = m_llmAnalyzer->cachedCopilotBearer();
-        if (probeKey.isEmpty()) probeKey = m_llmAnalyzer->apiKey();
+        QString probeKey = m_llmAnalyzer->apiKey();
         if (!probeKey.isEmpty())
             probeReq.setRawHeader("Authorization",
                 QString("Bearer %1").arg(probeKey).toUtf8());
-        if (provider == "copilot") {
-            probeReq.setRawHeader("Editor-Version", "DLTChatPlugin/1.0");
-            probeReq.setRawHeader("Copilot-Integration-Id", "dlt-chat-plugin");
-        }
     }
 
     QNetworkReply *reply = mgr->get(probeReq);
@@ -216,7 +216,6 @@ void DltChatPlugin::checkAiAvailabilityAsync()
                             return;
                         }
                     }
-                    // Server reachable but model not found — show as state 1 (online, no exact model)
                     if (!models.isEmpty()) {
                         setAiState(2, m_llmAnalyzer->modelName());
                         return;
@@ -225,7 +224,6 @@ void DltChatPlugin::checkAiAvailabilityAsync()
             }
             setAiState(1, m_llmAnalyzer->modelName());
         } else {
-            // Cloud/compat: 2xx means connected; 401/403 means auth failure (offline)
             int httpCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
             bool ok = (httpCode >= 200 && httpCode < 300);
             setAiState(ok ? 2 : 1, m_llmAnalyzer->modelName());
