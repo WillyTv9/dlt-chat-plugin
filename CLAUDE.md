@@ -35,7 +35,7 @@ set PATH=%PATH:C:\msys64=%
 cmake -G Ninja -S . -B build_msvc_qt ^
   -DCMAKE_BUILD_TYPE=Release ^
   -DCMAKE_PREFIX_PATH="C:\Qt\6.8.3\msvc2022_64" ^
-  -DQDLT_ROOT="C:\Users\aless\AppData\Local\Programs\dlt-viewer\sdk" ^
+  -DQDLT_ROOT="%LOCALAPPDATA%\Programs\dlt-viewer\sdk" ^
   -DCMAKE_DISABLE_FIND_PACKAGE_Vulkan=ON
 cmake --build build_msvc_qt --config Release --parallel
 ```
@@ -55,7 +55,7 @@ set PATH=%PATH:C:\msys64=%
 cmake -G Ninja -S "%~dp0." -B "%~dp0build_msvc_qt" ^
   -DCMAKE_BUILD_TYPE=Release ^
   -DCMAKE_PREFIX_PATH="C:\Qt\6.8.3\msvc2022_64" ^
-  -DQDLT_ROOT="C:\Users\aless\AppData\Local\Programs\dlt-viewer\sdk" ^
+  -DQDLT_ROOT="%LOCALAPPDATA%\Programs\dlt-viewer\sdk" ^
   -DCMAKE_DISABLE_FIND_PACKAGE_Vulkan=ON
 if errorlevel 1 exit /b 1
 cmake --build "%~dp0build_msvc_qt" --config Release --parallel
@@ -85,6 +85,79 @@ cmake --build build --target dist
 - `-DQT_PREFIX=...` — override Qt version (auto-detects Qt6 then Qt5)
 - `-DQDLT_ROOT=...` — DLT Viewer SDK path
 - `-DCMAKE_DISABLE_FIND_PACKAGE_Vulkan=ON` — **required for MSVC builds**; prevents MinGW include path contamination
+
+## Build Commands (Linux / Ubuntu)
+
+Install system dependencies:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y libqt6serialport6-dev libcups2-dev cmake ninja-build
+```
+
+Build DLT Viewer SDK from source (required; no pre-built binary for Linux):
+
+```bash
+git clone --depth 1 --branch v2.30.0 \
+  https://github.com/COVESA/dlt-viewer.git /tmp/dlt-viewer-src
+
+cmake -B /tmp/dlt-viewer-src/build \
+  -S /tmp/dlt-viewer-src \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_INSTALL_PREFIX=/opt/dlt-viewer
+
+cmake --build /tmp/dlt-viewer-src/build --parallel $(nproc)
+sudo cmake --install /tmp/dlt-viewer-src/build
+```
+
+Build the plugin:
+
+```bash
+cmake -B build \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DQDLT_ROOT=/opt/dlt-viewer
+
+cmake --build build --parallel
+```
+
+**Build output:** `build/src/host_interface/dltchatplugin.so`
+
+## Build Commands (macOS)
+
+Install dependencies via Homebrew:
+
+```bash
+brew install cmake ninja qt6
+```
+
+Build DLT Viewer SDK from source (same flow as Linux, with macOS-specific paths):
+
+```bash
+git clone --depth 1 --branch v2.30.0 \
+  https://github.com/COVESA/dlt-viewer.git /tmp/dlt-viewer-src
+
+cmake -B /tmp/dlt-viewer-src/build \
+  -S /tmp/dlt-viewer-src \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_PREFIX_PATH=$(brew --prefix qt6) \
+  -DCMAKE_INSTALL_PREFIX=/opt/dlt-viewer
+
+cmake --build /tmp/dlt-viewer-src/build --parallel
+sudo cmake --install /tmp/dlt-viewer-src/build
+```
+
+Build the plugin:
+
+```bash
+cmake -B build \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_PREFIX_PATH=$(brew --prefix qt6) \
+  -DQDLT_ROOT=/opt/dlt-viewer
+
+cmake --build build --parallel
+```
+
+**Build output:** `build/src/host_interface/libdltchatplugin.dylib`
 
 ## Architecture
 
@@ -171,4 +244,4 @@ The plugin reads `dlt_chat_plugin.ini` at startup. The example file `dlt_chat_pl
 
 ## CI
 
-GitHub Actions (`.github/workflows/build.yml`) builds on Windows and Linux, downloads the SDK, runs tests, and uploads artifacts. Do not skip the test step when modifying core logic.
+GitHub Actions (`.github/workflows/build.yml`) builds on Windows and Linux in the CI matrix. macOS is not in the CI matrix but builds cleanly via the manual steps above (Homebrew + source SDK build). Do not skip the test step when modifying core logic.
