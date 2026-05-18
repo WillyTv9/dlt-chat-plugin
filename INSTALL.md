@@ -7,6 +7,7 @@
 - **Qt** 5.15+ or 6.x (with Core, Gui, Widgets, Network, Xml modules)
 - **CMake** 3.16 or later
 - **C++17** compatible compiler (MSVC 2019+, GCC 9+, Clang 10+)
+  - macOS: Xcode Command Line Tools (`xcode-select --install`) provide Clang 14+; install Homebrew from https://brew.sh
 - **DLT Viewer SDK** (qdlt) — included in DLT Viewer source or binary distribution
 
 ---
@@ -39,6 +40,10 @@ mkdir build && cd build
 cmake .. -DCMAKE_BUILD_TYPE=Release
 cmake --build . --parallel
 
+# macOS (Homebrew Qt6)
+cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=$(brew --prefix qt6) ..
+cmake --build . --parallel
+
 # Windows (MSVC)
 cmake -G "Visual Studio 17 2022" -A x64 ..
 cmake --build . --parallel
@@ -55,6 +60,7 @@ The plugin will be built automatically as part of DLT Viewer.
 | Platform | Path |
 |----------|------|
 | Linux | `build/bin/plugins/libdltchatplugin.so` |
+| macOS | `build/bin/plugins/libdltchatplugin.dylib` |
 | Windows (MSVC) | `build/bin/plugins/Release/dltchatplugin.dll` |
 | Windows (MinGW) | `build/bin/plugins/libdltchatplugin.dll` |
 
@@ -69,6 +75,11 @@ Ensure Qt and the DLT Viewer SDK (qdlt) are installed and discoverable.
 Set the `QDLT_ROOT` environment variable to the DLT Viewer installation
 directory (where `include/qdlt/qdlt.h` and `lib/qdlt.lib` reside).
 
+**macOS**:
+```bash
+brew install cmake ninja qt6
+```
+
 ### Step 2: Configure and build
 
 ```bash
@@ -78,6 +89,13 @@ mkdir build && cd build
 # Linux
 export QDLT_ROOT=/path/to/dlt-viewer
 cmake .. -DCMAKE_BUILD_TYPE=Release
+cmake --build . --parallel
+
+# macOS
+export QDLT_ROOT=/opt/dlt-viewer
+cmake .. -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_PREFIX_PATH=$(brew --prefix qt6) \
+  -DQDLT_ROOT=$QDLT_ROOT
 cmake --build . --parallel
 
 # Windows (Visual Studio 2022)
@@ -91,6 +109,7 @@ cmake --build . --parallel --config Release
 | Platform | Path |
 |----------|------|
 | Linux | `build/src/host_interface/libdltchatplugin.so` |
+| macOS | `build/src/host_interface/libdltchatplugin.dylib` |
 | Windows (MSVC) | `build/src/host_interface/Release/dltchatplugin.dll` |
 
 ---
@@ -102,6 +121,51 @@ cmake --build . --parallel --config Release
 3. Run: `build_plugin.bat`
 
 This script auto-detects Ninja or Visual Studio and compiles the plugin.
+
+---
+
+## Option D: macOS — Build DLT Viewer SDK from Source
+
+macOS is not covered by CI (which runs Windows and Linux only), but the plugin
+builds cleanly with Clang. A pre-built DLT Viewer SDK is not distributed for
+macOS; build it from source.
+
+### Step 1: Install dependencies
+
+```bash
+brew install cmake ninja qt6
+```
+
+### Step 2: Build DLT Viewer SDK
+
+```bash
+git clone --depth 1 --branch v2.30.0 \
+  https://github.com/COVESA/dlt-viewer.git /tmp/dlt-viewer-src
+
+cmake -B /tmp/dlt-viewer-src/build \
+  -S /tmp/dlt-viewer-src \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_PREFIX_PATH=$(brew --prefix qt6) \
+  -DCMAKE_INSTALL_PREFIX=/opt/dlt-viewer
+
+cmake --build /tmp/dlt-viewer-src/build --parallel
+sudo cmake --install /tmp/dlt-viewer-src/build
+```
+
+### Step 3: Build the plugin
+
+```bash
+cd dlt-chat-plugin
+cmake -B build \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_PREFIX_PATH=$(brew --prefix qt6) \
+  -DQDLT_ROOT=/opt/dlt-viewer
+cmake --build build --parallel
+```
+
+### Step 4: Output
+
+`build/src/host_interface/libdltchatplugin.dylib`
 
 ---
 
@@ -120,6 +184,15 @@ copy build\src\host_interface\Release\dltchatplugin.dll "%LOCALAPPDATA%\Programs
 ```bash
 cp build/src/host_interface/libdltchatplugin.so ~/.local/share/dlt-viewer/plugins/
 ```
+
+### macOS
+
+```bash
+cp build/src/host_interface/libdltchatplugin.dylib \
+   ~/Library/Application\ Support/dlt-viewer/plugins/
+```
+
+(Path may vary depending on the DLT Viewer package. Check DLT Viewer → Preferences for the correct plugins directory on your installation.)
 
 ---
 
@@ -142,11 +215,13 @@ cp build/src/host_interface/libdltchatplugin.so ~/.local/share/dlt-viewer/plugin
 4. You should see the list of available commands
 
 If the plugin does not appear in the Plugin Settings menu, verify:
-- The DLL/SO is in the correct plugins directory
+- The DLL/SO/dylib is in the correct plugins directory
 - The plugin matches the DLT Viewer version (2.30.0+)
 - Qt libraries are available in the system PATH
 
 ---
+
+## Running Tests
 
 ```bash
 # Configure with tests enabled
@@ -213,6 +288,8 @@ cmake --build build --target dist
 | Plugin not loading | Check DLT Viewer version (2.30.0+ required) |
 | Plugin not visible in menu | Verify DLL is in the correct plugins directory |
 | Build fails on Linux | Install `libgl1-mesa-dev` or equivalent |
+| `brew link qt6` fails on macOS | Run `brew unlink qt@5 && brew link qt6` |
+| Plugin not loading on macOS | Remove the quarantine flag: `xattr -d com.apple.quarantine libdltchatplugin.dylib` |
 
 ---
 
@@ -221,3 +298,4 @@ cmake --build build --target dist
 Remove the plugin file from the DLT Viewer plugins directory:
 - **Windows**: Delete `dltchatplugin.dll` from `%LOCALAPPDATA%\Programs\dlt-viewer\plugins\`
 - **Linux**: Delete `libdltchatplugin.so` from `~/.local/share/dlt-viewer/plugins/`
+- **macOS**: Delete `libdltchatplugin.dylib` from `~/Library/Application Support/dlt-viewer/plugins/`
