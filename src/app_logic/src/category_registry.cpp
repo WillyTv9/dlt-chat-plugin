@@ -528,7 +528,7 @@ QStringList CategoryRegistry::allCompletionStrings() const
 
 QString CategoryRegistry::buildCategoriesHelpHtml() const
 {
-    QString html = QStringLiteral("<b>Categorie disponibili:</b><br>");
+    QString html = QStringLiteral("<b>Categorie riconosciute:</b><br>");
     for (const auto &cat : m_categories) {
         if (cat.levelOnly)
             continue;

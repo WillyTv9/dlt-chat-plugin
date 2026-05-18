@@ -48,6 +48,12 @@ QHash<QString, QStringList> AutomotiveLogParser::availablePresets()
     for (const auto &ev : reg.projectionEvents()) {
         presets[ev.query] = QStringList{ev.id};
     }
+    for (const auto &cf : reg.combinedFilters()) {
+        const QString key = cf.quickAction.query.isEmpty()
+            ? cf.aliases.value(0, cf.id)
+            : cf.quickAction.query;
+        presets[key] = cf.aliases;
+    }
     return presets;
 }
 

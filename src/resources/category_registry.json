@@ -376,12 +376,19 @@
       "quickAction": { "label": "Sensor", "query": "sensor_data", "row": 6, "col": 6 }
     },
     {
+      "id": "audio_focus",
+      "query": "audio_focus",
+      "event": "audio_focus",
+      "filters": ["audiofocus", "audio focus"],
+      "matchMode": "any"
+    },
+    {
       "id": "session_proj",
-      "query": "session_proj",
+      "query": "session",
       "event": "session",
       "filters": ["session_start", "session_stop", "session"],
       "matchMode": "any",
-      "quickAction": { "label": "Session Proj", "query": "session_proj", "row": 6, "col": 7 }
+      "quickAction": { "label": "Session Proj", "query": "session", "row": 6, "col": 7 }
     }
   ],
   "combinedFilters": [
@@ -482,7 +489,7 @@
     {
       "id": "auth_errors",
       "aliases": ["auth_errors"],
-      "categories": ["SECURITY"],
+      "categories": ["SMARTPHONE_PROJECTION", "SECURITY"],
       "levels": ["error", "fatal"],
       "quickAction": { "label": "Auth Err", "query": "auth_errors", "row": 12, "col": 3 }
     },
