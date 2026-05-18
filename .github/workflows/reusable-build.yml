@@ -114,6 +114,11 @@ jobs:
               build/tests/Release/tests.exe
           fi
 
+      - name: List test directory (Windows debug)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: ls -la build/tests/Release/ && ls -la build/tests/Release/platforms/ 2>/dev/null || true
+
       - name: Run Tests
         shell: bash
         run: |

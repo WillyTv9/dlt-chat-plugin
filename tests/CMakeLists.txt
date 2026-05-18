@@ -28,7 +28,6 @@ target_link_libraries(tests
     PRIVATE
         dltchat_app_logic
         ${QT_PREFIX}::Core
-        ${QT_PREFIX}::Gui
         ${QT_PREFIX}::Network
         ${QT_PREFIX}::Test
         ${QT_PREFIX}::Xml
@@ -109,6 +108,14 @@ if(WIN32)
     # Run from the directory that contains tests.exe (and windeployqt output).
     add_test(NAME tests
         COMMAND ${CMAKE_COMMAND} -E chdir $<TARGET_FILE_DIR:tests> $<TARGET_FILE:tests>)
+    # Prepend Qt bin dir to PATH so tests.exe can find Qt DLLs even if windeployqt
+    # did not run or missed a dependency.
+    if(_qt_bin_dir)
+        list(JOIN _test_prefix_dirs ";" _win_path_prefix)
+        set_tests_properties(tests PROPERTIES
+            ENVIRONMENT "PATH=${_win_path_prefix};$ENV{PATH}"
+        )
+    endif()
 else()
     list(JOIN _test_prefix_dirs ":" _test_path_prefix)
     if(_test_path_prefix AND DEFINED ENV{PATH})
