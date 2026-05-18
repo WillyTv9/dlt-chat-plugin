@@ -23,7 +23,7 @@ pip install aqtinstall
 python -m aqt install-qt windows desktop 6.8.3 win64_msvc2022_64 --outputdir C:\Qt6
 ```
 
-MSVC Qt6 is now at `C:\Qt6\6.8.3\msvc2022_64`.
+MSVC Qt6 is now at `C:\Qt\6.8.3\msvc2022_64`.
 
 ## Build Commands (Windows MSVC)
 
@@ -34,7 +34,7 @@ Run from a **Visual Studio 2019 Developer Command Prompt** (`VsDevCmd.bat -arch=
 set PATH=%PATH:C:\msys64=%
 cmake -G Ninja -S . -B build_msvc_qt ^
   -DCMAKE_BUILD_TYPE=Release ^
-  -DCMAKE_PREFIX_PATH="C:\Qt6\6.8.3\msvc2022_64" ^
+  -DCMAKE_PREFIX_PATH="C:\Qt\6.8.3\msvc2022_64" ^
   -DQDLT_ROOT="C:\Users\aless\AppData\Local\Programs\dlt-viewer\sdk" ^
   -DCMAKE_DISABLE_FIND_PACKAGE_Vulkan=ON
 cmake --build build_msvc_qt --config Release --parallel
@@ -54,7 +54,7 @@ if errorlevel 1 exit /b 1
 set PATH=%PATH:C:\msys64=%
 cmake -G Ninja -S "%~dp0." -B "%~dp0build_msvc_qt" ^
   -DCMAKE_BUILD_TYPE=Release ^
-  -DCMAKE_PREFIX_PATH="C:\Qt6\6.8.3\msvc2022_64" ^
+  -DCMAKE_PREFIX_PATH="C:\Qt\6.8.3\msvc2022_64" ^
   -DQDLT_ROOT="C:\Users\aless\AppData\Local\Programs\dlt-viewer\sdk" ^
   -DCMAKE_DISABLE_FIND_PACKAGE_Vulkan=ON
 if errorlevel 1 exit /b 1

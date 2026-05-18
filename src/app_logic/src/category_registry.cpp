@@ -1,6 +1,7 @@
 #include "dltchat/category_registry.h"
 
 #include <QFile>
+#include <QResource>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -40,6 +41,7 @@ CategoryRegistry &CategoryRegistry::instance()
 {
     static CategoryRegistry reg;
     if (!reg.m_loaded) {
+        Q_INIT_RESOURCE(dltchat_resources);
         reg.loadFromResource();
     }
     return reg;

@@ -20,6 +20,10 @@ add_library(dltchat_app_logic STATIC
     src/category_registry.cpp
 )
 
+target_sources(dltchat_app_logic PRIVATE
+    "${CMAKE_SOURCE_DIR}/src/resources/dltchat_resources.qrc"
+)
+
 target_include_directories(dltchat_app_logic
     PUBLIC  "${CMAKE_CURRENT_SOURCE_DIR}/include"
     PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src"

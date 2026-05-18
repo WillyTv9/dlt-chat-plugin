@@ -9,9 +9,6 @@ target_include_directories(dltchatplugin
     PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}"
 )
 
-target_sources(dltchatplugin PRIVATE
-    "${CMAKE_CURRENT_SOURCE_DIR}/../resources/dltchat_resources.qrc"
-)
 
 target_link_libraries(dltchatplugin
     PRIVATE
