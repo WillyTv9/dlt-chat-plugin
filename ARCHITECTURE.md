@@ -77,7 +77,8 @@ form->appendMessage() + form->setResults() + highlightIndices()
 
 **Components**:
 - Status bar (file info, domain stats, AI status)
-- 26 quick action buttons (4×7 grid with per-button colors)
+- 76 quick action buttons (13-row scrollable grid with per-button colors,
+  loaded from category_registry.json)
 - Chat history (`QTextBrowser`)
 - Results list (`QListView` + `ResultsModel`) with clickable items
 - Rule-based query input + Send button
