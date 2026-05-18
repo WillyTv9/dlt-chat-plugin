@@ -8,6 +8,12 @@
 #include <algorithm>
 #include <QtConcurrent>
 
+// Q_INIT_RESOURCE cannot be used inside a namespace — call it from global scope.
+static void dltchat_init_resources()
+{
+    Q_INIT_RESOURCE(dltchat_resources);
+}
+
 namespace dltchat {
 
 namespace {
@@ -41,7 +47,7 @@ CategoryRegistry &CategoryRegistry::instance()
 {
     static CategoryRegistry reg;
     if (!reg.m_loaded) {
-        Q_INIT_RESOURCE(dltchat_resources);
+        dltchat_init_resources();
         reg.loadFromResource();
     }
     return reg;

@@ -32,6 +32,7 @@ static int runTestSuite(QObject *testObject)
 
 int main(int argc, char *argv[])
 {
+    Q_INIT_RESOURCE(dltchat_resources);
     QCoreApplication app(argc, argv);
 
     int status = 0;
