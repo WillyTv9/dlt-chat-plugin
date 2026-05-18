@@ -433,7 +433,8 @@ QString DltLlmAnalyzerInterface::parseLlmResponse(const QString &response) const
     QJsonDocument doc = QJsonDocument::fromJson(response.toUtf8(), &err);
     if (err.error != QJsonParseError::NoError) return response.trimmed();
 
-    bool isOpenAI = m_apiEndpoint.contains("openai.com") || m_apiEndpoint.contains("azure");
+    bool isOpenAI = m_apiEndpoint.contains("openai.com") || m_apiEndpoint.contains("azure")
+                    || m_apiEndpoint.contains("githubcopilot.com");
     if (doc.isObject())
     {
         QJsonObject o = doc.object();
@@ -565,12 +566,19 @@ bool DltLlmAnalyzerInterface::analyzeQueryAsync(const QString &query,
     QUrl url(endpointStr);
     QNetworkRequest req(url);
     req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
-    QString authKey = resolvedApiKey();
-    if (!authKey.isEmpty())
-        req.setRawHeader("Authorization", QString("Bearer %1").arg(authKey).toUtf8());
-    if (detectProviderType() == "copilot") {
+    QString provider = detectProviderType();
+    if (provider == "copilot") {
+        // Copilot: use the OAuth token directly (chat completions accepts it)
+        if (!m_apiKey.isEmpty())
+            req.setRawHeader("Authorization",
+                QString("Bearer %1").arg(m_apiKey).toUtf8());
         req.setRawHeader("Editor-Version", "DLTChatPlugin/1.0");
         req.setRawHeader("Copilot-Integration-Id", "dlt-chat-plugin");
+    } else {
+        QString authKey = resolvedApiKey();
+        if (!authKey.isEmpty())
+            req.setRawHeader("Authorization",
+                QString("Bearer %1").arg(authKey).toUtf8());
     }
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
     req.setTransferTimeout(m_timeout);
