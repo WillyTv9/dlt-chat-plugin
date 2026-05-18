@@ -274,7 +274,7 @@
       </div>
       <div class="card">
         <div class="label">02</div>
-        <div style="font-size: 28px; font-weight:600; line-height:1.2;">21 pulsanti rapidi</div>
+        <div style="font-size: 28px; font-weight:600; line-height:1.2;">76 pulsanti rapidi</div>
         <div class="desc">Filtri pronti per livello, dominio ed evento — un click, zero digitazione.</div>
       </div>
       <div class="card">
@@ -292,7 +292,7 @@
     <div class="row" style="margin-top: 80px;">
       <div class="col">
         <div class="statline">
-          <div class="stat"><div class="v">21</div><div class="l">Pulsanti rapidi</div></div>
+          <div class="stat"><div class="v">76</div><div class="l">Pulsanti rapidi</div></div>
           <div class="stat"><div class="v">9</div><div class="l">Eventi automotive</div></div>
           <div class="stat"><div class="v">4</div><div class="l">Provider LLM</div></div>
           <div class="stat"><div class="v">~70+</div><div class="l">Test case</div></div>
@@ -453,20 +453,20 @@ form->appendMessage() + setResults() + highlightIndices()</div>
   <div class="pad" style="display:flex; flex-direction:column; justify-content:center; height:100%;">
     <div class="eyebrow">Parte 02</div>
     <h1 class="title" style="color: var(--bg);">Interfaccia<br/>&amp; pulsanti rapidi.</h1>
-    <div class="lede" style="margin-top:48px; max-width: 1200px;">Una griglia 3×7 di azioni color-coded. Operazioni frequenti senza digitare.</div>
+    <div class="lede" style="margin-top:48px; max-width: 1200px;">Una griglia 13 righe × 76 pulsanti, color-coded. Operazioni frequenti senza digitare.</div>
   </div>
   <div class="footer"><div>DLT Chat Plugin</div><div>08</div></div>
 </section>
 
 <!-- 09 — 21 PULSANTI -->
-<section data-screen-label="09 21 pulsanti">
+<section data-screen-label="09 76 pulsanti">
   <div class="chrome">
     <div><span class="dot"></span>UI</div>
-    <div>06 / 21 pulsanti rapidi</div>
+    <div>06 / 76 pulsanti rapidi</div>
   </div>
   <div class="pad" style="padding-top: 140px;">
-    <div class="eyebrow">UI · griglia 3 × 7</div>
-    <h2 class="slide">Ventuno comandi, un click ciascuno.</h2>
+    <div class="eyebrow">UI · griglia 13 righe · 76 pulsanti</div>
+    <h2 class="slide">Settantasei comandi, un click ciascuno.</h2>
 
     <div class="btn-grid" style="margin-top: 16px;">
       <!-- row 1 -->
@@ -496,10 +496,11 @@ form->appendMessage() + setResults() + highlightIndices()</div>
     </div>
 
     <div class="row" style="margin-top:48px; gap: 24px;">
-      <div class="col"><span class="tag accent">Riga 1 · Filtri livello + dominio</span></div>
-      <div class="col"><span class="tag accent">Riga 2 · Eventi automotive + analisi</span></div>
-      <div class="col"><span class="tag accent">Riga 3 · Comandi sistema + utilità</span></div>
+      <div class="col"><span class="tag accent">Riga 0 · Livelli (6 pulsanti)</span></div>
+      <div class="col"><span class="tag accent">Righe 1-5 · Categorie, connettività, media</span></div>
+      <div class="col"><span class="tag accent">Righe 6-12 · Proiezione, smart filter, analisi</span></div>
     </div>
+    <div class="small" style="margin-top:16px;">Griglia illustrativa · il pannello mostra 76 pulsanti in 13 righe (0–12), scorrevoli.</div>
   </div>
   <div class="footer"><div>DLT Chat Plugin</div><div>09</div></div>
 </section>
@@ -1227,6 +1228,7 @@ Test project /…/dlt-chat-plugin/tests/build
             <span class="tag">Linux</span>
             <span class="tag">Windows MSVC</span>
             <span class="tag">Windows MinGW</span>
+            <span class="tag">macOS (Homebrew)</span>
           </div>
         </div>
       </div>
@@ -1263,12 +1265,12 @@ Test project /…/dlt-chat-plugin/tests/build
       <div class="card">
         <div class="label">Blocco 01 · 2 min</div>
         <div style="font-size: 26px; font-weight: 600;">Setup e prima impressione</div>
-        <div class="desc">Aprire DLT Viewer con un log CarPlay + Android Auto. Attivare il pannello Chat Log Assistant. Mostrare la griglia 3×7.</div>
+        <div class="desc">Aprire DLT Viewer con un log CarPlay + Android Auto. Attivare il pannello Chat Log Assistant. Mostrare la griglia 13 righe · 76 pulsanti.</div>
       </div>
       <div class="card">
         <div class="label">Blocco 02 · 3 min</div>
         <div style="font-size: 26px; font-weight: 600;">Pulsanti rapidi</div>
-        <div class="desc">Errors → Warnings → CarPlay → Android Auto → Summary. <em>"21 pulsanti per le operazioni più comuni, zero digitazione"</em>.</div>
+        <div class="desc">Errors → Warnings → CarPlay → Android Auto → Summary. <em>"76 pulsanti per le operazioni più comuni, zero digitazione"</em>.</div>
       </div>
       <div class="card">
         <div class="label">Blocco 03 · 2 min</div>
@@ -1347,7 +1349,7 @@ Test project /…/dlt-chat-plugin/tests/build
         <tr><td class="k">Serve obbligatoriamente un LLM?</td><td>No. L'analisi rule-based è completa e sempre disponibile; l'AI è opzionale.</td></tr>
         <tr><td class="k">Quali modelli LLM supporta?</td><td>Qualsiasi modello Ollama locale, GPT (OpenAI) o provider compatibile via Custom.</td></tr>
         <tr><td class="k">Come gestisce file di log grandi?</td><td>Entry limit 500k · display cap 1k · inverted index O(K) per le ricerche.</td></tr>
-        <tr><td class="k">Funziona su Linux e Windows?</td><td>Sì. Qt è multipiattaforma; testato sia su Linux che Windows (MSVC e MinGW).</td></tr>
+        <tr><td class="k">Funziona su Linux, Windows e macOS?</td><td>Sì. Qt è multipiattaforma; CI testato su Linux e Windows (MSVC); macOS supportato con build manuale via Homebrew.</td></tr>
         <tr><td class="k">Come si configura l'AI?</td><td>Dialog grafico con Test Connection, oppure file INI <span class="mono">dlt_chat_plugin.ini</span>.</td></tr>
         <tr><td class="k">Si possono aggiungere filtri custom?</td><td>Sì. File JSON con regex, campi, colori, vincoli per livello e dominio.</td></tr>
         <tr><td class="k">Come si estende il plugin?</td><td>Implementando <span class="mono">DltAnalyzerInterface</span> — pattern Strategy, nuovo backend, zero modifiche al core.</td></tr>
