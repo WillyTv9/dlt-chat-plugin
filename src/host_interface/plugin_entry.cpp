@@ -776,26 +776,10 @@ void DltChatPlugin::onAiQuerySubmitted(const QString &query)
         return;
     }
 
-    if (m_aiState != 2 || !m_llmAnalyzer)
+    if (!m_llmAnalyzer)
     {
         form->setProcessingProgress(false);
-        QElapsedTimer timer; timer.start();
-
-        ContextualExtractor::ContextConfig fallbackCtx;
-        fallbackCtx.windowBefore = 3;
-        fallbackCtx.windowAfter = 3;
-        fallbackCtx.maxEntries = kAIPreFilterMax;
-        QVector<DltAnalyzerInterface::LogEntry> fallbackCtxEntries;
-        {
-            QMutexLocker lk(&entriesMutex);
-            fallbackCtxEntries = m_contextualExtractor.extractContext(
-                query, snapshot, invertedIndex, m_lastSelectedIndices, fallbackCtx);
-        }
-        if (fallbackCtxEntries.isEmpty())
-            fallbackCtxEntries = snapshot.mid(0, kAIPreFilterMax);
-
-        auto result = m_ruleBasedAnalyzer->analyzeQuery(query, fallbackCtxEntries);
-        result.processingTimeMs = timer.elapsed();
+        auto result = m_ruleBasedAnalyzer->analyzeQuery(query, snapshot);
         QString html = result.responseHtml + "<br><em>AI non disponibile, analisi locale.</em>";
         html += buildUserFilterContextHtml();
         form->appendMessage("AI Assistant (fallback)", html);
