@@ -61,7 +61,7 @@ Quick summary:
 
 ## 4. Using Quick Action Buttons
 
-The plugin features a massive set of quick action buttons (65+) arranged in a 10-row scrollable grid for exhaustive log filtering:
+The plugin features 76 quick action buttons arranged in a 13-row scrollable grid (rows 0–12):
 
 ### Row 0: Severity Levels
 | Button | Query | Description |
@@ -168,6 +168,28 @@ The plugin features a massive set of quick action buttons (65+) arranged in a 10
 | **Categorizza**| `categorizza` | AI classification |
 | **Help** | `help` | Commands help |
 | **Categories** | `categories` | List all filter categories |
+
+### Row 10: Managers
+| Button | Query | Description |
+|--------|-------|-------------|
+| **SysMgr** | `sysmgr` | System manager and watchdog |
+| **Launcher** | `launcher` | App launcher and Rapp manager |
+| **MsgBus** | `msgbus` | Message bus / event bus |
+| **ConMgr** | `conmgr` | Connectivity manager |
+
+### Row 11: Subsystems
+| Button | Query | Description |
+|--------|-------|-------------|
+| **TTS** | `tts` | Text-to-speech manager |
+| **Haptic** | `haptic` | Haptic controller |
+
+### Row 12: Special Filters
+| Button | Query | Description |
+|--------|-------|-------------|
+| **GPS Epoch** | `gps_epoch` | GPS entries mentioning 1970/epoch |
+| **Sys Fatal** | `sys_fatal` | Fatal events in System core |
+| **All Fatal** | `all_fatal` | All fatal-level entries |
+| **Auth Err** | `auth_errors` | Authentication and security errors |
 
 ---
 
