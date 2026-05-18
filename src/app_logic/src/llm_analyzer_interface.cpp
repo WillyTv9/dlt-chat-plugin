@@ -194,6 +194,7 @@ QString DltLlmAnalyzerInterface::effectiveCopilotBearer() const
     QNetworkRequest req(QUrl("https://api.github.com/copilot_internal/v2/token"));
     req.setRawHeader("Authorization", QString("token %1").arg(m_apiKey).toUtf8());
     req.setRawHeader("Accept", "application/json");
+    req.setRawHeader("Editor-Version", "DLTChatPlugin/1.0");
     QNetworkReply *reply = mgr.get(req);
 
     QEventLoop loop;
@@ -204,13 +205,13 @@ QString DltLlmAnalyzerInterface::effectiveCopilotBearer() const
     timer.start(8000);
     loop.exec();
 
-    if (!timer.isActive()) { reply->deleteLater(); return {}; }
+    if (!timer.isActive()) { reply->deleteLater(); return m_apiKey; }
 
     QJsonObject obj = QJsonDocument::fromJson(reply->readAll()).object();
     reply->deleteLater();
 
     QString token = obj["token"].toString();
-    if (token.isEmpty()) return {};
+    if (token.isEmpty()) return m_apiKey;
 
     m_copilotBearer = token;
     QDateTime expiry = QDateTime::fromString(obj["expires_at"].toString(), Qt::ISODate);
