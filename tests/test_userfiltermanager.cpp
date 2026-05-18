@@ -114,7 +114,7 @@ void TestUserFilterManager::testApplyToEntries()
     e.domain = "generic"; e.payload = "CAN bus error: arbitration lost";
     entries.append(e);
 
-    QHash<int, QColor> highlights = mgr.applyToEntries(entries);
+    QHash<int, QString> highlights = mgr.applyToEntries(entries);
     QVERIFY(highlights.contains(10));
 }
 
@@ -163,7 +163,7 @@ void TestUserFilterManager::testMatchesEntryByDomain()
     e.domain = "generic";
 
     QVector<DltAnalyzerInterface::LogEntry> entries = {e};
-    QHash<int, QColor> highlights = mgr.applyToEntries(entries);
+    QHash<int, QString> highlights = mgr.applyToEntries(entries);
     QVERIFY(!highlights.contains(5)); // domain doesn't match
 
     e.domain = "carplay";
@@ -203,7 +203,7 @@ void TestUserFilterManager::testMatchesEntryByLevel()
     e.payload = "system crash detected";
 
     QVector<DltAnalyzerInterface::LogEntry> entries = {e};
-    QHash<int, QColor> highlights = mgr.applyToEntries(entries);
+    QHash<int, QString> highlights = mgr.applyToEntries(entries);
     QVERIFY(!highlights.contains(7)); // level doesn't match
 
     e.level = "error";

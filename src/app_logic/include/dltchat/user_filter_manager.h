@@ -1,7 +1,6 @@
 #ifndef DLTCHAT_USER_FILTER_MANAGER_H
 #define DLTCHAT_USER_FILTER_MANAGER_H
 
-#include <QColor>
 #include <QFile>
 #include <QHash>
 #include <QJsonArray>
@@ -17,7 +16,7 @@ struct UserFilterRule {
     QString label;
     QString pattern;
     QStringList fields;
-    QColor color;
+    QString colorHex;
     QStringList levels;
     QString domain;
     bool enabled = true;
@@ -33,7 +32,7 @@ public:
 
     bool loadFromFile(const QString &path, QString *error = nullptr);
     bool saveToFile(const QString &path, QString *error = nullptr) const;
-    QHash<int, QColor> applyToEntries(const QVector<DltAnalyzerInterface::LogEntry> &entries) const;
+    QHash<int, QString> applyToEntries(const QVector<DltAnalyzerInterface::LogEntry> &entries) const;
 
     void addFilter(const UserFilterRule &rule);
     bool removeFilter(const QString &label);

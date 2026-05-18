@@ -33,7 +33,6 @@ target_link_libraries(dltchat_app_logic
     PUBLIC
         ${QT_PREFIX}::Core
         ${QT_PREFIX}::Concurrent
-        ${QT_PREFIX}::Gui
     PRIVATE
         ${QT_PREFIX}::Network
         ${QT_PREFIX}::Xml

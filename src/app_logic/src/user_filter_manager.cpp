@@ -64,10 +64,10 @@ bool UserFilterManager::saveToFile(const QString &path, QString *error) const
     return true;
 }
 
-QHash<int, QColor> UserFilterManager::applyToEntries(
+QHash<int, QString> UserFilterManager::applyToEntries(
     const QVector<DltAnalyzerInterface::LogEntry> &entries) const
 {
-    QHash<int, QColor> highlights;
+    QHash<int, QString> highlights;
 
     for (const auto &filter : m_filters)
     {
@@ -97,7 +97,7 @@ QHash<int, QColor> UserFilterManager::applyToEntries(
                     continue;
                 if (!filter.domain.isEmpty() && filter.domain != entry.domain)
                     continue;
-                highlights[entry.index] = filter.color;
+                highlights[entry.index] = filter.colorHex;
             }
         }
     }
@@ -170,7 +170,7 @@ QVector<UserFilterRule> UserFilterManager::parseFilters(const QJsonArray &arr) c
 
         rule.domain = obj["domain"].toString();
 
-        rule.color = QColor(obj["color"].toString("#FF0000"));
+        rule.colorHex = obj["color"].toString(QStringLiteral("#FF0000"));
 
         rule.regex = QRegularExpression(rule.pattern,
             QRegularExpression::CaseInsensitiveOption);
@@ -190,7 +190,7 @@ QJsonArray UserFilterManager::serializeFilters() const
         obj["label"] = rule.label;
         obj["pattern"] = rule.pattern;
         obj["enabled"] = rule.enabled;
-        obj["color"] = rule.color.name();
+        obj["color"] = rule.colorHex;
 
         QJsonArray fields;
         for (const auto &f : rule.fields)

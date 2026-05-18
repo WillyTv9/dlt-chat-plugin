@@ -133,7 +133,7 @@ private:
     mutable bool filterRowMapDirty = false;
 
     dltchat::UserFilterManager *m_userFilterManager;
-    QHash<int, QColor> m_highlightMap;
+    QHash<int, QString> m_highlightMap;
 
     dltchat::DltAnalyzerInterface *m_analyzer;
     dltchat::DltRuleBasedAnalyzer *m_ruleBasedAnalyzer;
