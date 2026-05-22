@@ -173,6 +173,7 @@ private:
     int m_aiAvailabilityRetryCount = 0;
     QHash<QString, dltchat::DltAnalyzerInterface::QueryResult> m_aiResponseCache;
     QString m_copilotOAuthToken;
+    QString m_copilotClientId;
     QTimer *m_aiHealthTimer = nullptr;
 };
 

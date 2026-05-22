@@ -32,6 +32,7 @@ public:
     double temperature() const;
     int timeoutMs() const;
     QString copilotOAuthToken() const;
+    QString oauthClientId() const;
 
     void setEndpoint(const QString &v);
     void setApiKey(const QString &v);
@@ -40,6 +41,7 @@ public:
     void setTemperature(double v);
     void setTimeoutMs(int v);
     void setCopilotOAuthToken(const QString &token);
+    void setOauthClientId(const QString &id);
 
 signals:
     void copilotTokenObtained(const QString &token);
@@ -80,6 +82,7 @@ private:
     QTimer *m_pollTimer;
     QString m_deviceCode;
     QString m_copilotOAuthToken;
+    QLineEdit *m_oauthClientId;
 };
 
 #endif

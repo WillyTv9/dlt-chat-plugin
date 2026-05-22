@@ -103,6 +103,12 @@ DltAiOptionsDialog::DltAiOptionsDialog(QWidget *parent)
     m_manualTokenEdit->setPlaceholderText(tr("Paste gho_* token manually (optional)"));
     m_manualTokenEdit->setEchoMode(QLineEdit::Password);
 
+    m_oauthClientId = new QLineEdit(m_copilotPanel);
+    m_oauthClientId->setPlaceholderText(QStringLiteral("%1 (default)").arg(kCopilotClientId));
+    m_oauthClientId->setToolTip(
+        tr("For Enterprise Cloud: register an OAuth App authorized by your enterprise\n"
+           "and paste its Client ID here. Leave empty for personal accounts."));
+
     QVBoxLayout *copilotLayout = new QVBoxLayout(m_copilotPanel);
     copilotLayout->setContentsMargins(0, 4, 0, 0);
     QHBoxLayout *copilotBtnRow = new QHBoxLayout;
@@ -114,6 +120,8 @@ DltAiOptionsDialog::DltAiOptionsDialog(QWidget *parent)
     copilotLayout->addWidget(m_copilotStatusLabel);
     copilotLayout->addWidget(new QLabel(tr("Manual token:"), m_copilotPanel));
     copilotLayout->addWidget(m_manualTokenEdit);
+    copilotLayout->addWidget(new QLabel(tr("OAuth Client ID:"), m_copilotPanel));
+    copilotLayout->addWidget(m_oauthClientId);
 
     // Main form
     QFormLayout *form = new QFormLayout();
@@ -276,6 +284,13 @@ void DltAiOptionsDialog::onUseExistingToken()
 
 // ---- OAuth Device Flow ----
 
+static QString effectiveClientId(const QString &customId)
+{
+    return customId.trimmed().isEmpty()
+        ? kCopilotClientId
+        : customId.trimmed();
+}
+
 void DltAiOptionsDialog::onSignInWithGitHub()
 {
     m_signInBtn->setEnabled(false);
@@ -283,12 +298,14 @@ void DltAiOptionsDialog::onSignInWithGitHub()
     setCopilotStatus(tr("Requesting device code…"), false);
     QCoreApplication::processEvents();
 
+    QString clientId = effectiveClientId(m_oauthClientId->text());
+
     QNetworkAccessManager mgr;
     QNetworkRequest req(QUrl("https://github.com/login/device/code"));
     req.setHeader(QNetworkRequest::ContentTypeHeader, "application/x-www-form-urlencoded");
     req.setRawHeader("Accept", "application/json");
 
-    QByteArray body = QString("client_id=%1&scope=copilot").arg(kCopilotClientId).toUtf8();
+    QByteArray body = QString("client_id=%1&scope=copilot").arg(clientId).toUtf8();
     QNetworkReply *reply = mgr.post(req, body);
     QEventLoop loop;
     QTimer t; t.setSingleShot(true); t.setInterval(10000);
@@ -332,6 +349,8 @@ void DltAiOptionsDialog::pollOAuthToken()
 {
     if (m_deviceCode.isEmpty()) { m_pollTimer->stop(); return; }
 
+    QString clientId = effectiveClientId(m_oauthClientId->text());
+
     QNetworkAccessManager mgr;
     QNetworkRequest req(QUrl("https://github.com/login/oauth/access_token"));
     req.setHeader(QNetworkRequest::ContentTypeHeader, "application/x-www-form-urlencoded");
@@ -339,7 +358,7 @@ void DltAiOptionsDialog::pollOAuthToken()
 
     QByteArray body = QString(
         "client_id=%1&device_code=%2&grant_type=urn:ietf:params:oauth:grant-type:device_code")
-        .arg(kCopilotClientId, m_deviceCode).toUtf8();
+        .arg(clientId, m_deviceCode).toUtf8();
 
     QNetworkReply *reply = mgr.post(req, body);
     QEventLoop loop;
@@ -482,3 +501,6 @@ void DltAiOptionsDialog::setCopilotOAuthToken(const QString &token)
     if (!token.isEmpty())
         setCopilotStatus(tr("Token configured"), true);
 }
+
+QString DltAiOptionsDialog::oauthClientId() const     { return m_oauthClientId->text().trimmed(); }
+void DltAiOptionsDialog::setOauthClientId(const QString &id) { m_oauthClientId->setText(id); }
