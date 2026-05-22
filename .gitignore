@@ -60,6 +60,19 @@ test_results/
 # DLT log and project files
 *.dlt
 *.dlp
+# ...but the bundled default filter set IS part of the plugin and must be tracked
+!src/resources/default_filters.dlp
+
+# Local ARTIST8 DLT-Viewer fork (qdlt SDK source) — never commit (see CLAUDE.md)
+ART-DLT-viewer-ARTIST8-*/
+# Vendored reference manuals (large binaries)
+dlt_viewer_user_manual.pdf
+dlt_viewer_plugins_programming_guide.pdf
+# Local-only build inputs (Qt install, staged qdlt SDK, root build dirs, helper script)
+/Qt/
+/_dltsdk5/
+/build_qt5/
+_build_msvc.bat
 
 # Package files
 *.tar.gz

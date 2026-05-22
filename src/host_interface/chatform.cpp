@@ -22,6 +22,12 @@
 #include <QPalette>
 #include <QMessageBox>
 #include <QStringListModel>
+#include <QToolButton>
+#include <QMenu>
+#include <QPixmap>
+#include <QIcon>
+#include <QAction>
+#include <QSizePolicy>
 
 namespace DltChat {
 
@@ -38,14 +44,6 @@ static QString btnColorStyle(bool dark, const QString &bg, const QString &fg,
         "QPushButton:hover{background:%4;}"
         "QPushButton:pressed{background:%5;}"
     ).arg(darker).arg(bg).arg(fg).arg(hoverBg).arg(pressed).arg(borderWidth);
-}
-
-static QPushButton *makeBtn(const QString &text, const QString &tip, QWidget *parent)
-{
-    auto *b = new QPushButton(text, parent);
-    b->setToolTip(tip);
-    b->setMinimumHeight(24);
-    return b;
 }
 
 static void applyBtnStyle(QPushButton *b, bool dark, const QString &bg,
@@ -90,69 +88,6 @@ static BtnColors filterColors(bool dark)
     return dark
         ? BtnColors{"#7b1fa2", "#ffffff", "#8e24aa"}
         : BtnColors{"#7b1fa2", "#ffffff", "#6a1b9a"};
-}
-
-static BtnColors helpColors(bool)
-{
-    return BtnColors{"#616161", "#ffffff", "#757575"};
-}
-
-
-
-static BtnColors warnColors(bool dark)
-{
-    return dark
-        ? BtnColors{"#5f3a1e", "#fff3e0", "#824f2a"}
-        : BtnColors{"#ffe0b2", "#e65100", "#ffcc80"};
-}
-
-static BtnColors errorColors(bool dark)
-{
-    return dark
-        ? BtnColors{"#5f1e1e", "#ffebee", "#822a2a"}
-        : BtnColors{"#ffcdd2", "#c62828", "#ef9a9a"};
-}
-
-static BtnColors infoColors(bool dark)
-{
-    return dark
-        ? BtnColors{"#1e3a5f", "#e3f2fd", "#2a4f82"}
-        : BtnColors{"#bbdefb", "#1565c0", "#90caf9"};
-}
-
-static BtnColors debugColors(bool dark)
-{
-    return dark
-        ? BtnColors{"#424242", "#eeeeee", "#616161"}
-        : BtnColors{"#e0e0e0", "#424242", "#bdbdbd"};
-}
-
-static BtnColors verboseColors(bool dark)
-{
-    return dark
-        ? BtnColors{"#333333", "#bdbdbd", "#4a4a4a"}
-        : BtnColors{"#f5f5f5", "#757575", "#e0e0e0"};
-}
-
-static BtnColors systemColors(bool dark)
-{
-    return dark
-        ? BtnColors{"#1b3b1b", "#e8f5e9", "#2a5e2a"}
-        : BtnColors{"#c8e6c9", "#2e7d32", "#a5d6a7"};
-}
-
-static BtnColors analysisColors(bool dark)
-{
-    return dark
-        ? BtnColors{"#3a1b4b", "#f3e5f5", "#5e2a82"}
-        : BtnColors{"#e1bee7", "#7b1fa2", "#ce93d8"};
-}
-
-static BtnColors automotiveColors(bool dark)
-{
-    return dark
-        ? BtnColors{"#1b3a4b", "#e0f7fa", "#2a5e82"}
-        : BtnColors{"#b2ebf2", "#00838f", "#80deea"};
 }
 
 Form::Form(QWidget *parent)
@@ -238,46 +173,22 @@ Form::Form(QWidget *parent)
     aiProgress->setFixedHeight(4);
     aiProgress->hide();
 
-    QGroupBox *quickBox = new QGroupBox(tr("Quick Actions"), this);
+    // Quick Actions are now driven entirely by the native .dlp filters: a small
+    // set of macro-category drop-down menus replaces the former ~70-button grid.
+    // The menus are populated later by buildNativeFilterMenus(), once the host
+    // plugin has loaded the filter catalog (the form must not depend on qdlt).
+    QGroupBox *quickBox = new QGroupBox(tr("Quick Actions (filtri .dlp)"), this);
     auto *quickScroll = new QScrollArea(this);
     quickScroll->setWidgetResizable(true);
     quickScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    quickScroll->setMaximumHeight(220);
-    auto *quickInner = new QWidget(quickScroll);
-    QGridLayout *ql = new QGridLayout(quickInner);
-    ql->setSpacing(2);
-    ql->setContentsMargins(2, 2, 2, 2);
-
-    auto pickColors = [&](int row) -> BtnColors (*)(bool) {
-        if (row == 0) return errorColors;
-        if (row == 6) return automotiveColors;
-        if (row >= 7) return analysisColors;
-        return systemColors;
-    };
-
-    const auto &quickActions = dltchat::CategoryRegistry::instance().quickActions();
-    for (const auto &qa : quickActions) {
-        BtnColors (*colorFn)(bool) = pickColors(qa.row);
-        if (qa.query == QLatin1String("warn")) colorFn = warnColors;
-        else if (qa.query == QLatin1String("info")) colorFn = infoColors;
-        else if (qa.query == QLatin1String("debug")) colorFn = debugColors;
-        else if (qa.query == QLatin1String("verbose")) colorFn = verboseColors;
-        else if (qa.row == 6) colorFn = automotiveColors;
-        else if (qa.row >= 7) colorFn = analysisColors;
-        else if (qa.query == QLatin1String("help")
-                 || qa.query == QLatin1String("categorizza")) colorFn = helpColors;
-
-        auto *b = makeBtn(tr(qa.label.toUtf8().constData()),
-                          tr("Filter: %1").arg(qa.query), quickInner);
-        auto c = colorFn(dark);
-        applyBtnStyle(b, dark, c.bg, c.fg, c.hover);
-        connect(b, &QPushButton::clicked, this, &Form::onQuickActionClicked);
-        ql->addWidget(b, qa.row, qa.col);
-        m_quickActionQueries.insert(b, qa.query);
-    }
-
-    quickInner->setLayout(ql);
-    quickScroll->setWidget(quickInner);
+    quickScroll->setMaximumHeight(120);
+    m_nativeMenuBar = new QWidget(quickScroll);
+    m_nativeMenuLayout = new QGridLayout(m_nativeMenuBar);
+    m_nativeMenuLayout->setSpacing(3);
+    m_nativeMenuLayout->setContentsMargins(2, 2, 2, 2);
+    m_nativeMenuPlaceholder = new QLabel(tr("Nessun filtro .dlp caricato."), m_nativeMenuBar);
+    m_nativeMenuLayout->addWidget(m_nativeMenuPlaceholder, 0, 0);
+    quickScroll->setWidget(m_nativeMenuBar);
     auto *quickOuter = new QVBoxLayout();
     quickOuter->setContentsMargins(0, 0, 0, 0);
     quickOuter->addWidget(quickScroll);
@@ -506,6 +417,51 @@ void Form::onQuickActionClicked()
     if (!q.isEmpty()) {
         lastQuery = q;
         emit quickActionTriggered(q);
+    }
+}
+
+void Form::buildNativeFilterMenus(const QVector<NativeMenuSpec> &specs)
+{
+    // Discard the previous menu buttons (placeholder included).
+    QLayoutItem *item = nullptr;
+    while ((item = m_nativeMenuLayout->takeAt(0)) != nullptr) {
+        if (item->widget()) item->widget()->deleteLater();
+        delete item;
+    }
+    m_nativeMenuPlaceholder = nullptr;
+
+    if (specs.isEmpty()) {
+        m_nativeMenuPlaceholder = new QLabel(tr("Nessun filtro .dlp caricato."), m_nativeMenuBar);
+        m_nativeMenuLayout->addWidget(m_nativeMenuPlaceholder, 0, 0);
+        return;
+    }
+
+    int col = 0;
+    const int columns = 4;   // wrap the category buttons into a compact grid
+    for (const NativeMenuSpec &spec : specs) {
+        auto *tb = new QToolButton(m_nativeMenuBar);
+        tb->setText(spec.label);
+        tb->setPopupMode(QToolButton::InstantPopup);
+        tb->setToolButtonStyle(Qt::ToolButtonTextOnly);
+        tb->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+
+        auto *menu = new QMenu(tb);
+        for (const auto &act : spec.actions) {
+            const QString &name  = act.first;
+            const QColor   &col2 = act.second;
+            // A colour swatch icon makes each entry's highlight colour visible.
+            QPixmap swatch(12, 12);
+            swatch.fill(col2.isValid() ? col2 : QColor(Qt::gray));
+            QAction *a = menu->addAction(QIcon(swatch), name);
+            a->setData(name);
+            connect(a, &QAction::triggered, this, [this, name]() {
+                lastQuery = name;
+                emit nativeFilterTriggered(name);
+            });
+        }
+        tb->setMenu(menu);
+        m_nativeMenuLayout->addWidget(tb, col / columns, col % columns);
+        ++col;
     }
 }
 

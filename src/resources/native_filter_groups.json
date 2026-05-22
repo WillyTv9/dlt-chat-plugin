@@ -1,0 +1,54 @@
+{
+  "version": "1.0",
+  "_comment": "Macro-categories that consolidate the native .dlp filters into a few drop-down menus. 'filters' lists the POSITIVE filter names (matched against <pfilter><name>). 'exclusions' pairs a positive filter with the NEGATIVE (type=1) filter whose matches must be subtracted, reproducing DLT-Viewer semantics (positive = show, negative = hide). Any positive filter not referenced here is collected into an automatic 'Altri' group at runtime.",
+  "groups": [
+    {
+      "id": "bluetooth",
+      "label": "Bluetooth",
+      "filters": ["BluetoothManager", "BluettothStack", "BT Database", "BtDataLink+", "BtAv+", "BtHf+", "BtPbap+"]
+    },
+    {
+      "id": "projection",
+      "label": "Smartphone Projection",
+      "filters": ["AndroidAuto", "AaReceiverLib", "CarPlay", "CarPlayStack", "Carbit", "CarbitSDK", "Alexa", "Ferrite", "M4C", "M4I"]
+    },
+    {
+      "id": "audio_media",
+      "label": "Audio / Media",
+      "filters": ["AudioManager", "MuliMediaPlayer", "VideoManager", "TtsManager"]
+    },
+    {
+      "id": "navigation",
+      "label": "Navigazione / GPS",
+      "filters": ["GPS+", "NaviManager"]
+    },
+    {
+      "id": "system_diag",
+      "label": "Sistema / Diagnostica",
+      "filters": ["SYS+", "SystemManagerLI", "SystemManagerLC", "MessagManager", "ConnectionManager", "DiagnosticManager", "EngMenu", "IviLayer", "UpdateTestApp", "SettingManagerTester"]
+    },
+    {
+      "id": "hmi",
+      "label": "HMI / UI",
+      "filters": ["HmiApp", "HMIM+", "LicenceManager"]
+    },
+    {
+      "id": "security",
+      "label": "Sicurezza",
+      "filters": ["SecurityManager"]
+    },
+    {
+      "id": "radio",
+      "label": "Radio",
+      "filters": ["RadioApp"]
+    }
+  ],
+  "exclusions": {
+    "BluettothStack": "BluettothStack-",
+    "BtHf+": "BtHf-",
+    "BtDataLink+": "BtDataLink-",
+    "BtAv+": "BtAv-",
+    "BtPbap+": "BtPbap-",
+    "BT Database": "DatabaseManager-"
+  }
+}

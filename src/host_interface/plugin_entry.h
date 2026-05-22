@@ -21,6 +21,8 @@
 #include "dltchat/fibex_enricher.h"
 #include "dltchat/user_filter_manager.h"
 #include "dltchat/bulk_analyzer.h"
+#include "native_filter_catalog.h"
+#include "highlight_delegate.h"
 #include "qdltmessagedecoder.h"
 #include "qdltfile.h"
 
@@ -83,6 +85,7 @@ signals:
 private slots:
     void onQuerySubmitted(const QString &query);
     void onQuickActionQuery(const QString &query);
+    void onNativeFilterTriggered(const QString &filterName);
     void onAiQuerySubmitted(const QString &query);
     void onConfigureAiClicked();
     void onIndexActivated(int index);
@@ -101,6 +104,9 @@ private:
     void ingestMessage(int index, QDltMsg &msg);
     void rebuildFilterRowMap() const;
     void highlightIndices(const QList<int> &indices);
+    void highlightIndicesColored(const QList<int> &indices, const QColor &color);
+    void loadNativeFilterCatalog();
+    void populateNativeFilterMenus();
     int findRowForIndex(int index) const;
     void updateStatus(const QString &text);
     void setupDefaultAnalyzer();
@@ -134,6 +140,11 @@ private:
 
     dltchat::UserFilterManager *m_userFilterManager;
     QHash<int, QString> m_highlightMap;
+
+    // Native .dlp-driven Quick Actions.
+    DltChat::NativeFilterCatalog m_nativeFilterCatalog;
+    DltChat::HighlightDelegate  *m_highlightDelegate = nullptr;
+    QString m_dlpFilterPath;   //!< optional override from dlt_chat_plugin.ini ([Filters] dlpPath)
 
     dltchat::DltAnalyzerInterface *m_analyzer;
     dltchat::DltRuleBasedAnalyzer *m_ruleBasedAnalyzer;
