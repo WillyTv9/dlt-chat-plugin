@@ -99,7 +99,7 @@ private slots:
 private:
     void clearData();
     void ingestMessage(int index, QDltMsg &msg);
-    void rebuildFilterRowMap();
+    void rebuildFilterRowMap() const;
     void highlightIndices(const QList<int> &indices);
     int findRowForIndex(int index) const;
     void updateStatus(const QString &text);
@@ -129,7 +129,7 @@ private:
     QHash<QString, QSet<int>> invertedIndex;
     QSet<QString> indexStopwords;
 
-    QHash<int, int> filterRowMap;
+    mutable QHash<int, int> filterRowMap;
     mutable bool filterRowMapDirty = false;
 
     dltchat::UserFilterManager *m_userFilterManager;
