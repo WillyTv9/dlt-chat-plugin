@@ -42,3 +42,10 @@ highlightColor=#FFE680
 
 # Path to user-defined JSON filter file (optional)
 userFiltersPath=
+
+[Filters]
+# Path to a DLT-Viewer project/filter file (.dlp/.dlf) that drives the native
+# Quick Actions. Leave empty to use the embedded default (MY_ARTIST8.dlp).
+# The plugin maps each positive <pfilter> to a Quick Action, subtracts its paired
+# negative filter, and highlights matches using the filter's own <filterColour>.
+dlpPath=

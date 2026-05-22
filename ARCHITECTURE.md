@@ -71,6 +71,28 @@ onQuerySubmitted() → route → liveSearch() | m_analyzer->analyzeQuery()
 form->appendMessage() + form->setResults() + highlightIndices()
 ```
 
+### 2.1bis Native filter Quick Actions (`native_filter_catalog.*`, `highlight_delegate.*`)
+
+**Purpose**: Drive the Quick Actions from the native DLT-Viewer filters of a `.dlp`
+project file instead of hardcoded text queries.
+
+- **`NativeFilterCatalog`** parses every `<pfilter>` of the `.dlp` via the SDK's own
+  `QDltFilter::LoadFilterItem`, so matching is byte-for-byte faithful to DLT-Viewer
+  (App ID / Context ID / header / payload / regex / case-sensitivity). Positive
+  filters become Quick Actions; paired negative (`type=1`) filters are subtracted.
+  The macro-category grouping and the positive→negative pairing come from the
+  embedded `native_filter_groups.json`. Source selection: explicit `.dlp` from
+  `[Filters] dlpPath` in the ini, else the embedded `:/dltchat/default_filters.dlp`.
+- **`HighlightDelegate`** is a `QStyledItemDelegate` installed on the host main
+  table view (`initMainTableView`). It paints each matched row with the filter's own
+  `<filterColour>`, giving distinct multicolour highlighting even on ARTIST8 2.28
+  (which lacks `QDltFile::setManualMarkerIndices()`). It chains the host's original
+  delegate for untouched rows.
+
+**Flow**: `Form::nativeFilterTriggered(name)` → `onNativeFilterTriggered()` →
+`NativeFilterCatalog::match()` over `QDltFile` → `form->setResults()` +
+`highlightIndicesColored()`.
+
 ### 2.2 Chat UI (`chatform.h/.cpp`)
 
 **Purpose**: User-facing chat interface.

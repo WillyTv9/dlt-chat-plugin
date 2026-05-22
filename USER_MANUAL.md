@@ -59,137 +59,52 @@ Quick summary:
 
 ---
 
-## 4. Using Quick Action Buttons
+## 4. Using Quick Action Buttons (filtri nativi .dlp)
 
-The plugin features 76 quick action buttons arranged in a 13-row scrollable grid (rows 0–12):
+Le Quick Actions non usano più query testuali libere: ogni azione corrisponde a un
+**filtro nativo** definito in un file di progetto DLT-Viewer (`.dlp`). Il plugin
+carica il file, mappa ogni filtro positivo (`<pfilter>` con `type=0`) su un'azione,
+sottrae l'eventuale filtro negativo abbinato (`type=1`) e applica esattamente i
+criteri di matching di DLT-Viewer (App ID, Context ID, header/payload, regex e
+case-sensitivity così come configurati nel `.dlp`).
 
-### Row 0: Severity Levels
-| Button | Query | Description |
-|--------|-------|-------------|
-| **Fatal** | `fatal` | Find fatal/critical errors |
-| **Error** | `error` | Find error messages |
-| **Warn** | `warn` | Find warnings |
-| **Info** | `info` | Find informational messages |
-| **Debug** | `debug` | Find debug messages |
-| **Verb** | `verbose` | Find verbose messages |
+### Dove trovare i filtri
+I filtri sono raggruppati in poche **macro-categorie**, ciascuna esposta come un
+pulsante con menu a tendina nel riquadro *Quick Actions (filtri .dlp)*:
 
-### Row 1: Core & Boot
-| Button | Query | Description |
-|--------|-------|-------------|
-| **System** | `system` | System core and frameworks |
-| **Diag** | `diag` | Diagnostics and health monitoring |
-| **GPS** | `gps` | Navigation and positioning |
-| **Startup** | `boot` | Boot process and init |
-| **Power** | `power` | Power management and sleep/suspend |
-| **Session** | `login` | Session and user management |
-| **Security** | `security` | Auth and access control |
+| Menu | Contenuto tipico |
+|------|------------------|
+| **Bluetooth** | BluetoothManager, BluettothStack, BT Database, BtDataLink+, BtAv+, BtHf+, BtPbap+ |
+| **Smartphone Projection** | AndroidAuto, AaReceiverLib, CarPlay, CarPlayStack, Carbit, Alexa, Ferrite, … |
+| **Audio / Media** | AudioManager, MuliMediaPlayer, VideoManager, TtsManager |
+| **Navigazione / GPS** | GPS+, NaviManager |
+| **Sistema / Diagnostica** | SYS+, SystemManagerLI/LC, MessagManager, ConnectionManager, DiagnosticManager, … |
+| **HMI / UI** | HmiApp, HMIM+, LicenceManager |
+| **Sicurezza** | SecurityManager |
+| **Radio** | RadioApp |
+| **Altri** | qualsiasi filtro del `.dlp` non assegnato a un gruppo |
 
-### Row 2: Connectivity
-| Button | Query | Description |
-|--------|-------|-------------|
-| **Network** | `network` | Generic network connectivity |
-| **WiFi** | `wifi` | Wireless networking and hotspots |
-| **Ethernet**| `ethernet`| Wired LAN and PHY management |
-| **BT** | `bt` | Bluetooth and BLE |
-| **USB Stack**| `usbstack`| USB host/device stack |
-| **USB Media**| `usb` | External mass storage |
+Ogni voce di menu mostra un quadratino del **colore del filtro** (il campo
+`<filterColour>` del `.dlp`): è lo stesso colore con cui le righe corrispondenti
+vengono evidenziate nella tabella principale.
 
-### Row 3: Hardware & Vehicle
-| Button | Query | Description |
-|--------|-------|-------------|
-| **Hardware**| `hw` | Low-level drivers and firmware |
-| **Vehicle** | `vehicle` | IVI and generic vehicle data |
-| **CAN** | `can` | CAN bus and vehicle bus data |
-| **Sensors** | `sensors` | Accelerometer, gyro, and temp sensors |
-| **Storage** | `storage` | Filesystems and databases |
+### Come si usa
+1. Apri un log DLT.
+2. Clicca un pulsante macro-categoria e scegli il filtro dal menu.
+3. Il plugin esegue il matching nativo su tutti i messaggi, mostra il numero di
+   righe colpite nella chat e le **evidenzia con il colore del filtro** nella
+   tabella principale di DLT-Viewer.
+4. Usa **Clear** per rimuovere l'evidenziazione.
 
-### Row 4: Media & HMI
-| Button | Query | Description |
-|--------|-------|-------------|
-| **FM** | `radio` | FM Tuner and radio management |
-| **DAB** | `dab` | Digital radio (DAB) |
-| **Audio** | `audio` | Media playback and streams |
-| **Video** | `video` | Video rendering and streaming |
-| **Routing** | `mixer` | Audio routing and ALSA mixer |
-| **Meta** | `metadata` | Gracenote and media metadata |
-| **UI** | `ui` | HMI, QML, and display |
-| **Voice** | `voice` | Voice assistant and speech (Siri/Google) |
+### Da dove provengono i filtri
+- Per default il plugin usa il file **incorporato** `MY_ARTIST8.dlp`.
+- Per usare un `.dlp/.dlf` personale, imposta `dlpPath` nella sezione `[Filters]`
+  di `dlt_chat_plugin.ini` (vedi §13). Il file esterno ha priorità su quello
+  incorporato e può essere aggiornato senza ricompilare il plugin.
 
-### Row 5: Performance & Maps
-| Button | Query | Description |
-|--------|-------|-------------|
-| **Perf** | `perf` | CPU, memory, and profiling |
-| **Stats** | `metrics` | Telemetry and monitoring |
-| **Time** | `time` | Clock and time sync |
-| **OTA** | `update` | Software updates (OTA) |
-| **Maps** | `maps` | Map rendering and tiles |
-| **Location**| `location`| Geolocation services |
-
-### Row 6: Smartphone Projection
-| Button | Query | Description |
-|--------|-------|-------------|
-| **CarPlay** | `carplay` | Apple CarPlay domain |
-| **AndroidAuto**| `androidauto`| Android Auto domain |
-| **Projection**| `projection`| Generic projection issues |
-| **Focus** | `video_focus` | Video focus lost events |
-| **Ducking** | `audio_ducking` | Audio ducking events |
-| **mDNS** | `mdns` | mDNS/DNS-SD discovery |
-| **Sensor** | `sensor_data` | Vehicle sensor data (AA) |
-| **Session Proj**| `session_proj`| Projection session events |
-
-### Row 7: Smart Filters
-| Button | Query | Description |
-|--------|-------|-------------|
-| **Critical** | `critical_only`| Fatal level logs only |
-| **Err Only** | `errors_only` | Error and Fatal levels |
-| **Warn Only** | `warnings_only`| Warning level only |
-| **GPS Err** | `gps_errors` | Errors in Navigation |
-| **Radio Warn**| `radio_warnings`| Warnings in FM/DAB radio |
-| **Net TO** | `network_timeouts`| Network timeouts |
-| **Veh Fault** | `vehicle_faults` | Vehicle interface errors |
-| **DAB Issue** | `dab_audio_issues`| DAB audio drops |
-
-### Row 8: Advanced Projection
-| Button | Query | Description |
-|--------|-------|-------------|
-| **CP Err** | `carplay_errors`| CarPlay specific errors |
-| **AA Err** | `androidauto_errors`| Android Auto specific errors |
-| **Wireless** | `wireless_projection`| Wireless link issues |
-| **Audio Proj**| `audio_routing` | Audio routing issues |
-| **USB CP** | `usb_cp` | USB CP negotiation |
-| **USB AA** | `usb_aa` | USB AA negotiation |
-
-### Row 9: Analysis & Help
-| Button | Query | Description |
-|--------|-------|-------------|
-| **Summary** | `summary` | Show log statistics |
-| **Timeline** | `timeline` | Chronological list |
-| **Pattern** | `pattern` | Duplicate detection |
-| **Categorizza**| `categorizza` | AI classification |
-| **Help** | `help` | Commands help |
-| **Categories** | `categories` | List all filter categories |
-
-### Row 10: Managers
-| Button | Query | Description |
-|--------|-------|-------------|
-| **SysMgr** | `sysmgr` | System manager and watchdog |
-| **Launcher** | `launcher` | App launcher and Rapp manager |
-| **MsgBus** | `msgbus` | Message bus / event bus |
-| **ConMgr** | `conmgr` | Connectivity manager |
-
-### Row 11: Subsystems
-| Button | Query | Description |
-|--------|-------|-------------|
-| **TTS** | `tts` | Text-to-speech manager |
-| **Haptic** | `haptic` | Haptic controller |
-
-### Row 12: Special Filters
-| Button | Query | Description |
-|--------|-------|-------------|
-| **GPS Epoch** | `gps_epoch` | GPS entries mentioning 1970/epoch |
-| **Sys Fatal** | `sys_fatal` | Fatal events in System core |
-| **All Fatal** | `all_fatal` | All fatal-level entries |
-| **Auth Err** | `auth_errors` | Authentication and security errors |
+> I livelli di log (error/warn/info…) e i comandi speciali (`summary`, `timeline`,
+> `help`, `categorizza`…) restano disponibili digitandoli nella casella di chat
+> (vedi §5).
 
 ---
 
