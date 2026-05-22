@@ -64,6 +64,10 @@ test_results/
 # OS specific
 Thumbs.db
 
+# Local DLT Viewer SDK source (custom ARTIST8 fork) — only used locally to
+# build the qdlt SDK; must never be committed to this repo.
+ART-DLT-viewer-ARTIST8-*/
+
 # User config
 dlt_chat_plugin.ini
 
