@@ -108,3 +108,10 @@ jobs:
           else
             ctest --test-dir build --output-on-failure --verbose
           fi
+
+      - name: Upload Linux artifact
+        if: runner.os == 'Linux' && startsWith(github.ref, 'refs/tags/v')
+        uses: actions/upload-artifact@v4
+        with:
+          name: dltchatplugin-linux
+          path: build/src/host_interface/dltchatplugin.so

@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 project(dltchatplugin
-    VERSION 0.7.0
+    VERSION 1.0.0
     DESCRIPTION "Chat Log Assistant plugin for DLT Viewer"
     LANGUAGES CXX
 )

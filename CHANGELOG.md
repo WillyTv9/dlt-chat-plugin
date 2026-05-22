@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0] - 2026-05-22
+
+### Added
+- GitHub Enterprise Cloud support for Copilot OAuth device flow.
+- Native DLP filter integration: route native DLT Viewer filter actions through Quick Actions.
+- Highlight Delegate for per-filter multicolour syntax highlighting in log results.
+- Macro-category menus replacing the old quick-action button grid for better UX.
+- Support for `.dlp` preset-driven Quick Actions.
+
+### Changed
+- Refactored UI quick-action area from button grid to hierarchical macro-category menus.
+- Upgraded plugin interface version to stable 1.0 release.
+
 ## [0.7.0] - 2026-05-15
 
 ### Added
