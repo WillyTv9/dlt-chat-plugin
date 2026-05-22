@@ -38,12 +38,24 @@ set_target_properties(dltchatplugin PROPERTIES
 
 if(MSVC)
     # Suppress C4458 from DLT Viewer SDK headers (parameter hides class member)
-    target_compile_options(dltchatplugin PRIVATE /wd4458)
+    # /source-charset:utf-8 needed for Qt5/MSVC: source files contain Unicode literals
+    # that MSVC misinterprets under the default Windows-1252 code page (C4566).
+    target_compile_options(dltchatplugin PRIVATE /wd4458 /source-charset:utf-8)
 else()
     target_compile_options(dltchatplugin PRIVATE -fvisibility=hidden)
 endif()
 
 if(COMMAND add_plugin)
     add_plugin(dltchatplugin)
+endif()
+
+# Detect QDltFile::setManualMarkerIndices availability (added in DLT Viewer ~2.30)
+get_target_property(_qdlt_inc qdlt INTERFACE_INCLUDE_DIRECTORIES)
+if(EXISTS "${_qdlt_inc}/qdltfile.h")
+    file(READ "${_qdlt_inc}/qdltfile.h" _qdlt_file_h)
+    string(FIND "${_qdlt_file_h}" "setManualMarkerIndices" _has_manual_markers)
+    if(NOT _has_manual_markers EQUAL -1)
+        target_compile_definitions(dltchatplugin PRIVATE QDLT_HAS_SET_MANUAL_MARKER_INDICES=1)
+    endif()
 endif()
 

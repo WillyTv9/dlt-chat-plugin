@@ -1109,7 +1109,9 @@ void DltChatPlugin::highlightIndices(const QList<int> &indices)
             }
         }
     }
+#ifdef QDLT_HAS_SET_MANUAL_MARKER_INDICES
     dltFile->setManualMarkerIndices(m);
+#endif
     if (mainTableView) mainTableView->viewport()->update();
 }
 
