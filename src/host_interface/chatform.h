@@ -5,6 +5,9 @@
 #include <QHash>
 #include <QListView>
 #include <QStringList>
+#include <QVector>
+#include <QPair>
+#include <QColor>
 
 #include "results_model.h"
 class QLabel;
@@ -12,6 +15,7 @@ class QTextBrowser;
 class QLineEdit;
 class QPushButton;
 class QProgressBar;
+class QGridLayout;
 
 namespace DltChat {
 
@@ -27,7 +31,16 @@ public:
         AiAssistantFallback
     };
 
+    //! UI description of one macro-category drop-down: a label plus its
+    //! (native filter name, highlight colour) entries. Built by the host plugin
+    //! from the .dlp catalog and pushed in via buildNativeFilterMenus().
+    struct NativeMenuSpec {
+        QString label;
+        QVector<QPair<QString, QColor>> actions;
+    };
+
     explicit Form(QWidget *parent = nullptr);
+    void buildNativeFilterMenus(const QVector<NativeMenuSpec> &specs);
     void appendMessage(const QString &author, const QString &html);
     void appendMessage(MessageRole role, const QString &html);
     static QString roleLabel(MessageRole role);
@@ -47,6 +60,7 @@ public slots:
 signals:
     void querySubmitted(const QString &query);
     void quickActionTriggered(const QString &query);
+    void nativeFilterTriggered(const QString &filterName);
     void aiQuerySubmitted(const QString &query);
     void configureAiClicked();
     void indexActivated(int index);
@@ -87,6 +101,9 @@ private:
     QString lastQuery;
     QHash<QObject *, QString> m_quickActionQueries;
     QHash<QString, QList<int>> m_quickActionCache;
+    QWidget *m_nativeMenuBar = nullptr;
+    QGridLayout *m_nativeMenuLayout = nullptr;
+    QLabel *m_nativeMenuPlaceholder = nullptr;
 };
 
 } // namespace DltChat
