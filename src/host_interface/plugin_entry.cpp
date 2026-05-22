@@ -314,6 +314,12 @@ bool DltChatPlugin::loadConfig(QString filename)
     if (settings.contains("highlightColor"))
         highlightColor = QColor(settings.value("highlightColor").toString());
     settings.endGroup();
+    // Optional .dlp override; empty => embedded ":/dltchat/default_filters.dlp".
+    settings.beginGroup("Filters");
+    m_dlpFilterPath = settings.value("dlpPath", QString()).toString();
+    settings.endGroup();
+    loadNativeFilterCatalog();
+    populateNativeFilterMenus();
     applyConfigToForm();
     return true;
 }
@@ -357,6 +363,7 @@ QWidget* DltChatPlugin::initViewer()
     form = new DltChat::Form();
     connect(form, &DltChat::Form::querySubmitted, this, &DltChatPlugin::onQuerySubmitted);
     connect(form, &DltChat::Form::quickActionTriggered, this, &DltChatPlugin::onQuickActionQuery);
+    connect(form, &DltChat::Form::nativeFilterTriggered, this, &DltChatPlugin::onNativeFilterTriggered);
     connect(form, &DltChat::Form::aiQuerySubmitted, this, &DltChatPlugin::onAiQuerySubmitted);
     connect(form, &DltChat::Form::configureAiClicked, this, &DltChatPlugin::onConfigureAiClicked);
     connect(form, &DltChat::Form::indexActivated, this, &DltChatPlugin::onIndexActivated);
@@ -386,6 +393,9 @@ QWidget* DltChatPlugin::initViewer()
     });
 
     applyConfigToForm();
+    if (!m_nativeFilterCatalog.isLoaded())
+        loadNativeFilterCatalog();
+    populateNativeFilterMenus();
     return form;
 }
 
@@ -454,7 +464,17 @@ bool DltChatPlugin::controlMsg(int, QDltMsg &) { return true; }
 bool DltChatPlugin::stateChanged(int, QDltConnection::QDltConnectionState, QString) { return true; }
 bool DltChatPlugin::autoscrollStateChanged(bool) { return true; }
 void DltChatPlugin::initMessageDecoder(QDltMessageDecoder *p) { messageDecoder = p; }
-void DltChatPlugin::initMainTableView(QTableView *p) { mainTableView = p; }
+void DltChatPlugin::initMainTableView(QTableView *p)
+{
+    mainTableView = p;
+    // Install the multicolour highlight delegate, chaining the host's original
+    // delegate so untouched rows keep their native rendering.
+    if (mainTableView && !m_highlightDelegate) {
+        m_highlightDelegate = new DltChat::HighlightDelegate(mainTableView);
+        m_highlightDelegate->setInnerDelegate(mainTableView->itemDelegate());
+        mainTableView->setItemDelegate(m_highlightDelegate);
+    }
+}
 void DltChatPlugin::configurationChanged() {}
 
 void DltChatPlugin::setAnalyzerType(const QString &type)
@@ -978,6 +998,11 @@ void DltChatPlugin::onIndexActivated(int index)
 
 void DltChatPlugin::onClearHighlightsRequested()
 {
+    if (m_highlightDelegate) {
+        m_highlightDelegate->clear();
+        if (mainTableView && mainTableView->viewport())
+            mainTableView->viewport()->update();
+    }
     highlightIndices(QList<int>());
     if (form) form->setResults(QList<int>());
 }
@@ -1087,6 +1112,10 @@ int DltChatPlugin::findRowForIndex(int index) const
 void DltChatPlugin::highlightIndices(const QList<int> &indices)
 {
     if (!dltFile) return;
+    // Drop any per-filter colours from a previous native .dlp action so they do
+    // not bleed into a subsequent monochrome (free-text / level) highlight.
+    if (m_highlightDelegate && !m_highlightDelegate->isEmpty())
+        m_highlightDelegate->clear();
     QSet<unsigned long int> seen;
     seen.reserve(indices.size() + m_highlightMap.size());
     QList<unsigned long int> m;
@@ -1113,6 +1142,97 @@ void DltChatPlugin::highlightIndices(const QList<int> &indices)
     dltFile->setManualMarkerIndices(m);
 #endif
     if (mainTableView) mainTableView->viewport()->update();
+}
+
+void DltChatPlugin::loadNativeFilterCatalog()
+{
+    if (!m_nativeFilterCatalog.load(m_dlpFilterPath)) {
+        updateStatus(QStringLiteral("Filtri .dlp non caricati: %1")
+                         .arg(m_nativeFilterCatalog.lastError()));
+    } else {
+        updateStatus(QStringLiteral("Filtri .dlp caricati da %1")
+                         .arg(m_nativeFilterCatalog.sourcePath()));
+    }
+}
+
+void DltChatPlugin::populateNativeFilterMenus()
+{
+    if (!form) return;
+    QVector<DltChat::Form::NativeMenuSpec> specs;
+    for (const DltChat::NativeFilterGroup &g : m_nativeFilterCatalog.groups()) {
+        DltChat::Form::NativeMenuSpec spec;
+        spec.label = g.label;
+        for (const QString &name : g.actionNames) {
+            const DltChat::NativeFilterAction *a = m_nativeFilterCatalog.action(name);
+            spec.actions.append(qMakePair(name, a ? a->colour : QColor()));
+        }
+        if (!spec.actions.isEmpty())
+            specs.append(spec);
+    }
+    form->buildNativeFilterMenus(specs);
+}
+
+void DltChatPlugin::onNativeFilterTriggered(const QString &filterName)
+{
+    if (!form) return;
+    form->appendMessage("Tu", filterName.toHtmlEscaped());
+
+    const DltChat::NativeFilterAction *action = m_nativeFilterCatalog.action(filterName);
+    if (!action) {
+        form->appendMessage("Chat Assistant",
+                            tr("Filtro '%1' non trovato nel catalogo .dlp.").arg(filterName.toHtmlEscaped()));
+        return;
+    }
+    if (!dltFile) {
+        form->appendMessage("Chat Assistant", tr("Nessun file DLT aperto."));
+        return;
+    }
+
+    // Cache key namespaced to avoid clashing with free-text quick-action queries.
+    const QString cacheKey = QStringLiteral("dlp:") + filterName;
+    QList<int> indices = form->cachedQuickActionResult(cacheKey);
+    if (indices.isEmpty()) {
+        indices = m_nativeFilterCatalog.match(*action, dltFile);
+        form->storeQuickActionResult(cacheKey, indices);
+    }
+
+    const QString colourName = action->colour.isValid() ? action->colour.name() : QStringLiteral("#888888");
+    const QString summary = tr("Filtro nativo <b>%1</b> — App=%2 Ctx=%3%4 — "
+                               "<span style='background:%5'>&nbsp;&nbsp;&nbsp;</span> "
+                               "%6 righe corrispondenti.")
+        .arg(filterName.toHtmlEscaped(),
+             action->positive.apid.toHtmlEscaped(),
+             action->positive.ctid.toHtmlEscaped(),
+             action->hasExcludes() ? tr(" (con esclusioni)") : QString(),
+             colourName)
+        .arg(indices.size());
+    form->appendMessage("Chat Assistant", summary);
+
+    form->setResults(indices);
+    highlightIndicesColored(indices, action->colour);
+}
+
+void DltChatPlugin::highlightIndicesColored(const QList<int> &indices, const QColor &color)
+{
+    m_lastSelectedIndices = indices;
+    if (!m_highlightDelegate || !mainTableView) {
+        // No delegate available (e.g. table view not yet wired): fall back to the
+        // monochrome marker/selection path so highlighting still happens.
+        highlightIndices(indices);
+        return;
+    }
+
+    const QColor c = color.isValid() ? color : highlightColor;
+    QHash<int, QColor> rowColors;
+    rowColors.reserve(indices.size());
+    for (int idx : indices) {
+        const int row = findRowForIndex(idx);
+        if (row >= 0)
+            rowColors.insert(row, c);
+    }
+    m_highlightDelegate->setRowColors(rowColors);
+    if (mainTableView->viewport())
+        mainTableView->viewport()->update();
 }
 
 void DltChatPlugin::updateStatus(const QString &text)

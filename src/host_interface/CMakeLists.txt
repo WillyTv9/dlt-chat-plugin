@@ -3,6 +3,8 @@ add_library(dltchatplugin MODULE
     chatform.cpp
     results_model.cpp
     dltaioptionsdialog.cpp
+    native_filter_catalog.cpp
+    highlight_delegate.cpp
 )
 
 target_include_directories(dltchatplugin
