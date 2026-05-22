@@ -5,6 +5,7 @@
 
 #include <QHash>
 #include <QMutex>
+#include <QSet>
 #include <QStringList>
 #include <QVector>
 #include <functional>
