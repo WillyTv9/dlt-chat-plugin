@@ -27,6 +27,12 @@ llmModel=llama3.2:1b
 # llmApiKey=gho_xxxx  (or leave empty to use copilotOAuthToken below)
 # llmModel=gpt-4o
 # copilotOAuthToken=gho_xxxxxxxxxxxxxxxxxxxx
+#
+# --- GitHub Copilot (Enterprise Cloud) ---
+# If your enterprise requires an OAuth App owned/authorized by the
+# enterprise, register one (Settings > Developer settings > OAuth Apps)
+# and set its Client ID below. Leave empty for personal accounts.
+# copilotClientId=Iv1.xxxxxxxxxxxxxxxxxx
 
 # LLM generation parameters (all optional, UI-editable)
 llmMaxTokens=4096

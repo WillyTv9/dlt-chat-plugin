@@ -295,6 +295,7 @@ bool DltChatPlugin::loadConfig(QString filename)
     QString key = settings.value("llmApiKey", "").toString();
     QString model = settings.value("llmModel", "llama3.2:1b").toString();
     m_copilotOAuthToken = settings.value("copilotOAuthToken", "").toString();
+    m_copilotClientId = settings.value("copilotClientId", "").toString();
     int maxTokens = settings.value("llmMaxTokens", 4096).toInt();
     double temperature = settings.value("llmTemperature", 0.7).toDouble();
     int timeoutMs = settings.value("llmTimeout", 120000).toInt();
@@ -335,6 +336,8 @@ bool DltChatPlugin::saveConfig(QString filename)
     }
     if (!m_copilotOAuthToken.isEmpty())
         s.setValue("copilotOAuthToken", m_copilotOAuthToken);
+    if (!m_copilotClientId.isEmpty())
+        s.setValue("copilotClientId", m_copilotClientId);
     s.setValue("bulkAnalysisEnabled", m_bulkAnalysisEnabled);
     s.endGroup();
     s.beginGroup("Behavior");
@@ -928,6 +931,8 @@ void DltChatPlugin::onConfigureAiClicked()
     dlg.setTimeoutMs(m_llmAnalyzer->timeout());
     if (!m_copilotOAuthToken.isEmpty())
         dlg.setCopilotOAuthToken(m_copilotOAuthToken);
+    if (!m_copilotClientId.isEmpty())
+        dlg.setOauthClientId(m_copilotClientId);
 
     connect(&dlg, &DltAiOptionsDialog::copilotTokenObtained, this, [this](const QString &tok) {
         m_copilotOAuthToken = tok;
@@ -950,6 +955,7 @@ void DltChatPlugin::onConfigureAiClicked()
         m_llmAnalyzer->setTimeout(dlg.timeoutMs());
         if (!dlg.copilotOAuthToken().isEmpty())
             m_copilotOAuthToken = dlg.copilotOAuthToken();
+        m_copilotClientId = dlg.oauthClientId();
         m_aiAvailabilityRetryCount = 0;
         m_aiResponseCache.clear();
         checkAiAvailabilityAsync();
