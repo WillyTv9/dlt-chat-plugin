@@ -40,7 +40,7 @@ if(MSVC)
     # Suppress C4458 from DLT Viewer SDK headers (parameter hides class member)
     # /source-charset:utf-8 needed for Qt5/MSVC: source files contain Unicode literals
     # that MSVC misinterprets under the default Windows-1252 code page (C4566).
-    target_compile_options(dltchatplugin PRIVATE /wd4458 /source-charset:utf-8)
+    target_compile_options(dltchatplugin PRIVATE /wd4458 /utf-8)
 else()
     target_compile_options(dltchatplugin PRIVATE -fvisibility=hidden)
 endif()
