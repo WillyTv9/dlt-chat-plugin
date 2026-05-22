@@ -2,22 +2,6 @@ name: Reusable Build
 
 on:
   workflow_call:
-    inputs:
-      build_dist:
-        description: "Build distribution package"
-        required: false
-        default: false
-        type: boolean
-      upload_artifacts:
-        description: "Upload built artifacts"
-        required: false
-        default: true
-        type: boolean
-      version_suffix:
-        description: "Suffix for artifacts (e.g. v0.7.0)"
-        required: false
-        default: "dev"
-        type: string
 
 jobs:
   build:
@@ -104,27 +88,11 @@ jobs:
             ${QT_ROOT_DIR:+-DCMAKE_PREFIX_PATH="${QT_ROOT_DIR}"} \
             -DCMAKE_BUILD_TYPE=Release \
             -DDLTCHAT_BUILD_TESTS=ON \
-            -DQT_PREFIX=Qt5 \
-            -DDLTCHAT_BUILD_DIST=${{ inputs.build_dist && 'ON' || 'OFF' }}
+            -DQT_PREFIX=Qt5
 
       - name: Build
         shell: bash
         run: cmake --build build --config Release --parallel
-
-      - name: Deploy Qt runtime (Windows)
-        if: runner.os == 'Windows'
-        shell: bash
-        run: |
-          WIN_DEPLOY_QT="${QT_ROOT_DIR}/bin/windeployqt.exe"
-          if [ -f "$WIN_DEPLOY_QT" ]; then
-            "$WIN_DEPLOY_QT" --no-translations --no-system-d3d-compiler --no-opengl-sw \
-              build/tests/Release/tests.exe
-          fi
-
-      - name: List test directory (Windows debug)
-        if: runner.os == 'Windows'
-        shell: bash
-        run: ls -la build/tests/Release/ && ls -la build/tests/Release/platforms/ 2>/dev/null || true
 
       - name: Run Tests
         shell: bash
@@ -134,38 +102,3 @@ jobs:
           else
             ctest --test-dir build --output-on-failure --verbose
           fi
-
-      - name: Stage binary artifact
-        shell: bash
-        run: |
-          if [ "${{ runner.os }}" == "Windows" ]; then
-            cp build/src/host_interface/Release/dltchatplugin.dll \
-               dltchatplugin-${{ inputs.version_suffix }}-win64.dll
-          else
-            cp build/src/host_interface/dltchatplugin.so \
-               dltchatplugin-${{ inputs.version_suffix }}-linux64.so
-          fi
-
-      - name: Create Package
-        if: inputs.build_dist
-        shell: bash
-        run: |
-          cmake --build build --target dist --config Release
-          cd build/dist
-          if [ "${{ runner.os }}" == "Windows" ]; then
-            powershell -Command "Compress-Archive -Path dltchatplugin -DestinationPath ../../dltchatplugin-${{ inputs.version_suffix }}-win64.zip -Force"
-          else
-            tar -czf ../../dltchatplugin-${{ inputs.version_suffix }}-linux64.tar.gz dltchatplugin
-          fi
-
-      - name: Upload Artifacts
-        if: inputs.upload_artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: dltchatplugin-${{ runner.os }}-${{ inputs.version_suffix }}
-          path: |
-            dltchatplugin-*.zip
-            dltchatplugin-*.tar.gz
-            dltchatplugin-*.dll
-            dltchatplugin-*.so
-          if-no-files-found: warn

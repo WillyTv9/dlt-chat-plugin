@@ -9,7 +9,3 @@ on:
 jobs:
   build:
     uses: ./.github/workflows/reusable-build.yml
-    with:
-      build_dist: true
-      upload_artifacts: true
-      version_suffix: "dev"
