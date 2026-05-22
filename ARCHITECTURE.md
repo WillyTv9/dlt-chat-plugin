@@ -57,7 +57,8 @@ chat-based log analysis. It supports both rule-based (local) and LLM/AI
 - Message ingestion with inverted index building
 - Query routing: presets → special commands → liveSearch → analyzer
 - AI availability checks with exponential backoff
-- Index highlighting via `dltFile->setManualMarkerIndices()`
+- Index highlighting via `dltFile->setManualMarkerIndices()` on DLT Viewer ≥ 2.30; on the ARTIST8
+  2.28 fork (no such API) it falls back to selecting the matched rows in the host main table
 - User filter integration and CSV export coordination
 
 **Data Flow**:
@@ -323,7 +324,7 @@ onAiQuerySubmitted(query)
 | Qt Widgets | Yes | 5.15+ / 6.x |
 | Qt Network | Yes | 5.15+ / 6.x |
 | Qt Xml | Yes | 5.15+ / 6.x |
-| DLT Viewer SDK (qdlt) | Yes | 2.30.0+ |
+| DLT Viewer SDK (qdlt) | Yes | ARTIST8 2.28 / 2.28.x (plugin interface 1.0.1) |
 | C++ Compiler | Yes | C++17 |
 | CMake | Yes | 3.16+ |
 
