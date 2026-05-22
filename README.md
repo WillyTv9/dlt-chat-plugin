@@ -1,13 +1,14 @@
 # Chat Log Assistant Plugin
 
 [![License: MPL 2.0](https://img.shields.io/badge/License-MPL_2.0-blue.svg)](LICENSE)
-[![Qt Version](https://img.shields.io/badge/Qt-5.15+%2F6.x-green.svg)](https://www.qt.io/)
-[![DLT Viewer](https://img.shields.io/badge/DLT_Viewer-2.30.0+-orange.svg)](https://github.com/COVESA/dlt-viewer)
+[![Qt Version](https://img.shields.io/badge/Qt-5.15.2_|_6.x-green.svg)](https://www.qt.io/)
+[![DLT Viewer](https://img.shields.io/badge/DLT_Viewer-ARTIST8_2.28-orange.svg)](https://github.com/COVESA/dlt-viewer)
 [![Version](https://img.shields.io/badge/Version-0.7.0-blue.svg)](.)
 [![CI](https://img.shields.io/github/actions/workflow/status/WillyTv9/dlt-chat-plugin/build.yml?branch=main&label=CI)](https://github.com/WillyTv9/dlt-chat-plugin/actions)
-[![Presentation](https://img.shields.io/badge/📊-Presentation-blue?style=flat&labelColor=555)](https://WillyTv9.github.io/dlt-chat-plugin/)
 
 A chat-based log analysis plugin for COVESA DLT Viewer with rule-based analysis and optional AI (LLM) integration.
+
+Built and validated against the custom **ART DLT Viewer ARTIST8 2.28** fork (Qt 5.15.2 / MSVC 2019).
 
 Plugin per l'analisi dei log DLT con interfaccia chat, analisi rule-based e supporto AI opzionale.
 
@@ -19,9 +20,13 @@ See [INSTALL.md](INSTALL.md) for complete step-by-step instructions covering:
 
 | Platform | Toolchain | Qt | DLT Viewer SDK |
 |----------|-----------|-----|-----------------|
-| **Windows** | VS 2019/2022 BuildTools MSVC | Qt 6.8.3 MSVC (via aqtinstall) | Pre-built binary from GitHub Releases |
-| **Linux** | GCC 9+ / Clang 10+ | System Qt6 (`apt`) | Built from source (v2.30.0) |
-| **macOS** | Xcode Command Line Tools (Clang 14+) | Homebrew Qt6 | Built from source (v2.30.0) |
+| **Windows** | VS 2019 BuildTools MSVC | Qt 5.15.2 MSVC (`win64_msvc2019_64`) | ARTIST8 2.28 fork SDK (or pre-built 2.28.1) |
+| **Linux** | GCC 9+ / Clang 10+ | System Qt5 (`apt`) | Built from source (2.28.1) |
+| **macOS** | Xcode Command Line Tools (Clang 14+) | Homebrew Qt5 | Built from source (2.28.1) |
+
+> The runtime target is the custom **ART DLT Viewer ARTIST8 2.28** fork. CI builds against the
+> interface-identical public COVESA 2.28.1 SDK; for local use point `QDLT_ROOT` at the SDK produced
+> by the ARTIST8 fork build (`DLT_INSTALL_SDK=ON`). A Qt6 build still works via the CMake fallback.
 
 Three build options available:
 - **Option A** — Build within DLT Viewer (recommended)
@@ -126,8 +131,8 @@ Load custom regex-based highlight filters via the **Filters** button. See
 
 GitHub Actions builds and tests on every push/PR:
 
-- **Windows** (MSVC 2022, Qt 6.7, DLT Viewer SDK 2.30.0)
-- **Linux** (GCC, Qt 6.7, qdlt built from source)
+- **Windows** (MSVC 2019, Qt 5.15.2, DLT Viewer SDK 2.28.1)
+- **Linux** (GCC, Qt 5.15, qdlt 2.28.1 built from source)
 
 Test, build, and upload artifacts. Release workflow also creates distribution bundles (`win64.zip` / `linux64.tar.gz`).
 

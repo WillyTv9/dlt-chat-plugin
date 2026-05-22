@@ -6,24 +6,51 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A C++17/Qt plugin for [COVESA DLT Viewer](https://github.com/COVESA/dlt-viewer) that adds an interactive chat interface for analyzing automotive diagnostic logs. Supports both deterministic rule-based analysis and AI-powered analysis via LLM providers (Ollama, OpenAI, LocalAI, Custom).
 
+## Runtime target
+
+The plugin targets the custom **ART DLT Viewer ARTIST8 2.28** fork (`PACKAGE_VERSION 2.28.1`,
+plugin interface `1.0.1`), which ships with **Qt 5.15.2 / MSVC 2019**. The plugin's interface
+classes already match this SDK exactly. CI validates against the interface-identical public
+**COVESA 2.28.1** SDK.
+
+> The ARTIST8 source tree (`ART-DLT-viewer-ARTIST8-*/`) is **gitignored** — it lives locally only,
+> to build the qdlt SDK the plugin links against. It must never be committed.
+
 ## Build Prerequisites (Windows)
 
-**Critical — DLT Viewer's Qt6 is MSVC-built** (depends on `MSVCP140.dll`, `VCRUNTIME140.dll`).  
+**Critical — the ARTIST8 DLT Viewer is MSVC-built** (depends on `MSVCP140.dll`, `VCRUNTIME140.dll`).  
 The plugin **must** be compiled with the same toolchain — MinGW/GCC produces an incompatible C++ ABI and cannot load.
 
 Available toolchains:
-- **VS 2019 BuildTools** (`C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools`) — confirmed working
-- **VS 2022 Enterprise** at non-standard path `C:\Program Files\Microsoft Visual Studio\18\Enterprise` — VC++ workload NOT installed
+- **VS 2019 BuildTools** (`C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools`) — confirmed working, matches the ARTIST8 Qt 5.15.2 build
 
-**Qt 6.8.3 for MSVC** must be installed separately. The MinGW Qt6 from MSYS2 (`C:\msys64\ucrt64`) cannot be used.
+**Qt 5.15.2 for MSVC 2019** must be installed separately. The MinGW Qt from MSYS2 (`C:\msys64\ucrt64`) cannot be used.
 
 ```bash
-# Install Qt6 MSVC via aqtinstall (no Qt account required)
+# Install Qt 5.15.2 MSVC via aqtinstall (no Qt account required)
 pip install aqtinstall
-python -m aqt install-qt windows desktop 6.8.3 win64_msvc2022_64 --outputdir C:\Qt6
+python -m aqt install-qt windows desktop 5.15.2 win64_msvc2019_64 --outputdir C:\Qt
 ```
 
-MSVC Qt6 is now at `C:\Qt\6.8.3\msvc2022_64`.
+MSVC Qt is now at `C:\Qt\5.15.2\msvc2019_64`. (A Qt6 build still works via the CMake fallback, but
+Qt 5.15.2 is the canonical target since it matches the ARTIST8 viewer.)
+
+### Building the qdlt SDK from the ARTIST8 fork
+
+The plugin links against the `qdlt` library/headers. Produce an SDK from the local ARTIST8 tree:
+
+```bash
+cmake -G Ninja -S ART-DLT-viewer-ARTIST8-2.28 -B ART-DLT-viewer-ARTIST8-2.28\build ^
+  -DCMAKE_BUILD_TYPE=Release ^
+  -DCMAKE_PREFIX_PATH="C:\Qt\5.15.2\msvc2019_64" ^
+  -DDLT_INSTALL_SDK=ON ^
+  -DCMAKE_INSTALL_PREFIX="C:\DltViewerSDK"
+cmake --build ART-DLT-viewer-ARTIST8-2.28\build --config Release --parallel
+cmake --install ART-DLT-viewer-ARTIST8-2.28\build
+```
+
+This yields `C:\DltViewerSDK\sdk\include\qdlt\*.h` and `C:\DltViewerSDK\sdk\lib\qdlt.lib` — point
+`QDLT_ROOT` at `C:\DltViewerSDK\sdk`.
 
 ## Build Commands (Windows MSVC)
 
@@ -34,8 +61,9 @@ Run from a **Visual Studio 2019 Developer Command Prompt** (`VsDevCmd.bat -arch=
 set PATH=%PATH:C:\msys64=%
 cmake -G Ninja -S . -B build_msvc_qt ^
   -DCMAKE_BUILD_TYPE=Release ^
-  -DCMAKE_PREFIX_PATH="C:\Qt\6.8.3\msvc2022_64" ^
-  -DQDLT_ROOT="%LOCALAPPDATA%\Programs\dlt-viewer\sdk" ^
+  -DQT_PREFIX=Qt5 ^
+  -DCMAKE_PREFIX_PATH="C:\Qt\5.15.2\msvc2019_64" ^
+  -DQDLT_ROOT="C:\DltViewerSDK\sdk" ^
   -DCMAKE_DISABLE_FIND_PACKAGE_Vulkan=ON
 cmake --build build_msvc_qt --config Release --parallel
 ```
@@ -54,8 +82,9 @@ if errorlevel 1 exit /b 1
 set PATH=%PATH:C:\msys64=%
 cmake -G Ninja -S "%~dp0." -B "%~dp0build_msvc_qt" ^
   -DCMAKE_BUILD_TYPE=Release ^
-  -DCMAKE_PREFIX_PATH="C:\Qt\6.8.3\msvc2022_64" ^
-  -DQDLT_ROOT="%LOCALAPPDATA%\Programs\dlt-viewer\sdk" ^
+  -DQT_PREFIX=Qt5 ^
+  -DCMAKE_PREFIX_PATH="C:\Qt\5.15.2\msvc2019_64" ^
+  -DQDLT_ROOT="C:\DltViewerSDK\sdk" ^
   -DCMAKE_DISABLE_FIND_PACKAGE_Vulkan=ON
 if errorlevel 1 exit /b 1
 cmake --build "%~dp0build_msvc_qt" --config Release --parallel
@@ -65,7 +94,7 @@ cmake --build "%~dp0build_msvc_qt" --config Release --parallel
 
 ```bash
 # Build with tests enabled
-cmake -B build_tests -S tests -DQT_PREFIX=Qt6
+cmake -B build_tests -S tests -DQT_PREFIX=Qt5
 cmake --build build_tests --config Release
 
 # Run all tests
@@ -82,7 +111,7 @@ cmake --build build --target dist
 - `-DDLTCHAT_BUILD_TESTS=ON` — enable unit tests
 - `-DDLTCHAT_BUILD_DIST=ON` — enable distribution packaging
 - `-DDLT_ENABLE_ASAN=ON` — AddressSanitizer for Debug builds
-- `-DQT_PREFIX=...` — override Qt version (auto-detects Qt6 then Qt5)
+- `-DQT_PREFIX=...` — override Qt version (auto-detects Qt6 then Qt5; use `Qt5` for the ARTIST8 target)
 - `-DQDLT_ROOT=...` — DLT Viewer SDK path
 - `-DCMAKE_DISABLE_FIND_PACKAGE_Vulkan=ON` — **required for MSVC builds**; prevents MinGW include path contamination
 
@@ -92,13 +121,14 @@ Install system dependencies:
 
 ```bash
 sudo apt-get update
-sudo apt-get install -y libqt6serialport6-dev libcups2-dev cmake ninja-build
+sudo apt-get install -y qtbase5-dev libqt5serialport5-dev libcups2-dev cmake ninja-build
 ```
 
-Build DLT Viewer SDK from source (required; no pre-built binary for Linux):
+Build DLT Viewer SDK from source (required; no pre-built binary for Linux). CI uses the public
+COVESA `2.28.1` tag, interface-identical to the ARTIST8 fork:
 
 ```bash
-git clone --depth 1 --branch v2.30.0 \
+git clone --depth 1 --branch 2.28.1 \
   https://github.com/COVESA/dlt-viewer.git /tmp/dlt-viewer-src
 
 cmake -B /tmp/dlt-viewer-src/build \
@@ -133,7 +163,7 @@ brew install cmake ninja qt6
 Build DLT Viewer SDK from source (same flow as Linux, with macOS-specific paths):
 
 ```bash
-git clone --depth 1 --branch v2.30.0 \
+git clone --depth 1 --branch 2.28.1 \
   https://github.com/COVESA/dlt-viewer.git /tmp/dlt-viewer-src
 
 cmake -B /tmp/dlt-viewer-src/build \
@@ -238,10 +268,17 @@ The plugin reads `dlt_chat_plugin.ini` at startup. The example file `dlt_chat_pl
 
 ## Dependencies
 
-- Qt 5.15+ or Qt 6.x (Core, Gui, Widgets, Network, Xml; Test for tests)
-- DLT Viewer SDK (`qdlt`) ≥ 2.30.0 — located via `Findqdlt.cmake`
+- Qt 5.15.2 (canonical) or Qt 6.x (Core, Gui, Widgets, Network, Xml; Test for tests)
+- DLT Viewer SDK (`qdlt`) — ARTIST8 2.28 / 2.28.x (plugin interface `1.0.1`) — located via `Findqdlt.cmake`
 - No other external libraries
+
+> **2.28 vs 2.30 API note:** `QDltFile::setManualMarkerIndices()` is a 2.30 API absent in ARTIST8
+> 2.28. CMake feature-detects it (`QDLT_HAS_SET_MANUAL_MARKER_INDICES`); on 2.28, `highlightIndices()`
+> falls back to selecting the matched rows in the host main table via `QItemSelectionModel`.
 
 ## CI
 
-GitHub Actions (`.github/workflows/build.yml`) builds on Windows and Linux in the CI matrix. macOS is not in the CI matrix but builds cleanly via the manual steps above (Homebrew + source SDK build). Do not skip the test step when modifying core logic.
+GitHub Actions (`.github/workflows/build.yml`) builds and tests on Windows and Linux against Qt
+5.15.2 and the COVESA 2.28.1 SDK (interface-identical to the ARTIST8 fork). It is the only workflow;
+the legacy GitHub Pages deployment has been retired. macOS is not in the CI matrix but builds
+cleanly via the manual steps above. Do not skip the test step when modifying core logic.

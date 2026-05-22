@@ -5,9 +5,15 @@ on:
 
 jobs:
   build:
+    name: Build & Test · ${{ matrix.label }}
     strategy:
+      fail-fast: false
       matrix:
-        os: [windows-latest, ubuntu-latest]
+        include:
+          - os: windows-latest
+            label: Windows · Qt 5.15.2 / MSVC 2019
+          - os: ubuntu-latest
+            label: Linux · Qt 5.15.2
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
