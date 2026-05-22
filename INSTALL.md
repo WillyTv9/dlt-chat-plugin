@@ -2,13 +2,14 @@
 
 ## Prerequisites
 
-- **DLT Viewer** 2.30.0 or later
-  ([COVESA/dlt-viewer](https://github.com/COVESA/dlt-viewer))
-- **Qt** 5.15+ or 6.x (with Core, Gui, Widgets, Network, Xml modules)
+- **DLT Viewer** — custom **ART ARTIST8 2.28** fork (runtime target); CI validates against the
+  interface-identical public [COVESA/dlt-viewer](https://github.com/COVESA/dlt-viewer) **2.28.1**
+- **Qt** 5.15.2 (canonical target) or 6.x (with Core, Gui, Widgets, Network, Xml modules)
 - **CMake** 3.16 or later
-- **C++17** compatible compiler (MSVC 2019+, GCC 9+, Clang 10+)
+- **C++17** compatible compiler (MSVC 2019, GCC 9+, Clang 10+)
   - macOS: Xcode Command Line Tools (`xcode-select --install`) provide Clang 14+; install Homebrew from https://brew.sh
-- **DLT Viewer SDK** (qdlt) — included in DLT Viewer source or binary distribution
+- **DLT Viewer SDK** (qdlt) — produced by the ARTIST8 fork build (`DLT_INSTALL_SDK=ON`) or taken
+  from a 2.28.1 source/binary distribution
 
 ---
 
@@ -116,7 +117,7 @@ cmake --build . --parallel --config Release
 
 ## Option C: Windows Quick Build
 
-1. Open a **Developer Command Prompt for VS 2022**
+1. Open a **Developer Command Prompt for VS 2019**
 2. Navigate to the plugin directory
 3. Run: `build_plugin.bat`
 
@@ -139,7 +140,7 @@ brew install cmake ninja qt6
 ### Step 2: Build DLT Viewer SDK
 
 ```bash
-git clone --depth 1 --branch v2.30.0 \
+git clone --depth 1 --branch 2.28.1 \
   https://github.com/COVESA/dlt-viewer.git /tmp/dlt-viewer-src
 
 cmake -B /tmp/dlt-viewer-src/build \
@@ -216,7 +217,7 @@ cp build/src/host_interface/libdltchatplugin.dylib \
 
 If the plugin does not appear in the Plugin Settings menu, verify:
 - The DLL/SO/dylib is in the correct plugins directory
-- The plugin matches the DLT Viewer version (2.30.0+)
+- The plugin matches the DLT Viewer version (ARTIST8 2.28 / 2.28.1)
 - Qt libraries are available in the system PATH
 
 ---
@@ -285,7 +286,7 @@ cmake --build build --target dist
 | `Could not find qdlt` | Set `QDLT_ROOT` to DLT Viewer SDK directory |
 | `Could not find Qt5Config` | Install Qt or set `-DQT_PREFIX=Qt6` |
 | Link errors on Windows | Ensure you use the same compiler as the DLT Viewer SDK |
-| Plugin not loading | Check DLT Viewer version (2.30.0+ required) |
+| Plugin not loading | Check DLT Viewer version (ARTIST8 2.28 / 2.28.1) and that it was built with the same Qt+compiler |
 | Plugin not visible in menu | Verify DLL is in the correct plugins directory |
 | Build fails on Linux | Install `libgl1-mesa-dev` or equivalent |
 | `brew link qt6` fails on macOS | Run `brew unlink qt@5 && brew link qt6` |
