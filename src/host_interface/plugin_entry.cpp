@@ -1065,7 +1065,7 @@ void DltChatPlugin::ingestMessage(int index, QDltMsg &msg)
         invertedIndex[k].insert(index);
 }
 
-void DltChatPlugin::rebuildFilterRowMap()
+void DltChatPlugin::rebuildFilterRowMap() const
 {
     if (!dltFile) return;
     filterRowMap.clear();
@@ -1080,7 +1080,7 @@ int DltChatPlugin::findRowForIndex(int index) const
 {
     if (!dltFile) return -1;
     if (filterRowMapDirty)
-        const_cast<DltChatPlugin*>(this)->rebuildFilterRowMap();
+        rebuildFilterRowMap();
     return filterRowMap.value(index, -1);
 }
 

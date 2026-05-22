@@ -587,13 +587,13 @@ bool DltLlmAnalyzerInterface::analyzeQueryAsync(const QString &query,
     QByteArray body = buildRequestBody(prompt);
     QNetworkReply *reply = m_networkManager->post(req, body);
 
-    QElapsedTimer *timer = new QElapsedTimer();
-    timer->start();
-    QString *queryCopy = new QString(query);
-    QString *cacheKeyPtr = new QString(cacheKey);
+    QElapsedTimer timer;
+    timer.start();
+    QString queryCopy(query);
+    QString cacheKeyPtr(cacheKey);
 
     connect(reply, &QNetworkReply::finished, this, [this, reply, timer, queryCopy, cacheKeyPtr]() {
-        QueryResult r = processReply(reply, *timer);
+        QueryResult r = processReply(reply, timer);
 
         if (r.success && m_conversationManager) {
             m_conversationManager->addTurn("assistant", r.responseHtml.left(500));
@@ -630,19 +630,16 @@ bool DltLlmAnalyzerInterface::analyzeQueryAsync(const QString &query,
                 m_cacheAccessOrder.erase(m_cacheAccessOrder.begin(),
                                          m_cacheAccessOrder.begin() + removeCount);
             }
-            m_cacheAccessOrder.removeAll(*cacheKeyPtr);
-            m_cacheAccessOrder.append(*cacheKeyPtr);
+            m_cacheAccessOrder.removeAll(cacheKeyPtr);
+            m_cacheAccessOrder.append(cacheKeyPtr);
             CacheEntry entry;
             entry.result = r;
             entry.timestamp = QDateTime::currentDateTime();
-            m_responseCache[*cacheKeyPtr] = entry;
+            m_responseCache[cacheKeyPtr] = entry;
         }
 
-        emit queryResultReady(r, *queryCopy);
+        emit queryResultReady(r, queryCopy);
         reply->deleteLater();
-        delete timer;
-        delete queryCopy;
-        delete cacheKeyPtr;
     });
 
     return true;

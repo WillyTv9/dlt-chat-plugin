@@ -58,7 +58,7 @@ void TestFibexEnricher::testClear()
 {
     FibexEnricher enricher;
     QString testFile = createTestXml();
-    if (testFile.isEmpty()) QSKIP("Cannot create temp file");
+    if (testFile.isEmpty()) QFAIL("Cannot create temp file");
 
     bool loaded = enricher.loadFile(testFile);
     QVERIFY(loaded);
@@ -73,7 +73,7 @@ void TestFibexEnricher::testEnrichEntry()
 {
     FibexEnricher enricher;
     QString testFile = createTestXml();
-    if (testFile.isEmpty()) QSKIP("Cannot create temp file");
+    if (testFile.isEmpty()) QFAIL("Cannot create temp file");
 
     bool loaded = enricher.loadFile(testFile);
     QVERIFY(loaded);

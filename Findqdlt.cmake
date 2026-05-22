@@ -106,12 +106,6 @@ if(QDLT_FOUND AND NOT TARGET qdlt)
             IMPORTED_LOCATION "${QDLT_RUNTIME}"
         )
     endif()
-    if(MINGW)
-        set_target_properties(qdlt PROPERTIES
-            IMPORTED_IMPLIB "${QDLT_LIBRARY}"
-        )
-    endif()
-
     # Mark as found and cached
     mark_as_advanced(QDLT_INCLUDE_DIR QDLT_LIBRARY QDLT_RUNTIME)
 endif()

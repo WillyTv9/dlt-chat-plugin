@@ -32,8 +32,8 @@
 #include <QClipboard>
 #include <QApplication>
 
-static const QString kCopilotClientId = "Iv1.b507a08c87ecfe98";
-static const QString kCopilotEndpoint = "https://api.githubcopilot.com/chat/completions";
+static constexpr const char* kCopilotClientId = "Iv1.b507a08c87ecfe98";
+static constexpr const char* kCopilotEndpoint = "https://api.githubcopilot.com/chat/completions";
 
 DltAiOptionsDialog::DltAiOptionsDialog(QWidget *parent)
     : QDialog(parent)
