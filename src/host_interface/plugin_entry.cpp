@@ -8,6 +8,7 @@
 #include <QDateTime>
 #include <QRegularExpression>
 #include <QItemSelectionModel>
+#include <QItemSelection>
 #include <QMutexLocker>
 #include <QSettings>
 #include <QThread>
@@ -1111,6 +1112,27 @@ void DltChatPlugin::highlightIndices(const QList<int> &indices)
     }
 #ifdef QDLT_HAS_SET_MANUAL_MARKER_INDICES
     dltFile->setManualMarkerIndices(m);
+#else
+    // DLT Viewer < 2.30 (e.g. ARTIST8 2.28) has no setManualMarkerIndices:
+    // highlight matched messages by selecting their rows in the host main
+    // table instead. An empty list clears the previous selection.
+    if (mainTableView && mainTableView->model() && mainTableView->selectionModel())
+    {
+        QAbstractItemModel *model = mainTableView->model();
+        const int lastCol = model->columnCount() - 1;
+        QItemSelection selection;
+        for (unsigned long int ul : m)
+        {
+            int row = findRowForIndex(static_cast<int>(ul));
+            if (row < 0) continue;
+            const QModelIndex topLeft = model->index(row, 0);
+            const QModelIndex bottomRight = model->index(row, lastCol);
+            if (topLeft.isValid() && bottomRight.isValid())
+                selection.select(topLeft, bottomRight);
+        }
+        mainTableView->selectionModel()->select(
+            selection, QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
+    }
 #endif
     if (mainTableView) mainTableView->viewport()->update();
 }
