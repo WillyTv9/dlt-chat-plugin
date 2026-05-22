@@ -28,11 +28,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Qt
+      - name: Install Qt (Windows)
+        if: runner.os == 'Windows'
         uses: jurplel/install-qt-action@v4
         with:
-          version: "6.7"
-          modules: qtserialport
+          version: "5.15.2"
+          arch: win64_msvc2019_64
 
       # === WINDOWS SDK ===
       - name: Cache DLT Viewer SDK (Windows)
@@ -41,7 +42,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/dlt-viewer-sdk
-          key: windows-dlt-sdk-2.30.0
+          key: windows-dlt-sdk-2.28.1-qt5
 
       - name: Download DLT Viewer SDK (Windows)
         if: runner.os == 'Windows' && steps.cache-dlt-win.outputs.cache-hit != 'true'
@@ -49,25 +50,30 @@ jobs:
         run: |
           $sdkDir = "$HOME/dlt-viewer-sdk"
           $tmpDir = "$sdkDir/dlttmp"
-          $url = "https://github.com/COVESA/dlt-viewer/releases/download/2.30.0/DLTViewer-2.30.0-STABLE-qt6.8.3-r1318_msvc2022_x64-win64.7z"
+          $url = "https://github.com/COVESA/dlt-viewer/releases/download/2.28.1/DLT-Windows-sdk.zip"
           mkdir -Force $tmpDir | Out-Null
-          curl.exe -sL $url -o "$tmpDir/sdk.7z"
-          & "C:\Program Files\7-Zip\7z.exe" x "$tmpDir/sdk.7z" -o"$sdkDir" -y
+          curl.exe -sL $url -o "$tmpDir/sdk.zip"
+          Expand-Archive -Path "$tmpDir/sdk.zip" -DestinationPath "$sdkDir" -Force
           Remove-Item -Recurse -Force $tmpDir
 
       - name: Set QDLT_ROOT (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $sdkDir = Get-ChildItem ~/dlt-viewer-sdk -Directory | Select-Object -First 1
-          echo "QDLT_ROOT=$($sdkDir.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
+          $qdltHeader = Get-ChildItem -Recurse -Filter "qdlt.h" "$HOME/dlt-viewer-sdk" | Select-Object -First 1
+          $qdltRoot = Split-Path (Split-Path $qdltHeader.DirectoryName -Parent) -Parent
+          echo "QDLT_ROOT=$qdltRoot" | Out-File -FilePath $env:GITHUB_ENV -Append
 
       # === LINUX SDK ===
       - name: Install Linux Dependencies
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq libqt6serialport6-dev libcups2-dev
+          sudo apt-get install -y -qq \
+            qtbase5-dev \
+            libqt5xml5-dev \
+            libqt5serialport5-dev \
+            libcups2-dev
 
       - name: Cache DLT Viewer SDK (Linux)
         if: runner.os == 'Linux'
@@ -75,12 +81,12 @@ jobs:
         uses: actions/cache@v4
         with:
           path: /tmp/dlt-viewer-install
-          key: linux-dlt-sdk-2.30.0
+          key: linux-dlt-sdk-2.28.1-qt5
 
       - name: Build qdlt from source (Linux)
         if: runner.os == 'Linux' && steps.cache-dlt-linux.outputs.cache-hit != 'true'
         run: |
-          git clone --branch 2.30.0 --depth 1 https://github.com/COVESA/dlt-viewer.git /tmp/dlt-viewer-src
+          git clone --branch 2.28.1 --depth 1 https://github.com/COVESA/dlt-viewer.git /tmp/dlt-viewer-src
           mkdir -p /tmp/dlt-viewer-src/build
           cd /tmp/dlt-viewer-src/build
           cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/tmp/dlt-viewer-install
@@ -96,8 +102,10 @@ jobs:
         shell: bash
         run: |
           cmake -B build \
+            ${QT_ROOT_DIR:+-DCMAKE_PREFIX_PATH="${QT_ROOT_DIR}"} \
             -DCMAKE_BUILD_TYPE=Release \
             -DDLTCHAT_BUILD_TESTS=ON \
+            -DQT_PREFIX=Qt5 \
             -DDLTCHAT_BUILD_DIST=${{ inputs.build_dist && 'ON' || 'OFF' }}
 
       - name: Build
