@@ -1,4 +1,5 @@
 # Build directories
+build_dev/
 build/
 build_tests/
 build-*/
@@ -80,11 +81,6 @@ r.txt
 vendor/_deps/
 vendor/_build/
 vendor/downloads/
-
-# Generated CMake files
-cmake_install.cmake
-CMakeCache.txt
-CMakeFiles/
 
 # Generated version header
 generated/
