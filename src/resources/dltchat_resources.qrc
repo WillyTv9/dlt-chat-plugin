@@ -2,5 +2,7 @@
 <RCC version="1.0">
     <qresource prefix="/dltchat">
         <file>category_registry.json</file>
+        <file>native_filter_groups.json</file>
+        <file>default_filters.dlp</file>
     </qresource>
 </RCC>
