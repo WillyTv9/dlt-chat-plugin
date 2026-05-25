@@ -118,11 +118,21 @@ bool MapReduceAnalyzer::runAsync(const QString &userQuery,
         s.lastPos = indexToPos.value(useBlocks[i].lastIdx, -1);
         if (s.firstPos < 0 || s.lastPos < 0 || s.lastPos < s.firstPos)
             continue;
-        s.markerQuery = QStringLiteral("<<MR:%1:%2/%3>> %4")
-                            .arg(m_nonce)
-                            .arg(i)
-                            .arg(useBlocks.size())
-                            .arg(userQuery);
+        if (config.isGlobalQuery) {
+            s.markerQuery = QStringLiteral("<<MR:%1:%2/%3>> %4")
+                                .arg(m_nonce)
+                                .arg(i)
+                                .arg(useBlocks.size())
+                                .arg(userQuery);
+        } else {
+            // For specific queries, instruct each shard to find and list
+            // relevant entries with their indices for the reduce step.
+            s.markerQuery = QStringLiteral("<<MR:%1:%2/%3>> [SHARD %2/%3: examine these log entries and list those RELEVANT to the query below. For each relevant entry, reference it as [index:N]. If none in this shard, say \"no relevant entries in this shard\".]\n%4")
+                                .arg(m_nonce)
+                                .arg(i)
+                                .arg(useBlocks.size())
+                                .arg(userQuery);
+        }
         m_markerToShardIdx.insert(s.markerQuery, s.idx);
         m_shards.append(s);
     }

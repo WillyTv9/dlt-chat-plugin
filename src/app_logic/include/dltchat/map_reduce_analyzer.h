@@ -49,6 +49,7 @@ public:
         int maxShards = 32;
         int mapMaxTokens = 600;
         int reduceMaxTokens = 1500;
+        bool isGlobalQuery = true;
     };
 
     explicit MapReduceAnalyzer(QObject *parent = nullptr);
