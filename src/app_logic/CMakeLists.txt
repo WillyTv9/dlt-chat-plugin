@@ -23,6 +23,7 @@ add_library(dltchat_app_logic STATIC
     src/context_budget_planner.cpp
     src/enhanced_retriever.cpp
     src/log_ingestion_pipeline.cpp
+    src/map_reduce_analyzer.cpp
 )
 
 target_sources(dltchat_app_logic PRIVATE
