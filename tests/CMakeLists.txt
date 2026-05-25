@@ -15,6 +15,10 @@ set(TEST_SOURCES
     test_dltexport.cpp
     test_userfiltermanager.cpp
     test_categoryregistry.cpp
+    test_hierarchical_summary_store.cpp
+    test_model_profile_registry.cpp
+    test_context_budget_planner.cpp
+    test_enhanced_retriever.cpp
 )
 
 add_executable(tests ${TEST_SOURCES})
