@@ -48,7 +48,17 @@ const QVector<Entry> &table()
         { "ollama",  "",                    8192, 2048, 4 },
 
         { "localai", "",                    8192, 2048, 4 },
+
+        // OpenAPI-compatible generic endpoints (e.g. self-hosted, vLLM, TGI).
+        { "openai-compat", "gpt-4o",      128000, 8000, 4 },
+        { "openai-compat", "gpt-4-turbo", 128000, 4000, 4 },
+        { "openai-compat", "gpt-4",         32768, 4000, 4 },
+        { "openai-compat", "gpt-3.5",       16384, 2048, 6 },
+        { "openai-compat", "",            128000, 4000, 4 },
     };
+
+    // Ensure openai-compat is also reachable when the provider is "openai-compat"
+    // but the model doesn't match any known prefix — the fallback catches it.
     return kTable;
 }
 
