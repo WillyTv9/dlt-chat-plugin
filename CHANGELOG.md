@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-05-25
+
+### Added
+- Stratified sampling in EnhancedRetriever for better result diversity across APID/CTID groups.
+- Auto map-reduce for global queries: shards log across block boundaries and consolidates per-shard LLM responses.
+- Adaptive budget planning via ContextBudgetPlanner (70/20/10 for global, 25/65/10 for specific queries).
+- OpenAI-compatible provider profiles in ModelProfileRegistry (gpt-4o, gpt-4o-mini, etc.).
+- AI error reporter producing structured HTML error blocks with stage, cause, and actionable hints.
+- Live mode configuration (`[Live] aiRefreshSec`) for periodic AI digest refreshes during live capture.
+
+### Changed
+- EnhancedRetriever now applies MMR-style diversity penalty keyed on (category, apid, ctid).
+- MapReduceAnalyzer distinguishes its traffic from single-shot via `<<MR:nonce>>` marker.
+- Diagnostic messages now include clear indications of the component that produced the error.
+
 ## [1.0.0] - 2026-05-22
 
 ### Added
