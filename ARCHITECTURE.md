@@ -3,8 +3,9 @@
 ## Overview
 
 Chat Log Assistant is a Qt-based plugin for COVESA DLT Viewer that provides
-chat-based log analysis. It supports both rule-based (local) and LLM/AI
-(remote) analysis strategies.
+chat-based log analysis. It supports rule-based (local), LLM/AI (remote)
+analysis, and an AI global-context pipeline with map-reduce, stratified
+retrieval, and hierarchical digest for multi-million-entry log files.
 
 ---
 
@@ -39,7 +40,10 @@ chat-based log analysis. It supports both rule-based (local) and LLM/AI
 - **Circuit Breaker**: For LLM failure handling (5 failures → 60s open)
 - **Token Bucket**: Rate limiter for LLM API calls (10 tokens, 1/s refill)
 - **LRU Cache**: Response caching in both plugin (10k) and LLM analyzer (1k)
-- **Worker Thread**: `DltBulkAnalyzerWorker` runs bulk analysis in QThread
+- **MapReduce**: Fan-out/fan-in for global queries over log shards
+- **Pipeline**: `AiQueryPipeline` off-main-thread query preparation
+- **TF-IDF + MMR**: `EnhancedRetriever` with diversity penalty for result ranking
+- **Worker Thread**: `DltBulkAnalyzerWorker`, `LogIngestionPipeline` in QThread
 - **Factory**: `DltLlmAnalyzerFactory` creates provider-specific analyzers
 
 ---
@@ -100,8 +104,9 @@ project file instead of hardcoded text queries.
 
 **Components**:
 - Status bar (file info, domain stats, AI status)
-- 76 quick action buttons (13-row scrollable grid with per-button colors,
-  loaded from category_registry.json)
+- Quick Action macro-category menus (loaded from `.dlp` via `NativeFilterCatalog`,
+  grouped by `native_filter_groups.json`)
+- Built-in level shortcut buttons (Error, Warn, Info, Debug, Verbose)
 - Chat history (`QTextBrowser`)
 - Results list (`QListView` + `ResultsModel`) with clickable items
 - Rule-based query input + Send button
@@ -256,6 +261,74 @@ context for CAN/FlexRay bus signals.
 **Filter structure**: label, regex pattern, fields (payload, apid, ctid,
 ecu), color, levels, domain. Loaded from JSON file.
 
+### 2.18 AI Global-Context Pipeline
+
+The AI global-context pipeline enables reasoning over multi-million-entry DLT files
+without overflowing context windows. All components are in-memory with no extra
+dependencies, and their output flows through the existing chat channel.
+
+#### Hierarchical Summary Store (`hierarchical_summary_store.h/.cpp`)
+
+**Purpose**: Thread-safe container for precomputed log views.
+
+Components: `LogStatistics`, `BlockSummary`, `EcuSummary`, `TimeWindowSummary`.
+Provides `compactDigest(maxChars)` to produce a budget-respecting panoramic
+textual digest for the LLM.
+
+#### Log Ingestion Pipeline (`log_ingestion_pipeline.h/.cpp`)
+
+**Purpose**: Off-main-thread post-processing after file load.
+
+Triggered by `initFileFinish` via `QtConcurrent::run`. Stage A computes global
+statistics; Stage B partitions the log into contiguous blocks (default 5000
+entries) and uses `DltRuleBasedAnalyzer` to generate a deterministic one-line
+summary per block.
+
+#### Model Profile Registry (`model_profile_registry.h/.cpp`)
+
+**Purpose**: Static table mapping `(provider, model)` → `(maxContextTokens,
+reservedForResponse, maxConcurrent)`. Copilot is hard-capped at concurrency=2.
+Used by `ContextBudgetPlanner` and `MapReduceAnalyzer`.
+
+#### Context Budget Planner (`context_budget_planner.h/.cpp`)
+
+**Purpose**: Sizes per-query budgets in characters (decoupled from tokenizers).
+Splits 70/20/10 for global queries, 25/65/10 for specific ones. Supports a
+`deep:` prefix that forces the map-reduce path.
+
+#### Enhanced Retriever (`enhanced_retriever.h/.cpp`)
+
+**Purpose**: Drop-in successor to `ContextualExtractor` with improved ranking.
+
+Applies TF-IDF scoring over the inverted index, recency boost,
+temporal-correlation boost, and MMR-style diversity penalty keyed on
+`(category, apid, ctid)`. Still expands picked seeds with ±context window.
+
+#### AiQuery Pipeline (`ai_query_pipeline.h/.cpp`)
+
+**Purpose**: Off-main-thread orchestrator for per-query preparation.
+
+Moves retrieval, enrichment, correlation, digest building, and cache key
+computation off the GUI thread. Emits `prepared()` signal that hands the result
+back to `plugin_entry`, which then issues the actual `analyzeQueryAsync`.
+
+#### MapReduce Analyzer (`map_reduce_analyzer.h/.cpp`)
+
+**Purpose**: Fan-out/fan-in for global queries.
+
+Shards the log along block boundaries, fans out one LLM request per shard
+(concurrency from `ModelProfileRegistry`), then reduces per-shard outputs in a
+final consolidation request. Reuses `DltLlmAnalyzerInterface` (same rate limit,
+same cache, same OAuth bearer). Distinguishes its traffic via a
+`<<MR:nonce:idx/total>>` marker in `originalQuery`.
+
+#### AiError Reporter (`ai_error_reporter.h/.cpp`)
+
+**Purpose**: Produces structured HTML error blocks.
+
+Each error contains: stage, cause, provider/model, diagnostic trace, and an
+actionable hint. No error is generic — every failure points at a next step.
+
 ---
 
 ## 3. Log Ingestion Pipeline
@@ -266,7 +339,7 @@ QDltFile ←── DLT Viewer
     ▼
 initFileStart(QDltFile *file)
     │
-    ▼  (for each message)
+    ▼  (for each message — main thread)
 ingestMessage(index, msg)
     │
     ├── Decode via messageDecoder
@@ -281,7 +354,14 @@ ingestMessage(index, msg)
 initFileFinish()
     ├── rebuildFilterRowMap()
     ├── updateDomainStatus()
-    └── startBulkAnalysis() (if enabled)
+    ├── startBulkAnalysis() (if enabled)
+    │
+    ▼  (off-main-thread — QtConcurrent::run)
+LogIngestionPipeline
+    ├── Stage A: compute global statistics
+    └── Stage B: partition log into blocks (5000 entries each)
+                 generate block summaries via DltRuleBasedAnalyzer
+                 store in HierarchicalSummaryStore
 ```
 
 ### Inverted Index Structure
@@ -315,7 +395,11 @@ onQuerySubmitted(query)
 ```
 onAiQuerySubmitted(query)
     │
-    ├── AI available? → prefilter → async LLM → parse response → display
+    ├── AI available?
+    │   ├── deep: prefix or global query (ContextBudgetPlanner)?
+    │   │   └── AiQueryPipeline::prepare() → MapReduceAnalyzer shard/reduce
+    │   └── Specific query?
+    │       └── AiQueryPipeline::prepare() → analyzeQueryAsync (single-shot)
     └── AI unavailable? → fallback to rule-based + "[fallback]" label
 ```
 
@@ -326,10 +410,14 @@ onAiQuerySubmitted(query)
 | Technique | Location | Benefit |
 |-----------|----------|---------|
 | Inverted index | `log_index.cpp` | O(K) keyword search |
+| TF-IDF + MMR | `enhanced_retriever.cpp` | Relevance-ranked results with diversity |
 | Mutex locks | `entriesMutex` | Thread-safe entry access |
 | Display cap (1000) | `kMaxDisplayResults` | UI responsiveness |
 | Entry limit (500k) | `kMaxEntries` | Memory bound |
 | AI pre-filter (100) | `kAIPreFilterMax` | LLM prompt size limit |
+| Map-reduce sharding | `map_reduce_analyzer.cpp` | Handle global queries over millions of entries |
+| Hierarchical digest | `hierarchical_summary_store.cpp` | Budget-respecting log panorama for LLM |
+| Off-main-thread pipeline | `log_ingestion_pipeline.cpp`, `ai_query_pipeline.cpp` | Non-blocking post-processing and query prep |
 | Async LLM | `analyzeQueryAsync` | Non-blocking UI |
 | LRU cache | Plugin + LLM analyzer | Repeated query speedup |
 | Circuit breaker | `dltllmanalyzerinterface` | Prevent cascading failures |
@@ -346,6 +434,7 @@ onAiQuerySubmitted(query)
 | Qt Widgets | Yes | 5.15+ / 6.x |
 | Qt Network | Yes | 5.15+ / 6.x |
 | Qt Xml | Yes | 5.15+ / 6.x |
+| Qt Concurrent | Yes | 5.15+ / 6.x |
 | DLT Viewer SDK (qdlt) | Yes | ARTIST8 2.28 / 2.28.x (plugin interface 1.0.1) |
 | C++ Compiler | Yes | C++17 |
 | CMake | Yes | 3.16+ |
@@ -372,7 +461,7 @@ for testability.
 ```
 src/
   app_logic/
-    include/dltchat/    ← 13 public headers (all core classes)
+    include/dltchat/    ← 14 public headers (all core classes)
     src/                ← implementations
   host_interface/       ← plugin_entry, chatform, options dialog, results model
   resources/presets/    ← preset filter JSON definitions
@@ -398,9 +487,14 @@ bulkAnalysisEnabled = false
 
 [Behavior]
 maxResults = 1000
-llmTimeout = 120000
 highlightColor = #FFE680
 userFiltersPath =
+
+[Filters]
+dlpPath =
+
+[Live]
+aiRefreshSec = 30
 ```
 
 **User Filters** (`*.json`):
@@ -424,7 +518,7 @@ userFiltersPath =
 
 ## 9. Test Architecture
 
-Tests use the **Qt Test** framework with 10 test suites:
+Tests use the **Qt Test** framework with 11 test suites:
 
 | Suite | Tests | Area |
 |-------|-------|------|
@@ -437,12 +531,12 @@ Tests use the **Qt Test** framework with 10 test suites:
 | `test_conversationmanager` | — | Multi-turn conversation history |
 | `test_fibexenricher` | — | FIBEX XML metadata enrichment |
 | `test_temporalcorrelator` | — | Time-window correlation |
+| `test_categoryregistry` | — | Category registry loading and validation |
 | `test_main` | — | Test harness / main entry |
-
 
 Run tests:
 ```bash
-cmake -B build_tests -S tests
-cmake --build build_tests --config Release
-cd build_tests && ctest --output-on-failure
+cmake -B build -DCMAKE_BUILD_TYPE=Release -DDLTCHAT_BUILD_TESTS=ON
+cmake --build build --config Release
+ctest --test-dir build -C Release --output-on-failure
 ```
