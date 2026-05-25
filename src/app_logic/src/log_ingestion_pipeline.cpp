@@ -101,14 +101,19 @@ void LogIngestionPipeline::cancel()
 
 void LogIngestionPipeline::startAsync(LogStore *store)
 {
-    if (!m_store) {
-        emit failed(QStringLiteral("INGESTION"),
-                    QStringLiteral("HierarchicalSummaryStore not injected; call setSummaryStore() before startAsync()"));
-        return;
-    }
     if (!store) {
         emit failed(QStringLiteral("INGESTION"),
                     QStringLiteral("LogStore pointer is null"));
+        return;
+    }
+    startAsync(store->copyAll());
+}
+
+void LogIngestionPipeline::startAsync(QVector<DltAnalyzerInterface::LogEntry> snapshot)
+{
+    if (!m_store) {
+        emit failed(QStringLiteral("INGESTION"),
+                    QStringLiteral("HierarchicalSummaryStore not injected; call setSummaryStore() before startAsync()"));
         return;
     }
 
@@ -122,7 +127,6 @@ void LogIngestionPipeline::startAsync(LogStore *store)
     m_ready.store(false);
     m_running.store(true);
 
-    QVector<DltAnalyzerInterface::LogEntry> snapshot = store->copyAll();
     qCInfo(lcIngest) << "starting pipeline; entries=" << snapshot.size()
                      << "blockSize=" << m_blockSize;
 

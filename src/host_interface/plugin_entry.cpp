@@ -77,6 +77,36 @@ DltChatPlugin::DltChatPlugin()
     m_aiHealthTimer->setInterval(60000);
     connect(m_aiHealthTimer, &QTimer::timeout, this, &DltChatPlugin::onAiHealthCheck);
 
+    // --- Off-main-thread AI pipeline (replaces the inline retrieval/enrich/
+    // correlate that used to freeze the GUI on million-row logs). Wired now;
+    // exercised by initFileFinish() and onAiQuerySubmitted(). No UI widgets
+    // added — progress and errors flow through the existing chat channel.
+    m_ingestionPipeline = new dltchat::LogIngestionPipeline(this);
+    m_ingestionPipeline->setSummaryStore(&m_hierStore);
+    m_ingestionPipeline->setRuleBasedAnalyzer(m_ruleBasedAnalyzer);
+    m_ingestionPipeline->setBlockSize(m_ingestBlockSize);
+    connect(m_ingestionPipeline, &dltchat::LogIngestionPipeline::ready,
+            this, &DltChatPlugin::onIngestionReady);
+    connect(m_ingestionPipeline, &dltchat::LogIngestionPipeline::stageProgress,
+            this, &DltChatPlugin::onIngestionStageProgress);
+    connect(m_ingestionPipeline, &dltchat::LogIngestionPipeline::failed,
+            this, &DltChatPlugin::onIngestionFailed);
+
+    m_aiQueryPipeline = new dltchat::AiQueryPipeline(this);
+    connect(m_aiQueryPipeline, &dltchat::AiQueryPipeline::prepared,
+            this, &DltChatPlugin::onAiPipelinePrepared);
+    connect(m_aiQueryPipeline, &dltchat::AiQueryPipeline::failed,
+            this, &DltChatPlugin::onAiPipelineFailed);
+
+    m_mapReduceAnalyzer = new dltchat::MapReduceAnalyzer(this);
+    m_mapReduceAnalyzer->setLlmAnalyzer(m_llmAnalyzer);
+    connect(m_mapReduceAnalyzer, &dltchat::MapReduceAnalyzer::shardCompleted,
+            this, &DltChatPlugin::onMapReduceShardCompleted);
+    connect(m_mapReduceAnalyzer, &dltchat::MapReduceAnalyzer::reduceReady,
+            this, &DltChatPlugin::onMapReduceReduceReady);
+    connect(m_mapReduceAnalyzer, &dltchat::MapReduceAnalyzer::failed,
+            this, &DltChatPlugin::onMapReduceFailed);
+
     QTimer::singleShot(0, this, &DltChatPlugin::checkAiAvailabilityAsync);
 }
 
@@ -428,6 +458,21 @@ void DltChatPlugin::initFileFinish()
 {
     rebuildFilterRowMap();
     updateDomainStatus();
+
+    // Kick off the off-main-thread ingestion pipeline so the AI gets a
+    // panoramic digest of the whole log without ever blocking the GUI.
+    // No spinner / no progress widget: queries asked before ready() use
+    // the rule-based fallback that's been in place since day one.
+    if (m_ingestionPipeline) {
+        QVector<DltAnalyzerInterface::LogEntry> snap;
+        {
+            QMutexLocker lk(&entriesMutex);
+            snap = entries;
+        }
+        m_hierStore.clear();
+        if (!snap.isEmpty())
+            m_ingestionPipeline->startAsync(std::move(snap));
+    }
 
     if (m_bulkAnalysisEnabled && m_llmAnalyzer && m_llmAnalyzer->isAvailable())
     {
@@ -810,39 +855,80 @@ void DltChatPlugin::onAiQuerySubmitted(const QString &query)
         return;
     }
 
-    ContextualExtractor::ContextConfig ctxConfig;
-    ctxConfig.windowBefore = 5;
-    ctxConfig.windowAfter = 5;
-    ctxConfig.maxEntries = kAIPreFilterMax;
+    // Provider/model detection drives the budget plan and map-reduce
+    // concurrency. We resolve them once up-front and reuse for both paths.
+    const QString provider = m_llmAnalyzer->detectProviderType();
+    const QString model    = m_llmAnalyzer->modelName();
 
-    QVector<DltAnalyzerInterface::LogEntry> contextualContext;
-    {
-        QMutexLocker lk(&entriesMutex);
-        contextualContext = m_contextualExtractor.extractContext(
-            query, snapshot, invertedIndex, m_lastSelectedIndices, ctxConfig);
+    QString filterCtx;
+    if (m_userFilterManager && m_userFilterManager->activeFilterCount() > 0) {
+        QStringList parts;
+        for (const auto &f : m_userFilterManager->filters()) {
+            if (f.enabled && f.isValid)
+                parts.append(QStringLiteral("%1 (pattern: %2)").arg(f.label, f.regex.pattern()));
+        }
+        if (!parts.isEmpty())
+            filterCtx = QStringLiteral("User-defined active filters:\n") + parts.join(QLatin1Char('\n'));
     }
 
-    if (contextualContext.isEmpty()) {
-        int takeN = qMin(snapshot.size(), kAIPreFilterMax);
-        contextualContext = snapshot.mid(snapshot.size() - takeN, takeN);
-    }
+    if (!m_llmAnalyzer->conversationManager())
+        m_llmAnalyzer->setConversationManager(&m_conversationManager);
 
-    // Check cache
-    {
-        QMutexLocker lk(&m_aiCacheMutex);
-        QString cacheKey = buildAiCacheKey(query, contextualContext);
-        auto it = m_aiResponseCache.find(cacheKey);
-        if (it != m_aiResponseCache.end()) {
+    // Route global queries (or explicit `deep:` prefix) through map-reduce
+    // when the ingestion pipeline has produced enough block summaries to
+    // make sharding meaningful; otherwise fall through to single-shot.
+    const bool wantDeep = ContextBudgetPlanner::hasDeepPrefix(query);
+    const bool isGlobal = wantDeep || ContextBudgetPlanner::isGlobalQuery(query);
+    const auto blocks = m_hierStore.blocks();
+
+    if (isGlobal && blocks.size() >= 2 && m_hierStore.isReady()) {
+        if (m_mapReduceAnalyzer->isRunning()) {
             form->setProcessingProgress(false);
-            const auto &cached = it.value();
-            QString html = cached.responseHtml + "<br><small>(risposta cache)</small>";
-            html += buildUserFilterContextHtml();
-            form->appendMessage("AI Assistant", html);
-            form->setResults(cached.indices);
-            highlightIndices(cached.indices);
+            form->appendMessage("AI Assistant", "Map-reduce gia in corso. Attendere il completamento.");
             return;
         }
+        {
+            QMutexLocker lk(&m_llmMutex);
+            m_llmRequestInProgress = true;
+            m_llmRequestTimer.start();
+        }
+        m_pendingAiQuery = query;
+        m_pendingAiIsMapReduce = true;
+
+        MapReduceAnalyzer::Config cfg;
+        cfg.provider = provider;
+        cfg.model = model;
+        cfg.maxShards = 32;
+
+        // The hierarchical digest is still useful as map-step context: each
+        // shard sees its block + the global overview so it can place its
+        // observations in the broader picture.
+        m_llmAnalyzer->setExtraContext(filterCtx);
+        m_llmAnalyzer->setHierarchicalDigest(
+            m_hierStore.compactDigest(8000));
+        if (m_fibexEnricher.isLoaded())
+            m_llmAnalyzer->setFibexLoaded(true);
+        else
+            m_llmAnalyzer->setFibexLoaded(false);
+
+        if (!m_mapReduceAnalyzer->runAsync(query, snapshot, blocks, cfg)) {
+            QMutexLocker lk(&m_llmMutex);
+            m_llmRequestInProgress = false;
+            m_pendingAiIsMapReduce = false;
+        }
+        return;
     }
+
+    // Single-shot path: delegate retrieval/enrich/correlate/digest/cache-key
+    // assembly to the off-main-thread AiQueryPipeline. The GUI used to do
+    // all of this inline and freeze for seconds on million-row logs.
+    if (m_aiQueryPipeline->isBusy()) {
+        form->setProcessingProgress(false);
+        form->appendMessage("AI Assistant", "Preparazione query AI gia in corso. Attendere.");
+        return;
+    }
+    m_pendingAiQuery = query;
+    m_pendingAiIsMapReduce = false;
 
     {
         QMutexLocker lk(&m_llmMutex);
@@ -850,53 +936,21 @@ void DltChatPlugin::onAiQuerySubmitted(const QString &query)
         m_llmRequestTimer.start();
     }
 
-    if (m_fibexEnricher.isLoaded()) {
-        m_fibexEnricher.enrichAll(contextualContext);
-        m_llmAnalyzer->setFibexLoaded(true);
-    } else {
-        m_llmAnalyzer->setFibexLoaded(false);
-    }
-
-    if (!m_llmAnalyzer->conversationManager()) {
-        m_llmAnalyzer->setConversationManager(&m_conversationManager);
-    }
-
-    QString temporalContext;
+    dltchat::AiQueryPipeline::Request req;
+    req.query    = query;
+    req.provider = provider;
+    req.model    = model;
+    req.snapshot = std::move(snapshot);
     {
-        TemporalCorrelator correlator;
-        TemporalCorrelator::CorrelationConfig tcConfig;
-        tcConfig.windowMs = 50;
-        tcConfig.minEntriesPerWindow = 2;
-        tcConfig.maxCorrelations = 3;
-        temporalContext = correlator.analyze(contextualContext, tcConfig);
-        if (correlator.hasCorrelations()) {
-            temporalContext = "\n" + temporalContext;
-        }
+        QMutexLocker lk(&entriesMutex);
+        req.invertedIndex = invertedIndex;
     }
-
-    QString filterContext;
-    if (m_userFilterManager && m_userFilterManager->activeFilterCount() > 0) {
-        QStringList activeFilters;
-        for (const auto &f : m_userFilterManager->filters()) {
-            if (f.enabled && f.isValid)
-                activeFilters.append(QString("%1 (pattern: %2)")
-                    .arg(f.label, f.regex.pattern()));
-        }
-        if (!activeFilters.isEmpty())
-            filterContext = "\nUser-defined active filters:\n" + activeFilters.join("\n");
-    }
-
-    QString combinedExtra;
-    if (!filterContext.isEmpty() && !temporalContext.isEmpty())
-        combinedExtra = filterContext + "\n" + temporalContext;
-    else if (!filterContext.isEmpty())
-        combinedExtra = filterContext;
-    else if (!temporalContext.isEmpty())
-        combinedExtra = temporalContext;
-
-    m_llmAnalyzer->setExtraContext(combinedExtra);
-    m_lastAiContext = contextualContext;
-    m_llmAnalyzer->analyzeQueryAsync(query, contextualContext);
+    req.selectedIndices = m_lastSelectedIndices;
+    req.fibex = &m_fibexEnricher;
+    req.hierStore = &m_hierStore;
+    req.userFilterContext = filterCtx;
+    req.conversationHistoryChars = 0;
+    m_aiQueryPipeline->executeAsync(req);
 }
 
 void DltChatPlugin::onLlmResultReady(const DltAnalyzerInterface::QueryResult &result, const QString &originalQuery)
@@ -1049,6 +1103,14 @@ void DltChatPlugin::onExportAllRequested(const QString &filePath)
 
 void DltChatPlugin::clearData()
 {
+    if (m_ingestionPipeline)
+        m_ingestionPipeline->cancel();
+    if (m_aiQueryPipeline)
+        m_aiQueryPipeline->cancel();
+    if (m_mapReduceAnalyzer)
+        m_mapReduceAnalyzer->cancel();
+    m_hierStore.clear();
+
     QMutexLocker l(&entriesMutex);
     entries.clear();
     entries.squeeze();
@@ -1379,6 +1441,168 @@ void DltChatPlugin::onUserFilterLoadRequested(const QString &path)
         if (form) form->appendMessage("Chat Assistant",
             QString("Errore caricamento filtri: %1").arg(error));
     }
+}
+
+// ---------------------------------------------------------------------------
+//   AI pipeline slots (off-main-thread retrieval/digest/cache and map-reduce)
+// ---------------------------------------------------------------------------
+
+void DltChatPlugin::onAiPipelinePrepared(const dltchat::AiQueryPipeline::Result &prep)
+{
+    if (!form || !m_llmAnalyzer) return;
+
+    // Cache lookup runs on the GUI thread; the prep step computed a stable
+    // SHA1 over query + first 20 entry indices + digest hash.
+    {
+        QMutexLocker lk(&m_aiCacheMutex);
+        auto it = m_aiResponseCache.find(prep.cacheKey);
+        if (it != m_aiResponseCache.end()) {
+            {
+                QMutexLocker llk(&m_llmMutex);
+                m_llmRequestInProgress = false;
+            }
+            form->setProcessingProgress(false);
+            const auto &cached = it.value();
+            QString html = cached.responseHtml + "<br><small>(risposta cache)</small>";
+            html += buildUserFilterContextHtml();
+            form->appendMessage("AI Assistant", html);
+            form->setResults(cached.indices);
+            highlightIndices(cached.indices);
+            return;
+        }
+    }
+
+    if (m_fibexEnricher.isLoaded())
+        m_llmAnalyzer->setFibexLoaded(true);
+    else
+        m_llmAnalyzer->setFibexLoaded(false);
+
+    m_llmAnalyzer->setExtraContext(prep.extraContext);
+    m_llmAnalyzer->setHierarchicalDigest(prep.hierarchicalDigest);
+
+    m_lastAiContext = prep.contextEntries;
+    if (!m_llmAnalyzer->analyzeQueryAsync(m_pendingAiQuery, prep.contextEntries)) {
+        {
+            QMutexLocker lk(&m_llmMutex);
+            m_llmRequestInProgress = false;
+        }
+        form->setProcessingProgress(false);
+        AiErrorReporter::Context ctx;
+        ctx.provider = prep.budget.profile.provider;
+        ctx.model    = prep.budget.profile.model;
+        ctx.budgetChars = prep.budget.rawChars + prep.budget.hierChars;
+        ctx.entryCount  = prep.contextEntries.size();
+        ctx.diagnostic  = prep.diagnostic;
+        form->appendMessage("AI Assistant",
+            AiErrorReporter::formatHtml(
+                QStringLiteral("AI/Dispatch"),
+                QStringLiteral("analyzeQueryAsync rejected (likely in-progress or unavailable)"),
+                ctx));
+    }
+}
+
+void DltChatPlugin::onAiPipelineFailed(const QString &stage, const QString &reason)
+{
+    {
+        QMutexLocker lk(&m_llmMutex);
+        m_llmRequestInProgress = false;
+    }
+    if (!form) return;
+    form->setProcessingProgress(false);
+
+    AiErrorReporter::Context ctx;
+    if (m_llmAnalyzer) {
+        ctx.provider = m_llmAnalyzer->detectProviderType();
+        ctx.model    = m_llmAnalyzer->modelName();
+    }
+    {
+        QMutexLocker lk(&entriesMutex);
+        ctx.entryCount = entries.size();
+    }
+    form->appendMessage("AI Assistant",
+        AiErrorReporter::formatHtml(stage, reason, ctx));
+}
+
+void DltChatPlugin::onMapReduceShardCompleted(int shardIdx, int total, qint64 elapsedMs)
+{
+    if (!form) return;
+    updateStatus(QString("AI map-reduce: shard %1/%2 ok (%3 ms)")
+                     .arg(shardIdx + 1).arg(total).arg(elapsedMs));
+}
+
+void DltChatPlugin::onMapReduceReduceReady(const dltchat::DltAnalyzerInterface::QueryResult &result,
+                                           const QString &originalQuery)
+{
+    Q_UNUSED(originalQuery);
+    {
+        QMutexLocker lk(&m_llmMutex);
+        m_llmRequestInProgress = false;
+        m_pendingAiIsMapReduce = false;
+    }
+    if (!form) return;
+    form->setProcessingProgress(false);
+    QString html = result.responseHtml;
+    html += QStringLiteral("<br><small>(analisi map-reduce su tutto il log)</small>");
+    html += buildUserFilterContextHtml();
+    form->appendMessage("AI Assistant", html);
+    if (!result.indices.isEmpty()) {
+        form->setResults(result.indices);
+        highlightIndices(result.indices);
+    }
+}
+
+void DltChatPlugin::onMapReduceFailed(const QString &stage, const QString &reason)
+{
+    {
+        QMutexLocker lk(&m_llmMutex);
+        m_llmRequestInProgress = false;
+        m_pendingAiIsMapReduce = false;
+    }
+    if (!form) return;
+    form->setProcessingProgress(false);
+
+    AiErrorReporter::Context ctx;
+    if (m_llmAnalyzer) {
+        ctx.provider = m_llmAnalyzer->detectProviderType();
+        ctx.model    = m_llmAnalyzer->modelName();
+    }
+    ctx.shardTotal = m_hierStore.blocks().size();
+    {
+        QMutexLocker lk(&entriesMutex);
+        ctx.entryCount = entries.size();
+    }
+    form->appendMessage("AI Assistant",
+        AiErrorReporter::formatHtml(stage, reason, ctx));
+}
+
+void DltChatPlugin::onIngestionReady()
+{
+    const auto stats = m_hierStore.statistics();
+    updateStatus(QString("AI index ready: %1 entries, %2 ECUs, %3 blocks")
+                     .arg(stats.totalEntries)
+                     .arg(stats.byEcu.size())
+                     .arg(m_hierStore.blocks().size()));
+}
+
+void DltChatPlugin::onIngestionStageProgress(const QString &stage, int pct)
+{
+    updateStatus(QString("AI indexing %1: %2%").arg(stage).arg(pct));
+}
+
+void DltChatPlugin::onIngestionFailed(const QString &stage, const QString &reason)
+{
+    // Ingestion failure does not block normal use — AI queries fall back to
+    // single-shot retrieval without the panoramic digest. Still report it.
+    if (!form) return;
+    AiErrorReporter::Context ctx;
+    {
+        QMutexLocker lk(&entriesMutex);
+        ctx.entryCount = entries.size();
+    }
+    ctx.hint = QStringLiteral("AI queries will still work without the panoramic digest; "
+                              "consider reducing blockSize in dlt_chat_plugin.ini.");
+    form->appendMessage("AI Assistant",
+        AiErrorReporter::formatHtml(stage, reason, ctx));
 }
 
 #if QT_VERSION < QT_VERSION_CHECK(5, 0, 0)

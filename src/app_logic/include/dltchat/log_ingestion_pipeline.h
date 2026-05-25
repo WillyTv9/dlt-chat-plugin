@@ -58,6 +58,11 @@ public:
      *  more than once: a running pipeline is cancelled first. */
     void startAsync(LogStore *store);
 
+    /** Same as above but accepts an already-prepared entry snapshot.
+     *  Use this when the plugin keeps its own QVector (current case in
+     *  plugin_entry.cpp) instead of a LogStore instance. */
+    void startAsync(QVector<DltAnalyzerInterface::LogEntry> snapshot);
+
     /** Cooperative cancellation — atomic flag checked between blocks. */
     void cancel();
 
