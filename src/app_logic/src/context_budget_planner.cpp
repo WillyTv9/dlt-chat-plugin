@@ -54,13 +54,14 @@ BudgetPlan ContextBudgetPlanner::plan(const QString &query,
     const int budgetChars = static_cast<int>(safeBudgetTokens * kTokensToChars);
 
     double hierFrac, rawFrac, slackFrac;
+    const bool isLargeCtx = p.profile.maxContextTokens >= 64000;
     if (p.isGlobalQuery) {
-        hierFrac = 0.70;
-        rawFrac = 0.20;
+        hierFrac = isLargeCtx ? 0.30 : 0.70;
+        rawFrac  = isLargeCtx ? 0.60 : 0.20;
         slackFrac = 0.10;
     } else {
         hierFrac = 0.25;
-        rawFrac = 0.65;
+        rawFrac  = isLargeCtx ? 0.70 : 0.65;
         slackFrac = 0.10;
     }
 
