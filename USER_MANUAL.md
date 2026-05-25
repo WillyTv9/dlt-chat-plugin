@@ -11,14 +11,17 @@ with references to relevant log entries.
 
 ## 2. Installation
 
-See [INSTALL.md](INSTALL.md) for detailed installation instructions.
+See [INSTALL.md](INSTALL.md) for detailed installation instructions including runtime dependencies
+(Qt DLLs, OpenSSL, MSVC redistributable) and cross-platform build steps.
 
 Quick summary:
-1. Copy `dltchatplugin.dll` (Windows) or `libdltchatplugin.so` (Linux)
+1. Copy the plugin binary (`dltchatplugin.dll` / `libdltchatplugin.so` / `libdltchatplugin.dylib`)
    to the DLT Viewer plugins directory
-2. Launch DLT Viewer
-3. Enable the plugin: **Settings → Plugin Settings → Chat Log Assistant**
-4. Enable the panel: **View → Panels → Chat Log Assistant**
+2. On Windows, run `windeployqt` on the DLL to gather Qt and MSVC runtime dependencies; copy
+   OpenSSL DLLs from the Qt `bin/` directory if using AI features
+3. Launch DLT Viewer
+4. Enable the plugin: **Settings → Plugin Settings → Chat Log Assistant**
+5. Enable the panel: **View → Panels → Chat Log Assistant**
 
 ---
 
@@ -29,11 +32,13 @@ Quick summary:
 │ Chat Log Assistant          AI: llama3.2:1b [online] [⚙]│  ← Title bar
 │ Loaded 15000 msgs | CarPlay: 230 | AA: 150               │  ← Status bar
 ├──────────────────────────────────────────────────────────┤
-│ Quick Actions ┌─────┬─────┬─────┬─────┬─────┐           │
-│     Row 0:    │Errors│Warns│Info │Debug│Verb│           │  ← Level filters
-│     Row 1:    │CAN│Security│Memory│Perf│Diag│GPS│Cat.│  │  ← Category filters
-│     Row 2:    │CP│AA│Focus│Duck│mDNS│Sensor│Auth│       │  ← Automotive presets
-│     Row 3:    │Sess│Patt│Summ│Time│Catgz│Help│Keyw│    │  ← Analysis commands
+│ Quick Actions (filtri .dlp)                              │
+│ [Bluetooth ▼] [Smartphone Projection ▼] [Audio/Media ▼] │  ← Macro-category menus
+│ [Navigazione/GPS ▼] [Sistema/Diagnostica ▼] [HMI/UI ▼]  │     with per-filter colours
+│ [Sicurezza ▼] [Radio ▼] [Altri ▼]                       │
+│ ─────────────────────────────────────────────────────── │
+│ Quick Actions (built-in)                                 │
+│ [Errors] [Warns] [Info] [Debug] [Verbose]              │  ← Level shortcuts
 ├──────────────────────────────────────────────────────────┤
 │ Chat History                                            │
 │  Tu: show errors                                        │
@@ -423,12 +428,20 @@ bulkAnalysisEnabled = false
 
 [Behavior]
 maxResults = 1000
-llmTimeout = 120000
 highlightColor = #FFE680
 userFiltersPath =
+
+[Filters]
+# Path to DLT Viewer project file for native Quick Actions
+dlpPath =
+
+[Live]
+# AI digest refresh interval in seconds during live capture
+aiRefreshSec = 30
 ```
 
-Settings are loaded on startup and saved on shutdown.
+See the annotated [`dlt_chat_plugin.ini.example`](dlt_chat_plugin.ini.example) for all available keys
+and full documentation of each section. Settings are loaded on startup and saved on shutdown.
 
 ---
 
@@ -436,7 +449,12 @@ Settings are loaded on startup and saved on shutdown.
 
 | Problem | Solution |
 |---------|----------|
-| Plugin not visible in menu | Ensure DLL is in the correct plugins directory |
+| Plugin not visible in menu | Verify the plugin binary is in the correct plugins directory (check DLT Viewer → Preferences) |
+| Plugin not loading (Windows) | Ensure Qt version matches the DLT Viewer host. Run `windeployqt --release --compiler-runtime` on the DLL to gather runtime dependencies |
+| `Qt5Core.dll not found` (Windows) | Qt DLLs missing from PATH. Copy Qt DLLs to the viewer directory or run `windeployqt` |
+| `libssl-1_1-x64.dll not found` (Windows, Qt5) | OpenSSL missing from Qt Network path. Copy `libssl-1_1-x64.dll` and `libcrypto-1_1-x64.dll` from Qt `bin/` directory |
+| `libssl-3-x64.dll not found` (Windows, Qt6) | Same as above, but with OpenSSL 3.x DLLs |
+| `msvcp140.dll not found` (Windows) | Install Visual C++ Redistributable or pass `--compiler-runtime` to `windeployqt` |
 | No logs loaded | Open a DLT file first |
 | Results list empty | Try different keywords or check log levels |
 | AI not connecting | Verify endpoint URL and model name in configuration |
