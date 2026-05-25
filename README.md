@@ -3,14 +3,12 @@
 [![License: MPL 2.0](https://img.shields.io/badge/License-MPL_2.0-blue.svg)](LICENSE)
 [![Qt Version](https://img.shields.io/badge/Qt-5.15.2_|_6.x-green.svg)](https://www.qt.io/)
 [![DLT Viewer](https://img.shields.io/badge/DLT_Viewer-ARTIST8_2.28-orange.svg)](https://github.com/COVESA/dlt-viewer)
-[![Version](https://img.shields.io/badge/Version-0.7.0-blue.svg)](.)
+[![Version](https://img.shields.io/badge/Version-1.0.0-blue.svg)](.)
 [![CI](https://img.shields.io/github/actions/workflow/status/WillyTv9/dlt-chat-plugin/build.yml?branch=main&label=CI)](https://github.com/WillyTv9/dlt-chat-plugin/actions)
 
 A chat-based log analysis plugin for COVESA DLT Viewer with rule-based analysis and optional AI (LLM) integration.
 
 Built and validated against the custom **ART DLT Viewer ARTIST8 2.28** fork (Qt 5.15.2 / MSVC 2019).
-
-Plugin per l'analisi dei log DLT con interfaccia chat, analisi rule-based e supporto AI opzionale.
 
 ---
 
@@ -22,17 +20,16 @@ See [INSTALL.md](INSTALL.md) for complete step-by-step instructions covering:
 |----------|-----------|-----|-----------------|
 | **Windows** | VS 2019 BuildTools MSVC | Qt 5.15.2 MSVC (`win64_msvc2019_64`) | ARTIST8 2.28 fork SDK (or pre-built 2.28.1) |
 | **Linux** | GCC 9+ / Clang 10+ | System Qt5 (`apt`) | Built from source (2.28.1) |
-| **macOS** | Xcode Command Line Tools (Clang 14+) | Homebrew Qt5 | Built from source (2.28.1) |
+| **macOS** | Xcode Command Line Tools (Clang 14+) | Homebrew Qt6 | Built from source (2.28.1) |
 
 > The runtime target is the custom **ART DLT Viewer ARTIST8 2.28** fork. CI builds against the
 > interface-identical public COVESA 2.28.1 SDK; for local use point `QDLT_ROOT` at the SDK produced
 > by the ARTIST8 fork build (`DLT_INSTALL_SDK=ON`). A Qt6 build still works via the CMake fallback.
 
-Three build options available:
-- **Option A** — Build within DLT Viewer (recommended)
-- **Option B** — Build standalone
-- **Option C** (Windows) — Quick batch script
-- **Option D** (macOS) — SDK from source
+Build guides available for each platform:
+- **Windows** — MSVC 2019/2022, Ninja, Qt via aqtinstall, qdlt SDK from source
+- **Linux** — GCC/Clang, system Qt5/Qt6, qdlt SDK from COVESA 2.28.1 source
+- **macOS** — Clang, Homebrew Qt6, qdlt SDK from COVESA 2.28.1 source
 
 ## Releases
 
@@ -121,6 +118,8 @@ The plugin reads `dlt_chat_plugin.ini` at startup. See the annotated example
 **Key sections:**
 - `[Analyzer]` — LLM provider, endpoint, model, tokens, temperature, timeout, bulk analysis
 - `[Behavior]` — max results, highlight color, user filters path
+- `[Filters]` — DLT Viewer project file (.dlp) path for native Quick Actions
+- `[Live]` — AI digest refresh interval in live capture mode
 
 Load custom regex-based highlight filters via the **Filters** button. See
 [`automotive_filters_example.json`](automotive_filters_example.json) for schema.
