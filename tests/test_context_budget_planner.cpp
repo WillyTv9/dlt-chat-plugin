@@ -76,8 +76,10 @@ void TestContextBudgetPlanner::testPlanForGlobalQuery()
         "riassumi gli errori di sessione", "copilot", "gpt-4o");
 
     QVERIFY(plan.isGlobalQuery);
-    // Global query => hierarchical digest gets the lion's share.
-    QVERIFY2(plan.hierChars > plan.rawChars,
+    // Copilot gpt-4o has 128K context (isLargeCtx=true), so the adaptive
+    // split gives raw 60% and hier 30% — large-context models can fit
+    // many raw entries so they get more raw content.
+    QVERIFY2(plan.rawChars > plan.hierChars,
              qPrintable(QString("hier=%1 raw=%2").arg(plan.hierChars).arg(plan.rawChars)));
 }
 
