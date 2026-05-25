@@ -446,6 +446,17 @@ void Form::buildNativeFilterMenus(const QVector<NativeMenuSpec> &specs)
         tb->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
 
         auto *menu = new QMenu(tb);
+        // Add group-level "apply all" action at the top of each menu.
+        const QString groupId = spec.groupId;
+        if (!groupId.isEmpty()) {
+            QAction *groupAct = menu->addAction(QIcon::fromTheme("media-playback-start"), QStringLiteral("\u25B6 Applica tutta la categoria"));
+            groupAct->setData(groupId);
+            connect(groupAct, &QAction::triggered, this, [this, groupId]() {
+                lastQuery = groupId;
+                emit nativeFilterGroupTriggered(groupId);
+            });
+            menu->addSeparator();
+        }
         for (const auto &act : spec.actions) {
             const QString &name  = act.first;
             const QColor   &col2 = act.second;

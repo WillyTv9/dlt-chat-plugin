@@ -10,12 +10,17 @@
     {
       "id": "projection",
       "label": "Smartphone Projection",
-      "filters": ["AndroidAuto", "AaReceiverLib", "CarPlay", "CarPlayStack", "Carbit", "CarbitSDK", "Alexa", "Ferrite", "M4C", "M4I"]
+      "filters": ["AndroidAuto", "AaReceiverLib", "CarPlay", "CarPlayStack", "Carbit", "CarbitSDK", "Ferrite"]
+    },
+    {
+      "id": "voice_assistants",
+      "label": "Assistenti vocali",
+      "filters": ["Alexa"]
     },
     {
       "id": "audio_media",
       "label": "Audio / Media",
-      "filters": ["AudioManager", "MuliMediaPlayer", "VideoManager", "TtsManager"]
+      "filters": ["AudioManager", "MuliMediaPlayer", "VideoManager", "TtsManager", "M4C", "M4I"]
     },
     {
       "id": "navigation",

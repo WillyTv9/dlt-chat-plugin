@@ -91,6 +91,7 @@ private slots:
     void onQuerySubmitted(const QString &query);
     void onQuickActionQuery(const QString &query);
     void onNativeFilterTriggered(const QString &filterName);
+    void onNativeFilterGroupTriggered(const QString &groupId);
     void onAiQuerySubmitted(const QString &query);
     void onConfigureAiClicked();
     void onIndexActivated(int index);
@@ -135,6 +136,12 @@ private:
     void applyUserFilterHighlights();
     void updateDomainStatus();
     void startBulkAnalysis();
+    void applyFiltersToHost(const QList<DltChat::NativeFilterAction> &actions);
+    void clearPluginFiltersFromHost();
+
+    void onLiveAiRefresh();
+
+    static constexpr const char *kPluginFilterPrefix = "[chat]";
 
     QString errorText;
     DltChat::Form *form;
@@ -183,6 +190,12 @@ private:
     QString m_pendingAiQuery;
     bool m_pendingAiIsMapReduce = false;
     int m_ingestBlockSize = 5000;
+
+    // Live-mode fields
+    bool m_liveMode = false;
+    int m_liveAiRefreshSec = 30;
+    int m_lastIngestionEntryCount = 0;
+    QTimer *m_liveAiRefreshTimer = nullptr;
 
     int m_aiState = 0;
     QString m_aiModelName;

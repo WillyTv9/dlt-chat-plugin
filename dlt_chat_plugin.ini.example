@@ -55,3 +55,9 @@ userFiltersPath=
 # The plugin maps each positive <pfilter> to a Quick Action, subtracts its paired
 # negative filter, and highlights matches using the filter's own <filterColour>.
 dlpPath=
+
+[Live]
+# Interval in seconds between AI digest refreshes during live capture.
+# The plugin also requires at least 5000 new entries before queuing a refresh.
+# Set to 0 to disable automatic AI refresh in live mode.
+aiRefreshSec=30
