@@ -55,11 +55,18 @@ public:
         QString diagnostic;
     };
 
+    // GCC rejects `= Config()` as a default arg here because Config is a
+    // nested struct of the same enclosing class and its NSDMIs aren't yet
+    // visible when the default arg is parsed. Use a static factory instead;
+    // it's only instantiated when the default arg fires, which sidesteps
+    // the completeness check.
+    static const Config &defaultConfig();
+
     Result extract(const QString &query,
                    const QVector<DltAnalyzerInterface::LogEntry> &entries,
                    const QHash<QString, QSet<int>> &invertedIndex,
                    const QList<int> &selectedIndices = {},
-                   const Config &config = Config()) const;
+                   const Config &config = defaultConfig()) const;
 };
 
 } // namespace dltchat

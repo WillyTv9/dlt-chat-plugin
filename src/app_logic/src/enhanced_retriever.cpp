@@ -52,6 +52,12 @@ QString diversityKey(const DltAnalyzerInterface::LogEntry &e)
 
 } // namespace
 
+const EnhancedRetriever::Config &EnhancedRetriever::defaultConfig()
+{
+    static const Config kDefault;
+    return kDefault;
+}
+
 EnhancedRetriever::Result EnhancedRetriever::extract(
     const QString &query,
     const QVector<DltAnalyzerInterface::LogEntry> &entries,
