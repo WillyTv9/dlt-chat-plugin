@@ -25,6 +25,7 @@ add_library(dltchat_app_logic STATIC
     src/log_ingestion_pipeline.cpp
     src/map_reduce_analyzer.cpp
     src/ai_error_reporter.cpp
+    src/ai_query_pipeline.cpp
 )
 
 target_sources(dltchat_app_logic PRIVATE
