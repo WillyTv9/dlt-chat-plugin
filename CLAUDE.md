@@ -72,24 +72,6 @@ cmake --build build_msvc_qt --config Release --parallel
 
 **Build output:** `build_msvc_qt/src/host_interface/dltchatplugin.dll` (669 KB, MSVC runtime)
 
-### Quick build (batch script)
-
-```batch
-:: build_msvc.bat — run from any shell
-@echo off
-call "C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools\Common7\Tools\VsDevCmd.bat" -arch=amd64 -host_arch=amd64
-if errorlevel 1 exit /b 1
-set PATH=%PATH:C:\msys64=%
-cmake -G Ninja -S "%~dp0." -B "%~dp0build_msvc_qt" ^
-  -DCMAKE_BUILD_TYPE=Release ^
-  -DQT_PREFIX=Qt5 ^
-  -DCMAKE_PREFIX_PATH="C:\Qt\5.15.2\msvc2019_64" ^
-  -DQDLT_ROOT="C:\DltViewerSDK\sdk" ^
-  -DCMAKE_DISABLE_FIND_PACKAGE_Vulkan=ON
-if errorlevel 1 exit /b 1
-cmake --build "%~dp0build_msvc_qt" --config Release --parallel
-```
-
 ### Other build commands
 
 ```bash
@@ -215,7 +197,7 @@ DLT Viewer (host)
 ```
 src/
   app_logic/
-    include/dltchat/    ← 13 public headers (all core classes)
+    include/dltchat/    ← 14 public headers (all core classes)
     src/                ← implementations
   host_interface/       ← plugin_entry, chatform, options dialog, results model
   resources/presets/    ← preset filter JSON definitions
@@ -330,7 +312,7 @@ The plugin reads `dlt_chat_plugin.ini` at startup. The example file `dlt_chat_pl
 
 ## Dependencies
 
-- Qt 5.15.2 (canonical) or Qt 6.x (Core, Gui, Widgets, Network, Xml; Test for tests)
+- Qt 5.15.2 (canonical) or Qt 6.x (Core, Gui, Widgets, Network, Xml, Concurrent; Test for tests)
 - DLT Viewer SDK (`qdlt`) — ARTIST8 2.28 / 2.28.x (plugin interface `1.0.1`) — located via `Findqdlt.cmake`
 - No other external libraries
 
