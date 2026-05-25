@@ -19,6 +19,7 @@ add_library(dltchat_app_logic STATIC
     src/log_index.cpp
     src/category_registry.cpp
     src/hierarchical_summary_store.cpp
+    src/model_profile_registry.cpp
 )
 
 target_sources(dltchat_app_logic PRIVATE
