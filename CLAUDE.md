@@ -247,6 +247,68 @@ dist/                   ← distribution packaging
 - Token-bucket rate limiter (10 tokens, 1/s refill)
 - LRU response cache (1000 entries in analyzer, 10 000 in plugin)
 - Retry with exponential backoff + jitter
+- `buildEnhancedPrompt` accepts an optional `hierarchicalDigest` arg
+  (and a matching `setHierarchicalDigest` setter) that gets injected
+  as a `[HIERARCHICAL_DIGEST]` section before the raw entries
+
+### AI global-context pipeline
+
+To let the AI reason about multi-million-entry DLT files without
+overflowing any context window (and without freezing the GUI), the
+plugin layers a precompute + retrieval + map-reduce pipeline on top
+of the LLM subsystem. All entirely in-memory, no extra dependencies,
+no UI widgets — every output flows through the existing chat channel.
+
+Components (all in `dltchat::`, `src/app_logic/{include/dltchat,src}/`):
+
+- **`LogStatistics`, `BlockSummary`, `EcuSummary`, `TimeWindowSummary`**
+  + **`HierarchicalSummaryStore`** — thread-safe container of
+  pre-computed log views. `compactDigest(maxChars)` produces a
+  budget-respecting panoramic textual digest fed to the LLM.
+
+- **`LogIngestionPipeline`** — off-main-thread (QtConcurrent::run)
+  worker triggered by `initFileFinish`. Stage A computes global
+  statistics; Stage B partitions the log into contiguous blocks
+  (default 5000 entries) and uses `DltRuleBasedAnalyzer` to
+  generate a deterministic one-line summary per block.
+
+- **`ModelProfileRegistry`** — static table mapping
+  `(provider, model)` → `(maxContextTokens, reservedForResponse,
+  maxConcurrent)`. Copilot is hard-capped at concurrency=2.
+
+- **`ContextBudgetPlanner`** — sizes per-query budgets in CHARS
+  (decoupled from any tokenizer). Splits 70/20/10 for global
+  queries, 25/65/10 for specific ones. Supports a `deep:` prefix
+  that forces the map-reduce path without any UI element.
+
+- **`EnhancedRetriever`** — TF-IDF (over the existing inverted
+  index) + recency + temporal-correlation boost + MMR-style
+  diversity penalty keyed on `(category|apid|ctid)`. Drop-in
+  successor to `ContextualExtractor`, still expands picked seeds
+  with ±window.
+
+- **`AiQueryPipeline`** — orchestrator that moves all per-query
+  preparation (retrieval, enrichment, correlation, digest, cache
+  key) off the GUI thread. `prepared()` signal hands the result
+  back to `plugin_entry`, which then issues the actual
+  `analyzeQueryAsync`.
+
+- **`MapReduceAnalyzer`** — for global queries: shards the log
+  along block boundaries, fans out one LLM request per shard
+  (concurrency from `ModelProfileRegistry`), then reduces the
+  per-shard outputs in a final consolidation request. Reuses the
+  same `DltLlmAnalyzerInterface` (same rate limit, same cache,
+  same OAuth bearer); distinguishes its traffic from single-shot
+  via a `<<MR:nonce:idx/total>>` marker in `originalQuery`.
+
+- **`AiErrorReporter`** — pure helper producing structured HTML
+  error blocks (stage, cause, provider/model, diagnostic trace,
+  actionable hint). The plugin is used by technicians: no error
+  is ever generic; every failure points at a next step.
+
+Dispatch in `plugin_entry.cpp::onAiQuerySubmitted` decides between
+map-reduce and single-shot based on
+`ContextBudgetPlanner::isGlobalQuery()` and the digest readiness.
 
 ### Rule-based analyzer commands
 
