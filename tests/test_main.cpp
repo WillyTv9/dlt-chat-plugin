@@ -12,6 +12,10 @@
 #include "test_dltexport.h"
 #include "test_userfiltermanager.h"
 #include "test_categoryregistry.h"
+#include "test_hierarchical_summary_store.h"
+#include "test_model_profile_registry.h"
+#include "test_context_budget_planner.h"
+#include "test_enhanced_retriever.h"
 
 static int runTestSuite(QObject *testObject)
 {
@@ -65,6 +69,18 @@ int main(int argc, char *argv[])
 
     TestCategoryRegistry categoryRegistry;
     status |= runTestSuite(&categoryRegistry);
+
+    TestHierarchicalSummaryStore hierarchicalSummaryStore;
+    status |= runTestSuite(&hierarchicalSummaryStore);
+
+    TestModelProfileRegistry modelProfileRegistry;
+    status |= runTestSuite(&modelProfileRegistry);
+
+    TestContextBudgetPlanner contextBudgetPlanner;
+    status |= runTestSuite(&contextBudgetPlanner);
+
+    TestEnhancedRetriever enhancedRetriever;
+    status |= runTestSuite(&enhancedRetriever);
 
     return status;
 }

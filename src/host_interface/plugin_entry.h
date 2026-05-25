@@ -21,6 +21,11 @@
 #include "dltchat/fibex_enricher.h"
 #include "dltchat/user_filter_manager.h"
 #include "dltchat/bulk_analyzer.h"
+#include "dltchat/hierarchical_summary_store.h"
+#include "dltchat/log_ingestion_pipeline.h"
+#include "dltchat/ai_query_pipeline.h"
+#include "dltchat/map_reduce_analyzer.h"
+#include "dltchat/ai_error_reporter.h"
 #include "native_filter_catalog.h"
 #include "highlight_delegate.h"
 #include "qdltmessagedecoder.h"
@@ -99,6 +104,16 @@ private slots:
     void onBulkError(const QString &error);
     void onAiHealthCheck();
 
+    void onAiPipelinePrepared(const dltchat::AiQueryPipeline::Result &prep);
+    void onAiPipelineFailed(const QString &stage, const QString &reason);
+    void onMapReduceShardCompleted(int shardIdx, int total, qint64 elapsedMs);
+    void onMapReduceReduceReady(const dltchat::DltAnalyzerInterface::QueryResult &result,
+                                const QString &originalQuery);
+    void onMapReduceFailed(const QString &stage, const QString &reason);
+    void onIngestionReady();
+    void onIngestionStageProgress(const QString &stage, int pct);
+    void onIngestionFailed(const QString &stage, const QString &reason);
+
 private:
     void clearData();
     void ingestMessage(int index, QDltMsg &msg);
@@ -160,6 +175,14 @@ private:
     bool m_bulkAnalysisEnabled;
     bool m_bulkAnalysisInProgress;
     QVector<dltchat::DltAnalyzerInterface::LogEntry> m_lastAiContext;
+
+    dltchat::HierarchicalSummaryStore m_hierStore;
+    dltchat::LogIngestionPipeline *m_ingestionPipeline = nullptr;
+    dltchat::AiQueryPipeline *m_aiQueryPipeline = nullptr;
+    dltchat::MapReduceAnalyzer *m_mapReduceAnalyzer = nullptr;
+    QString m_pendingAiQuery;
+    bool m_pendingAiIsMapReduce = false;
+    int m_ingestBlockSize = 5000;
 
     int m_aiState = 0;
     QString m_aiModelName;

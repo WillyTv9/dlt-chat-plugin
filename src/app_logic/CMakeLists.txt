@@ -18,6 +18,14 @@ add_library(dltchat_app_logic STATIC
     src/log_store.cpp
     src/log_index.cpp
     src/category_registry.cpp
+    src/hierarchical_summary_store.cpp
+    src/model_profile_registry.cpp
+    src/context_budget_planner.cpp
+    src/enhanced_retriever.cpp
+    src/log_ingestion_pipeline.cpp
+    src/map_reduce_analyzer.cpp
+    src/ai_error_reporter.cpp
+    src/ai_query_pipeline.cpp
 )
 
 target_sources(dltchat_app_logic PRIVATE

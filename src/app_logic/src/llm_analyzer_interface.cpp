@@ -238,7 +238,7 @@ QString DltLlmAnalyzerInterface::buildPrompt(const QString &query,
                                              const QVector<LogEntry> &entries,
                                              int maxEntries) const
 {
-    return buildEnhancedPrompt(query, entries, maxEntries, m_extraContext);
+    return buildEnhancedPrompt(query, entries, maxEntries, m_extraContext, m_hierarchicalDigest);
 }
 
 QString DltLlmAnalyzerInterface::buildAutomotiveSystemPrompt()
@@ -294,7 +294,8 @@ QString DltLlmAnalyzerInterface::buildEnhancedPrompt(
     const QString &query,
     const QVector<LogEntry> &entries,
     int maxEntries,
-    const QString &extraInfo) const
+    const QString &extraInfo,
+    const QString &hierarchicalDigest) const
 {
     QStringList ctx;
     int n = qMin(entries.size(), maxEntries);
@@ -325,8 +326,16 @@ QString DltLlmAnalyzerInterface::buildEnhancedPrompt(
     if (!historyText.isEmpty())
         sections << historyText;
 
-    sections << QString("LOG (%1 entries shown, sorted by timestamp):\n%2")
-        .arg(entries.size()).arg(ctx.join("\n"));
+    // The hierarchical digest gives the model a panoramic view of the
+    // whole log even when the raw slice below is just a few hundred
+    // entries. Populated by HierarchicalSummaryStore on file load.
+    if (!hierarchicalDigest.isEmpty()) {
+        sections << QString("[HIERARCHICAL_DIGEST] (precomputed overview of the entire log)\n%1")
+                        .arg(hierarchicalDigest);
+    }
+
+    sections << QString("LOG (%1 of %2 entries inlined, sorted by timestamp):\n%3")
+        .arg(n).arg(entries.size()).arg(ctx.join("\n"));
 
     if (!fibexNote.isEmpty())
         sections << fibexNote;
