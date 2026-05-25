@@ -39,7 +39,9 @@ public:
         int windowBefore = 5;
         int windowAfter = 5;
         int maxEntries = 200;
-        int maxSeedHits = 400;
+        int maxSeedHits = 10000;
+        int numStrata = 10;
+        int maxSeedsPerStratum = 500;
         double wTfIdf = 1.0;
         double wRecency = 0.2;
         double wCorrelation = 0.3;

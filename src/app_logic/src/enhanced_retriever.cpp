@@ -79,9 +79,12 @@ EnhancedRetriever::Result EnhancedRetriever::extract(
     for (int i = 0; i < N; ++i)
         indexToPos.insert(entries[i].index, i);
 
-    // 1. Seed set: union of inverted-index hits for query tokens, capped.
+    // 1. Seed set: union of inverted-index hits for query tokens,
+    //    sampled uniformly across the entire log via stratification.
     QSet<int> seedPositions;
     QHash<QString, double> idf;
+    QVector<int> allMatchPositions;
+    allMatchPositions.reserve(config.maxSeedHits);
     for (const QString &tok : tokens) {
         auto it = invertedIndex.find(tok);
         if (it == invertedIndex.end())
@@ -91,12 +94,30 @@ EnhancedRetriever::Result EnhancedRetriever::extract(
         for (int idx : it.value()) {
             auto posIt = indexToPos.find(idx);
             if (posIt != indexToPos.end())
-                seedPositions.insert(posIt.value());
-            if (seedPositions.size() >= config.maxSeedHits)
+                allMatchPositions.append(posIt.value());
+            if (allMatchPositions.size() >= config.maxSeedHits)
                 break;
         }
-        if (seedPositions.size() >= config.maxSeedHits)
+        if (allMatchPositions.size() >= config.maxSeedHits)
             break;
+    }
+    // Stratified sampling: sort by position, then pick evenly across strata
+    std::sort(allMatchPositions.begin(), allMatchPositions.end());
+    const int totalHits = allMatchPositions.size();
+    if (totalHits <= config.maxSeedHits) {
+        for (int pos : allMatchPositions)
+            seedPositions.insert(pos);
+    } else {
+        const int numStrata = std::min(config.numStrata,
+                                       std::max(1, totalHits / config.maxSeedsPerStratum));
+        const int hitsPerStratum = totalHits / numStrata;
+        for (int s = 0; s < numStrata && seedPositions.size() < config.maxSeedHits; ++s) {
+            const int start = s * hitsPerStratum;
+            const int end = (s == numStrata - 1) ? totalHits : start + hitsPerStratum;
+            const int maxPick = std::min(config.maxSeedsPerStratum, end - start);
+            for (int i = start; i < start + maxPick && i < end; ++i)
+                seedPositions.insert(allMatchPositions[i]);
+        }
     }
 
     // Fold in user-selected indices as forced seeds.
