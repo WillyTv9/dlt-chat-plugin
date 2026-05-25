@@ -26,6 +26,7 @@
 using namespace dltchat;
 
 static constexpr int kAIPreFilterMax = 100000;
+static constexpr int kAiMaxSingleShotEntries = 5000;
 static constexpr int kSnippetLength = 120;
 static constexpr int kPayloadTruncateAt = 500;
 static constexpr int kPreviewCount = 20;
@@ -943,14 +944,15 @@ void DltChatPlugin::onAiQuerySubmitted(const QString &query)
     if (!m_llmAnalyzer->conversationManager())
         m_llmAnalyzer->setConversationManager(&m_conversationManager);
 
-    // Route global queries (or explicit `deep:` prefix) through map-reduce
-    // when the ingestion pipeline has produced enough block summaries to
-    // make sharding meaningful; otherwise fall through to single-shot.
+    // Route global queries (or explicit `deep:` prefix) through map-reduce.
+    // Also route specific queries when the log is too large for single-shot
+    // (so ALL entries are processed via sharding, not just a TF-IDF subset).
     const bool wantDeep = ContextBudgetPlanner::hasDeepPrefix(query);
     const bool isGlobal = wantDeep || ContextBudgetPlanner::isGlobalQuery(query);
+    const bool tooLargeForSingleShot = snapshot.size() > kAiMaxSingleShotEntries;
     const auto blocks = m_hierStore.blocks();
 
-    if (isGlobal && blocks.size() >= 2 && m_hierStore.isReady()) {
+    if ((tooLargeForSingleShot || isGlobal) && blocks.size() >= 2 && m_hierStore.isReady()) {
         if (m_mapReduceAnalyzer->isRunning()) {
             form->setProcessingProgress(false);
             form->appendMessage("AI Assistant", "Map-reduce gia in corso. Attendere il completamento.");
@@ -968,6 +970,7 @@ void DltChatPlugin::onAiQuerySubmitted(const QString &query)
         cfg.provider = provider;
         cfg.model = model;
         cfg.maxShards = 32;
+        cfg.isGlobalQuery = isGlobal;
 
         // The hierarchical digest is still useful as map-step context: each
         // shard sees its block + the global overview so it can place its
@@ -1003,6 +1006,17 @@ void DltChatPlugin::onAiQuerySubmitted(const QString &query)
         QMutexLocker lk(&m_llmMutex);
         m_llmRequestInProgress = true;
         m_llmRequestTimer.start();
+    }
+
+    // Pre-filter snapshot for single-shot path to cap worst-case vector
+    // size. Map-reduce already handles arbitrarily large logs by sharding.
+    if (snapshot.size() > kAIPreFilterMax) {
+        QVector<DltAnalyzerInterface::LogEntry> sampled;
+        const int step = qMax(1, snapshot.size() / kAIPreFilterMax);
+        sampled.reserve(kAIPreFilterMax);
+        for (int i = 0; i < snapshot.size() && sampled.size() < kAIPreFilterMax; i += step)
+            sampled.append(snapshot[i]);
+        snapshot = std::move(sampled);
     }
 
     dltchat::AiQueryPipeline::Request req;
