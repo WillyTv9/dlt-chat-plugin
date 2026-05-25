@@ -21,6 +21,7 @@ add_library(dltchat_app_logic STATIC
     src/hierarchical_summary_store.cpp
     src/model_profile_registry.cpp
     src/context_budget_planner.cpp
+    src/enhanced_retriever.cpp
 )
 
 target_sources(dltchat_app_logic PRIVATE
