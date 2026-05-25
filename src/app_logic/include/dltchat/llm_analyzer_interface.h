@@ -92,7 +92,11 @@ public:
     QString buildEnhancedPrompt(const QString &query,
                                 const QVector<LogEntry> &entries,
                                 int maxEntries,
-                                const QString &extraInfo = QString()) const;
+                                const QString &extraInfo = QString(),
+                                const QString &hierarchicalDigest = QString()) const;
+
+    void setHierarchicalDigest(const QString &digest) { m_hierarchicalDigest = digest; }
+    QString hierarchicalDigest() const { return m_hierarchicalDigest; }
     static QString buildAutomotiveSystemPrompt();
     QString detectProviderType() const;
     QByteArray buildRequestBody(const QString &prompt) const;
@@ -155,8 +159,13 @@ private:
 
     QString effectiveCopilotBearer() const;
     QString m_extraContext;
+    QString m_hierarchicalDigest;
     ConversationManager *m_conversationManager = nullptr;
-    int m_maxLogEntries = 100;
+    // Hard cap on raw entries inlined into the prompt. The realistic budget
+    // is decided per-query by ContextBudgetPlanner and passed in via the
+    // entries argument; this is just a safety upper bound preventing a
+    // pathological caller from blowing the request body.
+    int m_maxLogEntries = 10000;
     bool m_fibexLoaded = false;
 };
 
