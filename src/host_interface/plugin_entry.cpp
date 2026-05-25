@@ -1008,6 +1008,17 @@ void DltChatPlugin::onAiQuerySubmitted(const QString &query)
         m_llmRequestTimer.start();
     }
 
+    // Pre-filter snapshot for single-shot path to cap worst-case vector
+    // size. Map-reduce already handles arbitrarily large logs by sharding.
+    if (snapshot.size() > kAIPreFilterMax) {
+        QVector<DltAnalyzerInterface::LogEntry> sampled;
+        const int step = qMax(1, snapshot.size() / kAIPreFilterMax);
+        sampled.reserve(kAIPreFilterMax);
+        for (int i = 0; i < snapshot.size() && sampled.size() < kAIPreFilterMax; i += step)
+            sampled.append(snapshot[i]);
+        snapshot = std::move(sampled);
+    }
+
     dltchat::AiQueryPipeline::Request req;
     req.query    = query;
     req.provider = provider;
