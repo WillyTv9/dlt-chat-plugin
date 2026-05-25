@@ -130,3 +130,6 @@ docs/
 dltchatplugin-*.zip
 dltchatplugin-*.tar.gz
 releases.json
+build_release/
+build_tests_check/
+build_msvc_*/

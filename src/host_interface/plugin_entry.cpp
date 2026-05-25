@@ -107,6 +107,11 @@ DltChatPlugin::DltChatPlugin()
     connect(m_mapReduceAnalyzer, &dltchat::MapReduceAnalyzer::failed,
             this, &DltChatPlugin::onMapReduceFailed);
 
+    // Live mode: throttled AI pipeline refresh timer.
+    m_liveAiRefreshTimer = new QTimer(this);
+    m_liveAiRefreshTimer->setSingleShot(true);
+    connect(m_liveAiRefreshTimer, &QTimer::timeout, this, &DltChatPlugin::onLiveAiRefresh);
+
     QTimer::singleShot(0, this, &DltChatPlugin::checkAiAvailabilityAsync);
 }
 
@@ -350,6 +355,11 @@ bool DltChatPlugin::loadConfig(QString filename)
     settings.beginGroup("Filters");
     m_dlpFilterPath = settings.value("dlpPath", QString()).toString();
     settings.endGroup();
+    settings.beginGroup("Live");
+    m_liveAiRefreshSec = settings.value("aiRefreshSec", 30).toInt();
+    settings.endGroup();
+    if (m_liveAiRefreshTimer)
+        m_liveAiRefreshTimer->setInterval(m_liveAiRefreshSec * 1000);
     loadNativeFilterCatalog();
     populateNativeFilterMenus();
     applyConfigToForm();
@@ -398,6 +408,7 @@ QWidget* DltChatPlugin::initViewer()
     connect(form, &DltChat::Form::querySubmitted, this, &DltChatPlugin::onQuerySubmitted);
     connect(form, &DltChat::Form::quickActionTriggered, this, &DltChatPlugin::onQuickActionQuery);
     connect(form, &DltChat::Form::nativeFilterTriggered, this, &DltChatPlugin::onNativeFilterTriggered);
+    connect(form, &DltChat::Form::nativeFilterGroupTriggered, this, &DltChatPlugin::onNativeFilterGroupTriggered);
     connect(form, &DltChat::Form::aiQuerySubmitted, this, &DltChatPlugin::onAiQuerySubmitted);
     connect(form, &DltChat::Form::configureAiClicked, this, &DltChatPlugin::onConfigureAiClicked);
     connect(form, &DltChat::Form::indexActivated, this, &DltChatPlugin::onIndexActivated);
@@ -482,7 +493,17 @@ void DltChatPlugin::initFileFinish()
 
 void DltChatPlugin::initMsg(int idx, QDltMsg &msg) { ingestMessage(idx, msg); }
 void DltChatPlugin::initMsgDecoded(int idx, QDltMsg &msg) { ingestMessage(idx, msg); }
-void DltChatPlugin::updateFileStart() {}
+void DltChatPlugin::updateFileStart()
+{
+    // In live streaming the host may call updateFileStart without a prior
+    // initFileStart; ensure we have a consistent state.
+    if (!dltFile) {
+        // We need a file pointer; this is a best-effort fallback.
+        return;
+    }
+    filterRowMapDirty = true;
+}
+
 void DltChatPlugin::updateMsg(int idx, QDltMsg &msg) { ingestMessage(idx, msg); }
 void DltChatPlugin::updateMsgDecoded(int idx, QDltMsg &msg) { ingestMessage(idx, msg); }
 
@@ -490,6 +511,18 @@ void DltChatPlugin::updateFileFinish()
 {
     rebuildFilterRowMap();
     updateDomainStatus();
+
+    // Live mode: schedule throttled AI pipeline refresh if enough new data.
+    if (m_liveMode && m_liveAiRefreshTimer && !m_liveAiRefreshTimer->isActive()) {
+        int currentCount;
+        {
+            QMutexLocker lk(&entriesMutex);
+            currentCount = entries.size();
+        }
+        const int threshold = 5000;   // minimum new entries to trigger a refresh
+        if (currentCount > m_lastIngestionEntryCount + threshold)
+            m_liveAiRefreshTimer->start();
+    }
 }
 
 void DltChatPlugin::selectedIdxMsg(int index, QDltMsg &)
@@ -510,7 +543,43 @@ void DltChatPlugin::selectedIdxMsgDecoded(int index, QDltMsg &)
 bool DltChatPlugin::initControl(QDltControl *) { return true; }
 bool DltChatPlugin::initConnections(QStringList) { return true; }
 bool DltChatPlugin::controlMsg(int, QDltMsg &) { return true; }
-bool DltChatPlugin::stateChanged(int, QDltConnection::QDltConnectionState, QString) { return true; }
+bool DltChatPlugin::stateChanged(int index, QDltConnection::QDltConnectionState state, QString hostname)
+{
+    Q_UNUSED(index);
+    if (state == QDltConnection::QDltConnectionOnline && !m_liveMode) {
+        m_liveMode = true;
+        if (m_liveAiRefreshTimer)
+            m_liveAiRefreshTimer->setSingleShot(true);
+        if (form) {
+            form->appendMessage("Chat Assistant",
+                tr("Live mode attivo da ECU %1. Quick-action e ricerca aggiornati "
+                   "in tempo reale; AI digest rigenerato ogni %2 s.")
+                    .arg(hostname.toHtmlEscaped())
+                    .arg(m_liveAiRefreshSec));
+        }
+    } else if (state == QDltConnection::QDltConnectionOffline && m_liveMode) {
+        m_liveMode = false;
+        if (m_liveAiRefreshTimer)
+            m_liveAiRefreshTimer->stop();
+        // Final AI digest regeneration on the complete corpus.
+        if (m_ingestionPipeline) {
+            QVector<DltAnalyzerInterface::LogEntry> snap;
+            {
+                QMutexLocker lk(&entriesMutex);
+                snap = entries;
+            }
+            if (!snap.isEmpty()) {
+                m_hierStore.clear();
+                m_ingestionPipeline->startAsync(std::move(snap));
+            }
+        }
+        if (form) {
+            form->appendMessage("Chat Assistant",
+                tr("Live mode disattivato. Corpus completo indicizzato per AI."));
+        }
+    }
+    return true;
+}
 bool DltChatPlugin::autoscrollStateChanged(bool) { return true; }
 void DltChatPlugin::initMessageDecoder(QDltMessageDecoder *p) { messageDecoder = p; }
 void DltChatPlugin::initMainTableView(QTableView *p)
@@ -1066,6 +1135,9 @@ void DltChatPlugin::onClearHighlightsRequested()
     }
     highlightIndices(QList<int>());
     if (form) form->setResults(QList<int>());
+
+    // Also remove any filters previously injected into the host project.
+    clearPluginFiltersFromHost();
 }
 
 void DltChatPlugin::onExportRequested(const QString &filePath, const QList<int> &indices,
@@ -1110,6 +1182,10 @@ void DltChatPlugin::clearData()
     if (m_mapReduceAnalyzer)
         m_mapReduceAnalyzer->cancel();
     m_hierStore.clear();
+    if (m_liveAiRefreshTimer)
+        m_liveAiRefreshTimer->stop();
+    m_liveMode = false;
+    m_lastIngestionEntryCount = 0;
 
     QMutexLocker l(&entriesMutex);
     entries.clear();
@@ -1252,6 +1328,7 @@ void DltChatPlugin::populateNativeFilterMenus()
     for (const DltChat::NativeFilterGroup &g : m_nativeFilterCatalog.groups()) {
         DltChat::Form::NativeMenuSpec spec;
         spec.label = g.label;
+        spec.groupId = g.id;
         for (const QString &name : g.actionNames) {
             const DltChat::NativeFilterAction *a = m_nativeFilterCatalog.action(name);
             spec.actions.append(qMakePair(name, a ? a->colour : QColor()));
@@ -1300,6 +1377,165 @@ void DltChatPlugin::onNativeFilterTriggered(const QString &filterName)
 
     form->setResults(indices);
     highlightIndicesColored(indices, action->colour);
+
+    // Also install the filter in the host project so the DLT Viewer table reflects it.
+    applyFiltersToHost({*action});
+}
+
+void DltChatPlugin::onNativeFilterGroupTriggered(const QString &groupId)
+{
+    if (!form) return;
+    form->appendMessage("Tu", QStringLiteral("Categoria: ") + groupId.toHtmlEscaped());
+
+    if (!dltFile) {
+        form->appendMessage("Chat Assistant", tr("Nessun file DLT aperto."));
+        return;
+    }
+
+    // Resolve the group from the catalog.
+    const auto &groups = m_nativeFilterCatalog.groups();
+    const DltChat::NativeFilterGroup *group = nullptr;
+    for (const auto &g : groups) {
+        if (g.id == groupId) { group = &g; break; }
+    }
+    if (!group || group->actionNames.isEmpty()) {
+        form->appendMessage("Chat Assistant",
+            tr("Gruppo '%1' vuoto o non trovato.").arg(groupId.toHtmlEscaped()));
+        return;
+    }
+
+    // Aggregate indices across all filters in the group.
+    const QString cacheKey = QStringLiteral("dlp-group:") + groupId;
+    QList<int> allIndices = form->cachedQuickActionResult(cacheKey);
+    QList<DltChat::NativeFilterAction> matchedActions;
+
+    if (allIndices.isEmpty()) {
+        QSet<int> unionSet;
+        for (const QString &name : group->actionNames) {
+            const DltChat::NativeFilterAction *a = m_nativeFilterCatalog.action(name);
+            if (!a) continue;
+            matchedActions.append(*a);
+
+            const QString perFilterKey = QStringLiteral("dlp:") + name;
+            QList<int> perFilter = form->cachedQuickActionResult(perFilterKey);
+            if (perFilter.isEmpty()) {
+                perFilter = m_nativeFilterCatalog.match(*a, dltFile);
+                form->storeQuickActionResult(perFilterKey, perFilter);
+            }
+
+            for (int idx : perFilter)
+                unionSet.insert(idx);
+        }
+        allIndices = QList<int>(unionSet.begin(), unionSet.end());
+        std::sort(allIndices.begin(), allIndices.end());
+        form->storeQuickActionResult(cacheKey, allIndices);
+    } else {
+        // Rebuild matchedActions list from cache hit (needed for applyFiltersToHost).
+        for (const QString &name : group->actionNames) {
+            const DltChat::NativeFilterAction *a = m_nativeFilterCatalog.action(name);
+            if (a) matchedActions.append(*a);
+        }
+    }
+
+    // Build a summary HTML block.
+    QString html = tr("<b>Categoria: %1</b> — %2 righe totali corrispondenti.<br>")
+        .arg(group->label.toHtmlEscaped())
+        .arg(allIndices.size());
+    html += QStringLiteral("<ul>");
+    for (const QString &name : group->actionNames) {
+        const QString perFilterKey = QStringLiteral("dlp:") + name;
+        QList<int> perFilter = form->cachedQuickActionResult(perFilterKey);
+        if (perFilter.isEmpty()) {
+            const DltChat::NativeFilterAction *a = m_nativeFilterCatalog.action(name);
+            if (a) perFilter = m_nativeFilterCatalog.match(*a, dltFile);
+        }
+        html += QStringLiteral("<li><b>%1</b>: %2 righe</li>")
+            .arg(name.toHtmlEscaped())
+            .arg(perFilter.size());
+    }
+    html += QStringLiteral("</ul>");
+    form->appendMessage("Chat Assistant", html);
+
+    form->setResults(allIndices);
+    // Use the first action's colour as representative, fallback to default highlight.
+    const QColor groupColor = matchedActions.isEmpty() ? highlightColor : matchedActions.first().colour;
+    highlightIndicesColored(allIndices, groupColor);
+
+    // Install all filters in the host project.
+    if (!matchedActions.isEmpty())
+        applyFiltersToHost(matchedActions);
+}
+
+void DltChatPlugin::applyFiltersToHost(const QList<DltChat::NativeFilterAction> &actions)
+{
+    if (!dltFile) return;
+
+    // Preserve existing user filters, add only the ones tagged with our prefix.
+    QDltFilterList list = dltFile->getFilterList();
+    for (const auto &a : actions) {
+        QDltFilter *p = new QDltFilter(a.positive);
+        p->name = QString::fromLatin1(kPluginFilterPrefix) + a.name;
+        p->enableFilter = true;
+        list.addFilter(p);
+        for (const QDltFilter &n : a.excludes) {
+            QDltFilter *x = new QDltFilter(n);
+            x->name = QString::fromLatin1(kPluginFilterPrefix) + a.name + QStringLiteral("-neg");
+            x->enableFilter = true;
+            list.addFilter(x);
+        }
+    }
+    dltFile->setFilterList(list);
+    dltFile->enableFilter(true);
+    dltFile->createIndexFilter();
+    if (mainTableView && mainTableView->model())
+        mainTableView->model()->layoutChanged();
+}
+
+void DltChatPlugin::clearPluginFiltersFromHost()
+{
+    if (!dltFile) return;
+
+    const QString prefix = QString::fromLatin1(kPluginFilterPrefix);
+    QDltFilterList list = dltFile->getFilterList();
+    QDltFilterList cleaned;
+    // QDltFilterList::filters is a QList<QDltFilter*> — iterate and copy
+    // only entries whose name does NOT start with our prefix.
+    for (QDltFilter *f : list.filters) {
+        if (!f->name.startsWith(prefix))
+            cleaned.addFilter(new QDltFilter(*f));
+    }
+    dltFile->setFilterList(cleaned);
+    dltFile->enableFilter(!cleaned.filters.isEmpty());
+    dltFile->createIndexFilter();
+    if (mainTableView && mainTableView->model())
+        mainTableView->model()->layoutChanged();
+}
+
+void DltChatPlugin::onLiveAiRefresh()
+{
+    if (!m_liveMode || !m_ingestionPipeline) return;
+    m_liveAiRefreshTimer->stop();
+
+    QVector<DltAnalyzerInterface::LogEntry> snap;
+    {
+        QMutexLocker lk(&entriesMutex);
+        int current = entries.size();
+        if (current <= m_lastIngestionEntryCount) {
+            // No new entries since last refresh; schedule another check later.
+            m_liveAiRefreshTimer->start();
+            return;
+        }
+        snap = entries.mid(m_lastIngestionEntryCount);
+        m_lastIngestionEntryCount = current;
+    }
+
+    if (snap.isEmpty()) {
+        m_liveAiRefreshTimer->start();
+        return;
+    }
+
+    m_hierStore.clear();
+    m_ingestionPipeline->startAsync(std::move(snap));
 }
 
 void DltChatPlugin::highlightIndicesColored(const QList<int> &indices, const QColor &color)

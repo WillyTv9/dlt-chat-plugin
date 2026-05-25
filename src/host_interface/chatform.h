@@ -36,6 +36,7 @@ public:
     //! from the .dlp catalog and pushed in via buildNativeFilterMenus().
     struct NativeMenuSpec {
         QString label;
+        QString groupId;
         QVector<QPair<QString, QColor>> actions;
     };
 
@@ -61,6 +62,7 @@ signals:
     void querySubmitted(const QString &query);
     void quickActionTriggered(const QString &query);
     void nativeFilterTriggered(const QString &filterName);
+    void nativeFilterGroupTriggered(const QString &groupId);
     void aiQuerySubmitted(const QString &query);
     void configureAiClicked();
     void indexActivated(int index);
